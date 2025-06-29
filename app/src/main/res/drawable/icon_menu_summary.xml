@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Couche 1 : Le fond -->
+    <!-- On utilise la couleur orange pour ce bouton, conformément à notre palette. -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/menu_icon_bg_orange"/>
+            <corners android:radius="12dp"/>
+        </shape>
+    </item>
+
+    <!-- Couche 2 : L'icône -->
+    <!-- On superpose l'icône de résumé blanche et corrigée. -->
+    <item
+        android:drawable="@drawable/ic_menu_summary"
+        android:gravity="center" />
+
+</layer-list>

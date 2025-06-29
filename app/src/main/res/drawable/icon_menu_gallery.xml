@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Couche 1 : Le fond -->
+    <!-- On définit la forme avec les coins arrondis et la couleur de fond spécifique à cette icône. -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/menu_icon_bg_blue"/>
+            <corners android:radius="12dp"/>
+        </shape>
+    </item>
+
+    <!-- Couche 2 : L'icône (au-dessus) -->
+    <!-- On place l'icône vectorielle blanche que nous avons validée précédemment. -->
+    <item
+        android:drawable="@drawable/ic_menu_attach_image"
+        android:gravity="center" />
+
+</layer-list>

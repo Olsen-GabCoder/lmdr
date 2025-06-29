@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/layout_toolbar_clickable_area"
+    android:layout_width="match_parent"
+    android:layout_height="?attr/actionBarSize"
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    tools:ignore="RtlSymmetry">
+
+    <!-- Avatar de l'utilisateur, ancré à gauche -->
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/iv_toolbar_photo"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
+        tools:src="@tools:sample/avatars" />
+
+    <!-- Conteneur pour le nom et le statut, positionné à droite de l'avatar -->
+    <LinearLayout
+        android:id="@+id/name_status_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/iv_streak_flame"
+        app:layout_constraintStart_toEndOf="@id/iv_toolbar_photo"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tv_toolbar_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            tools:text="Nom de l'utilisateur très long pour tester l'ellipsisation" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/tv_toolbar_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+            android:textColor="@color/white_80_alpha"
+            android:visibility="gone"
+            tools:text="en train d'écrire..."
+            tools:visibility="visible" />
+
+    </LinearLayout>
+
+    <!-- === DÉBUT DE LA MODIFICATION === -->
+    <!-- NOUVEAU : Icône de flamme pour la streak -->
+    <ImageView
+        android:id="@+id/iv_streak_flame"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:layout_marginEnd="8dp"
+        android:contentDescription="@string/streak_indicator_description"
+        android:src="@drawable/ic_streak_flame"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/tv_affinity_score"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/streak_flame_color"
+        tools:visibility="visible" />
+    <!-- === FIN DE LA MODIFICATION === -->
+
+    <!-- TextView pour le score, positionné à gauche du cœur -->
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/tv_affinity_score"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="4dp"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+        android:textColor="@color/white"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/iv_affinity_heart"
+        app:layout_constraintEnd_toStartOf="@id/iv_affinity_heart"
+        app:layout_constraintTop_toTopOf="@id/iv_affinity_heart"
+        tools:text="125"
+        tools:visibility="visible" />
+
+    <!-- Icône de cœur, ancrée à l'extrémité droite. -->
+    <ImageView
+        android:id="@+id/iv_affinity_heart"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:contentDescription="@string/affinity_score_indicator_description"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:src="@drawable/ic_heart_fire"
+        tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

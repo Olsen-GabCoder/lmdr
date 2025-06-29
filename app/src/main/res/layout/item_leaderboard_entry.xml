@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp"
+    android:background="?attr/colorSurface">
+
+    <!-- Vue pour l'icône de trophée (positions 1-3) -->
+    <ImageView
+        android:id="@+id/iv_trophy"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:padding="8dp"
+        android:visibility="gone"
+        tools:visibility="visible"
+        android:contentDescription="@string/trophy_icon_description"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:src="@drawable/ic_trophy_gold"/>
+
+    <!-- Position dans le classement (pour les autres positions) -->
+    <TextView
+        android:id="@+id/tv_position"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:gravity="center"
+        android:background="@drawable/bg_circle"
+        android:textAppearance="?attr/textAppearanceHeadline5"
+        android:textColor="@android:color/white"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:text="4"/>
+
+    <!-- Photos des participants -->
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/iv_participant1"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="16dp"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
+        app:strokeColor="?attr/colorPrimary"
+        app:strokeWidth="2dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@id/tv_position"
+        tools:src="@tools:sample/avatars"/>
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/iv_participant2"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="-16dp"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
+        app:strokeColor="?attr/colorSurface"
+        app:strokeWidth="2dp"
+        app:layout_constraintTop_toTopOf="@id/iv_participant1"
+        app:layout_constraintStart_toEndOf="@id/iv_participant1"
+        tools:src="@tools:sample/avatars"/>
+
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/barrier_avatars"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:barrierDirection="end"
+        app:constraint_referenced_ids="iv_participant1,iv_participant2" />
+
+    <!-- Noms des participants -->
+    <TextView
+        android:id="@+id/tv_participant_names"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:textAppearance="?attr/textAppearanceBody1"
+        android:textColor="?attr/colorOnSurface"
+        android:lineSpacingMultiplier="1.1"
+        android:maxLines="2"
+        android:ellipsize="end"
+        app:layout_constraintStart_toEndOf="@id/barrier_avatars"
+        app:layout_constraintEnd_toStartOf="@+id/ll_score"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:text="Ondit Le Lecteur Infatigable &amp; Olsen KAMPALA" />
+
+    <!-- Score d'affinité -->
+    <LinearLayout
+        android:id="@+id/ll_score"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_heart_red"
+            android:contentDescription="@string/affinity_score_icon_description" />
+
+        <TextView
+            android:id="@+id/tv_score"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="?attr/textAppearanceHeadline6"
+            android:textColor="?attr/colorPrimary"
+            android:textStyle="bold"
+            tools:text="147" />
+
+    </LinearLayout>
+
+    <!-- Séparateur -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="?attr/colorOutlineVariant"
+        android:layout_marginTop="12dp"
+        app:layout_constraintStart_toStartOf="@id/barrier_avatars"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,6 @@
+<!-- PRÊT À COLLER -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/menu_icon_bg_blue" /> <!-- La couleur sera surchargée -->
+    <corners android:radius="12dp" /> <!-- Coins arrondis pour correspondre au design -->
+</shape>

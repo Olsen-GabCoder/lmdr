@@ -1,0 +1,8 @@
+<!-- res/drawable/ic_leaderboard.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M7,17h3v-7H7v7zM14,17h3V7h-3v10zM10.5,17h3v-4h-3v4z" />
+</vector>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Couche 1 : Le fond -->
+    <!-- Nous utilisons la troisième couleur de notre palette, le vert. -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/menu_icon_bg_green"/>
+            <corners android:radius="12dp"/>
+        </shape>
+    </item>
+
+    <!-- Couche 2 : L'icône -->
+    <!-- Nous superposons l'icône de dictionnaire que vous venez de me fournir. -->
+    <item
+        android:drawable="@drawable/ic_menu_dictionary"
+        android:gravity="center" />
+
+</layer-list>

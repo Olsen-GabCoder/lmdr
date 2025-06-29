@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_nav_graph"
+    app:startDestination="@id/navigation_dashboard">
+
+    <!-- Accueil -->
+    <fragment
+        android:id="@+id/navigation_dashboard"
+        android:name="com.lesmangeursdurouleau.app.ui.dashboard.DashboardFragment"
+        android:label="Accueil"
+        tools:layout="@layout/fragment_dashboard" />
+
+    <!-- Lectures -->
+    <fragment
+        android:id="@+id/navigation_readings"
+        android:name="com.lesmangeursdurouleau.app.ui.readings.ReadingsFragment"
+        android:label="Lectures"
+        tools:layout="@layout/fragment_readings">
+        <action
+            android:id="@+id/action_readingsFragment_to_bookDetailFragment"
+            app:destination="@id/bookDetailFragment" />
+        <action
+            android:id="@+id/action_readingsFragment_to_addEditMonthlyReadingFragment"
+            app:destination="@id/addEditMonthlyReadingFragment">
+            <argument
+                android:name="monthlyReadingId"
+                app:argType="string"
+                app:nullable="true"
+                android:defaultValue="@null" />
+        </action>
+    </fragment>
+
+    <!-- Réunions -->
+    <fragment
+        android:id="@+id/navigation_meetings"
+        android:name="com.lesmangeursdurouleau.app.ui.meetings.MeetingsFragment"
+        android:label="Réunions"
+        tools:layout="@layout/fragment_meetings" />
+
+    <!-- Profil (du user connecté) -->
+    <fragment
+        android:id="@+id/navigation_members_profile"
+        android:name="com.lesmangeursdurouleau.app.ui.members.ProfileFragment"
+        android:label="Profil"
+        tools:layout="@layout/fragment_profile">
+        <action
+            android:id="@+id/action_profileFragment_to_membersFragment"
+            app:destination="@id/membersFragmentDestination" />
+        <action
+            android:id="@+id/action_profileFragment_to_chatFragment"
+            app:destination="@id/chatFragmentDestination" />
+        <action
+            android:id="@+id/action_navigation_members_profile_to_editCurrentReadingFragment"
+            app:destination="@id/editCurrentReadingFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <!-- NOUVELLE ACTION: Vers la liste des conversations privées -->
+        <action
+            android:id="@+id/action_navigation_members_profile_to_conversationsListFragmentDestination"
+            app:destination="@id/conversationsListFragmentDestination" />
+    </fragment>
+
+    <!-- Liste des Membres -->
+    <fragment
+        android:id="@+id/membersFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.MembersFragment"
+        android:label="{listTitle}"
+        tools:layout="@layout/fragment_members">
+        <argument
+            android:name="userId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="listType"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="listTitle"
+            app:argType="string"
+            android:defaultValue="Liste des Membres" />
+        <action
+            android:id="@+id/action_membersFragment_to_publicProfileFragment"
+            app:destination="@id/publicProfileFragmentDestination" />
+    </fragment>
+
+    <!-- Détail d'un livre -->
+    <fragment
+        android:id="@+id/bookDetailFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.readings.BookDetailFragment"
+        android:label="{bookTitle}"
+        tools:layout="@layout/fragment_book_detail">
+        <argument
+            android:name="bookId"
+            app:argType="string" />
+        <argument
+            android:name="bookTitle"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="Détails du Livre" />
+    </fragment>
+
+    <!-- Profil public (d'un autre membre) -->
+    <fragment
+        android:id="@+id/publicProfileFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.PublicProfileFragment"
+        android:label="{username}"
+        tools:layout="@layout/fragment_public_profile">
+        <argument
+            android:name="userId"
+            app:argType="string" />
+        <argument
+            android:name="username"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="Profil Membre" />
+        <action
+            android:id="@+id/action_publicProfileFragmentDestination_to_membersFragmentDestination_followers"
+            app:destination="@id/membersFragmentDestination">
+            <argument android:name="userId" app:argType="string" />
+            <argument android:name="listType" android:defaultValue="followers" app:argType="string" />
+            <argument android:name="listTitle" app:argType="string" />
+        </action>
+        <action
+            android:id="@+id/action_publicProfileFragmentDestination_to_membersFragmentDestination_following"
+            app:destination="@id/membersFragmentDestination">
+            <argument android:name="userId" app:argType="string" />
+            <argument android:name="listType" android:defaultValue="following" app:argType="string" />
+            <argument android:name="listTitle" app:argType="string" />
+        </action>
+        <action
+            android:id="@+id/action_publicProfileFragmentDestination_to_editCurrentReadingFragment"
+            app:destination="@id/editCurrentReadingFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+        <action
+            android:id="@+id/action_publicProfileFragmentDestination_to_completedReadingsFragment"
+            app:destination="@id/completedReadingsFragment">
+            <argument android:name="userId" app:argType="string" />
+            <argument android:name="username" app:argType="string" app:nullable="true" />
+        </action>
+        <!-- NOUVELLE ACTION: Vers l'écran de chat privé -->
+        <action
+            android:id="@+id/action_publicProfileFragmentDestination_to_privateChatFragmentDestination"
+            app:destination="@id/privateChatFragmentDestination" />
+    </fragment>
+
+    <!-- Discussion générale -->
+    <fragment
+        android:id="@+id/chatFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.chat.ChatFragment"
+        android:label="Discussion Générale"
+        tools:layout="@layout/fragment_chat">
+        <action
+            android:id="@+id/action_chatFragment_to_publicProfileFragment"
+            app:destination="@id/publicProfileFragmentDestination" />
+    </fragment>
+
+    <!-- Ajout/Modification de Lecture Mensuelle -->
+    <fragment
+        android:id="@+id/addEditMonthlyReadingFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.readings.addedit.AddEditMonthlyReadingFragment"
+        android:label="{title}"
+        tools:layout="@layout/fragment_add_edit_monthly_reading">
+        <argument
+            android:name="monthlyReadingId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="title"
+            app:argType="string"
+            android:defaultValue="Ajouter une Lecture Mensuelle" />
+    </fragment>
+
+    <!-- FRAGMENT D'ÉDITION DE LA LECTURE EN COURS -->
+    <fragment
+        android:id="@+id/editCurrentReadingFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.readings.EditCurrentReadingFragment"
+        android:label="@string/edit_reading_title"
+        tools:layout="@layout/fragment_edit_current_reading">
+        <action
+            android:id="@+id/action_editCurrentReadingFragment_to_bookSelectionFragment"
+            app:destination="@id/bookSelectionFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <!-- FRAGMENT : Sélection de livre -->
+    <fragment
+        android:id="@+id/bookSelectionFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.readings.selection.BookSelectionFragment"
+        android:label="Sélectionner un livre"
+        tools:layout="@layout/fragment_book_selection" />
+
+    <!-- FRAGMENT: Historique des lectures terminées -->
+    <fragment
+        android:id="@+id/completedReadingsFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.members.CompletedReadingsFragment"
+        android:label="{username}"
+        tools:layout="@layout/fragment_completed_readings">
+        <argument android:name="userId" app:argType="string" />
+        <argument android:name="username" app:argType="string" app:nullable="true" />
+        <action
+            android:id="@+id/action_completedReadingsFragment_to_completedReadingDetailFragment"
+            app:destination="@id/completedReadingDetailFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <!-- FRAGMENT: Détail d'une lecture terminée -->
+    <fragment
+        android:id="@+id/completedReadingDetailFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.members.CompletedReadingDetailFragment"
+        android:label="{bookTitle}"
+        tools:layout="@layout/fragment_completed_reading_detail">
+        <argument android:name="userId" app:argType="string" />
+        <argument android:name="bookId" app:argType="string" />
+        <argument android:name="username" app:argType="string" app:nullable="true" />
+        <argument android:name="bookTitle" defaultValue="Détails de la lecture" app:argType="string" app:nullable="true" />
+    </fragment>
+
+    <!-- ====================================================== -->
+    <!-- ==== NOUVELLES DESTINATIONS POUR LA MESSAGERIE PRIVÉE ==== -->
+    <!-- ====================================================== -->
+
+    <!-- FRAGMENT: Liste des conversations privées -->
+    <fragment
+        android:id="@+id/conversationsListFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.ConversationsListFragment"
+        android:label="Mes Messages"
+        tools:layout="@layout/fragment_conversations_list">
+        <!-- Action pour ouvrir une conversation spécifique -->
+        <action
+            android:id="@+id/action_conversationsListFragmentDestination_to_privateChatFragmentDestination"
+            app:destination="@id/privateChatFragmentDestination" />
+    </fragment>
+
+    <!-- FRAGMENT: Chat privé -->
+    <fragment
+        android:id="@+id/privateChatFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.PrivateChatFragment"
+        android:label="Message"
+        tools:layout="@layout/fragment_private_chat">
+        <!-- Argument pour savoir avec qui on chat -->
+        <argument
+            android:name="targetUserId"
+            app:argType="string" />
+        <!-- Argument optionnel, pourrait être utile plus tard -->
+        <argument
+            android:name="conversationId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+
+        <!-- MODIFICATION: Action vers le profil public ajoutée -->
+        <action
+            android:id="@+id/action_privateChatFragment_to_publicProfileFragmentDestination"
+            app:destination="@id/publicProfileFragmentDestination"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+
+        <!-- AJOUT : Action vers la vue plein écran de l'image -->
+        <action
+            android:id="@+id/action_privateChatFragment_to_fullScreenImageFragment"
+            app:destination="@id/fullScreenImageFragmentDestination"
+            app:enterAnim="@android:anim/fade_in"
+            app:popExitAnim="@android:anim/fade_out" />
+
+        <!-- ====================================================== -->
+        <!-- ==== NOUVELLE ACTION VERS LE CLASSEMENT (SEUL AJOUT) ==== -->
+        <!-- ====================================================== -->
+        <action
+            android:id="@+id/action_privateChatFragment_to_leaderboardFragment"
+            app:destination="@id/leaderboardFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+
+    <!-- AJOUT : FRAGMENT pour l'affichage plein écran d'une image -->
+    <fragment
+        android:id="@+id/fullScreenImageFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.FullScreenImageFragment"
+        android:label="Image en plein écran"
+        tools:layout="@layout/fragment_full_screen_image">
+        <argument
+            android:name="imageUrl"
+            app:argType="string"
+            app:nullable="false" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/leaderboardFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.members.LeaderboardFragment"
+        android:label="Classement des Affinités"
+        tools:layout="@layout/fragment_leaderboard" />
+
+</navigation>

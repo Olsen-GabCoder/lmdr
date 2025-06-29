@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Couleurs de base -->
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+
+    <!-- Couleurs spécifiques à l'application -->
+    <color name="streak_flame_color">#FF9800</color>
+    <color name="profile_background">#FDFDFD</color>
+    <color name="card_background">#FFFFFF</color>
+    <color name="gradient_start_violet">#5D3FD3</color>
+    <color name="gradient_end_violet">#7C5DDE</color>
+    <color name="primary_accent">#6366F1</color>
+    <color name="secondary_accent">#7986CB</color>
+
+    <!-- Couleurs pour les statuts des Chips -->
+    <color name="chip_bg_planified">#E0E0E0</color> <!-- Gris clair -->
+    <color name="chip_text_planified">#424242</color> <!-- Gris foncé -->
+    <color name="chip_bg_in_progress">#FFF3E0</color> <!-- Orange très clair -->
+    <color name="chip_text_in_progress">#EF6C00</color> <!-- Orange foncé -->
+    <color name="chip_bg_completed">#E8F5E9</color> <!-- Vert très clair -->
+    <color name="chip_text_completed">#2E7D32</color> <color name="primary_accent_transparent">#806366F1</color>
+    <color name="text_primary">#1F2937</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="icon_tint">#7C8894</color>
+    <color name="profile_picture_border">#FFFFFF</color>
+    <color name="tonal_button_background">#EEF2FF</color>
+    <color name="error_color">#C23F4E</color>
+    <color name="error_ripple">#22C23F4E</color>
+    <color name="error_icon_color">#D32F2F</color>
+    <color name="notification_color">#FF4081</color>
+    <color name="primary_green">#4CAF50</color>
+    <color name="progress_background">#E0E0E0</color>
+    <color name="ripple_accent">#4FC3F7</color>
+    <color name="accent_color">#F59E0B</color>
+
+    <!-- Couleurs pour le nouveau menu littéraire -->
+    <color name="menu_icon_bg_blue">#3385FF</color>
+    <color name="menu_icon_bg_red">#FF4F6A</color>
+    <color name="menu_icon_bg_green">#00C853</color>
+    <color name="menu_icon_bg_cyan">#29B6F6</color>
+    <color name="menu_icon_bg_purple">#6200EA</color>
+    <color name="menu_icon_bg_orange">#FF9100</color>
+    <color name="menu_icon_bg_yellow">#FFD600</color>
+    <color name="menu_icon_bg_pink">#E91E63</color>
+
+    <!-- Couleurs de thème et Material Design -->
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorSecondary">#FF4081</color>
+    <color name="colorAccent">#FF4081</color>
+    <color name="colorAccentDark">#C51162</color>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="md_theme_onBackground">#1C1B1F</color>
+    <color name="md_theme_primary">#6750A4</color>
+    <color name="md_theme_background">#FFFBFE</color>
+
+    <!-- Couleurs pour le chat -->
+    <color name="chat_background_dark">#0B141A</color>
+    <color name="chat_input_background_dark">#1F2C34</color>
+    <color name="chat_input_text_dark">#E9EDEF</color>
+    <color name="chat_input_hint_dark">#8696A0</color>
+    <color name="chat_bubble_sent_bg_dark">#0B80FE</color>
+    <color name="chat_text_sent_dark">#FFFFFF</color>
+    <color name="chat_bubble_received_bg_dark">#1F2C34</color>
+    <color name="chat_text_received_dark">#E9EDEF</color>
+    <color name="chat_send_button_bg_dark">#0B80FE</color>
+    <color name="chat_send_button_icon_dark">#FFFFFFFF</color>
+    <color name="chat_timestamp_dark">#8696A0</color>
+    <color name="chat_sender_name_dark">#8696A0</color>
+    <color name="reply_background_sent">#50FFFFFF</color>
+    <color name="reply_background_received">#F3F4F6</color>
+    <color name="reactions_background">#FFFFFF</color>
+    <color name="message_text_color">#1F2937</color>
+    <color name="link_color_sent">#CDE6FF</color>
+    <color name="link_color_received">#00579B</color>
+    <color name="status_read_color">#4FC3F7</color>
+    <color name="sender_name_color">#667eea</color>
+
+    <!-- Couleurs pour les réactions (doublon possible, à vérifier) -->
+    <color name="reaction_background">#2C3E50</color>
+    <color name="reaction_text_color">#E0E0E0</color>
+    <color name="reaction_stroke_color">#34495E</color>
+    <color name="reaction_text_color_selected">#FFFFFF</color>
+    <color name="reaction_count_color">#6B7280</color>
+
+    <!-- Couleurs diverses et transparences -->
+    <color name="white_60_alpha">#99FFFFFF</color>
+    <color name="white_70_alpha">#B3FFFFFF</color>
+    <color name="white_85_alpha">#D9FFFFFF</color>
+    <color name="black_60_alpha">#99000000</color>
+    <color name="black_80_alpha">#CC000000</color>
+    <color name="gray_200">#E5E7EB</color>
+    <color name="gray_400">#9CA3AF</color>
+    <color name="gray_500">#6B7280</color>
+    <color name="gray_700">#374151</color>
+    <color name="gray_light">#E0E0E0</color>
+    <color name="green_500">#10B981</color>
+    <color name="shimmer_placeholder">#DDDDDD</color>
+    <color name="gold_medal">#FFD700</color>
+    <color name="silver_medal">#C0C0C0</color>
+    <color name="bronze_medal">#CD7F32</color>
+    <color name="separator_color">#BDBDBD</color>
+    <color name="ucrop_dimmed_layer_color">#80000000</color>
+
+    <!-- Couleurs pour l'écran d'authentification -->
+    <color name="auth_background_dark">#2C004F</color>
+    <color name="auth_card_background_light">#FFFFFF</color>
+    <color name="text_on_dark_background">#FFFFFF</color>
+    <color name="text_on_light_background_primary">#212121</color>
+    <color name="text_on_light_background_secondary">#757575</color>
+    <color name="text_link_color">#6200EE</color>
+    <color name="outline_stroke_color">#E0E0E0</color>
+    <color name="google_btn_text_color">#4285F4</color>
+    <color name="google_btn_border_color">#DADCE0</color>
+
+    <!-- Couleurs legacy ou à vérifier (regroupées) -->
+    <color name="red_love">#FF4081</color>
+    <color name="background_chat_original_light">#F5F7FA</color>
+    <color name="chat_bubble_sent_bg_start_original_blue">#4A90E2</color>
+    <color name="chat_bubble_sent_bg_end_original_blue">#2B6CC4</color>
+    <color name="chat_bubble_received_bg_original_light_gray">#E8ECEF</color>
+    <color name="chat_text_sent_original_white">#FFFFFF</color>
+    <color name="chat_text_received_original_dark_gray">#1A1A1A</color>
+    <color name="chat_timestamp_original_gray">#7A7A7A</color>
+    <color name="chat_sender_name_original_gray">#4A4A4A</color>
+    <color name="accent_color_original_blue">#4A90E2</color>
+    <color name="link_color_sent_modern">#93C5FD</color>
+    <color name="link_color_received_modern">#3B82F6</color>
+    <color name="heart_color_dynamic">#F59E0B</color>
+    <color name="gradient_stroke">#E0E0E0</color>
+    <color name="gradient_background">#F5F7FA</color>
+</resources>

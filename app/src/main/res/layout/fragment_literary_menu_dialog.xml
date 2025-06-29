@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+
+    <!-- Handle pour glisser -->
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/literary_actions_title"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"/>
+
+    <GridLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:columnCount="3"
+        android:rowCount="3"
+        android:paddingHorizontal="8dp">
+
+        <!-- Ligne 1 -->
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_recommend_book"/>
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_search_dictionary"/>
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_add_to_list"/>
+
+        <!-- Ligne 2 -->
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_literary_challenges"/>
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_quick_summary"/>
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_start_debate"/>
+
+        <!-- Ligne 3 -->
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_guided_suggestion"/>
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_favorite_character"/>
+        <include layout="@layout/item_literary_menu_button" android:id="@+id/action_plan_session"/>
+
+    </GridLayout>
+
+</LinearLayout>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Couche 1 : Le fond -->
+    <!-- On utilise la couleur cyan pour ce bouton, conformément à notre palette. -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/menu_icon_bg_cyan"/>
+            <corners android:radius="12dp"/>
+        </shape>
+    </item>
+
+    <!-- Couche 2 : L'icône -->
+    <!-- On superpose l'icône de liste blanche. -->
+    <item
+        android:drawable="@drawable/ic_menu_add_to_list"
+        android:gravity="center" />
+
+</layer-list>

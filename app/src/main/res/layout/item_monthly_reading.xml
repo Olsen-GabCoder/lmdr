@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/colorSurface"
+    android:paddingTop="20dp">
+
+    <!-- ====================================================== -->
+    <!-- EN-TÊTE DE LA PUBLICATION (HEADER)                     -->
+    <!-- ====================================================== -->
+    <ImageView
+        android:id="@+id/iv_club_avatar"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="20dp"
+        android:contentDescription="@string/club_avatar_description"
+        android:src="@drawable/ic_launcher_foreground"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tv_club_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="12dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="@string/club_name"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toStartOf="@id/btn_edit_monthly_reading"
+        app:layout_constraintStart_toEndOf="@id/iv_club_avatar"
+        app:layout_constraintTop_toTopOf="@id/iv_club_avatar" />
+
+    <TextView
+        android:id="@+id/tv_header_subtitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        app:layout_constraintEnd_toEndOf="@id/tv_club_name"
+        app:layout_constraintStart_toStartOf="@id/tv_club_name"
+        app:layout_constraintTop_toBottomOf="@id/tv_club_name"
+        tools:text="a défini la lecture de Juin 2025" />
+
+    <ImageButton
+        android:id="@+id/btn_edit_monthly_reading"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_marginEnd="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/edit_monthly_reading_button_description"
+        android:src="@drawable/ic_edit"
+        app:layout_constraintBottom_toBottomOf="@id/iv_club_avatar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/iv_club_avatar"
+        app:tint="?attr/colorOnSurfaceVariant" />
+
+    <!-- ====================================================== -->
+    <!-- "MOT DE L'ANIMATEUR" (DESCRIPTION)                     -->
+    <!-- ====================================================== -->
+    <TextView
+        android:id="@+id/tv_animator_quote"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="20dp"
+        android:lineSpacingMultiplier="1.3"
+        android:textAppearance="?attr/textAppearanceBodyLarge"
+        android:textColor="?attr/colorOnSurface"
+        android:textStyle="italic"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/iv_club_avatar"
+        tools:text="Au plaisir de vous voir parmi nous ! Préparez vos meilleurs arguments pour ce classique de la littérature mondiale." />
+
+    <!-- ====================================================== -->
+    <!-- CARTE "HÉROS" POUR LE LIVRE                            -->
+    <!-- ====================================================== -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/card_book_hero"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="20dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="6dp"
+        app:layout_constraintDimensionRatio="5:3"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_animator_quote">
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <ImageView
+                android:id="@+id/iv_book_cover"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:contentDescription="@string/book_cover_description"
+                android:scaleType="centerCrop"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:src="@drawable/ic_book_placeholder_error" />
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:background="@drawable/gradient_scrim"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+            <TextView
+                android:id="@+id/tv_book_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="6dp"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:shadowColor="#000000"
+                android:shadowDy="2"
+                android:shadowRadius="6"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toTopOf="@id/tv_book_author"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                tools:text="Le Petit Prince" />
+            <TextView
+                android:id="@+id/tv_book_author"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="20dp"
+                android:alpha="0.9"
+                android:shadowColor="#000000"
+                android:shadowDy="1"
+                android:shadowRadius="3"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="@android:color/white"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                tools:text="Antoine de Saint-Exupéry" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- ====================================================== -->
+    <!-- INDICATEURS SOCIAUX & ACTIONS (FOOTER) - CORRIGÉ       -->
+    <!-- ====================================================== -->
+    <TextView
+        android:id="@+id/tv_social_feedback"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="16dp"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/card_book_hero"
+        tools:text="❤️ Vous et 4 autres personnes" />
+
+    <!-- Suppression du LinearLayout, les boutons sont maintenant dans une chaîne ConstraintLayout -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_action_like"
+        style="?attr/borderlessButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        android:minHeight="48dp"
+        android:text="@string/action_like"
+        android:textSize="14sp"
+        app:icon="@drawable/ic_heart_outline"
+        app:iconPadding="6dp"
+        app:iconSize="18dp"
+        app:layout_constraintHorizontal_chainStyle="spread"
+        app:layout_constraintTop_toBottomOf="@id/tv_social_feedback"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/btn_action_comment" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_action_comment"
+        style="?attr/borderlessButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        android:minHeight="48dp"
+        android:text="@string/action_comment"
+        android:textSize="14sp"
+        app:icon="@drawable/ic_comment_outline"
+        app:iconPadding="6dp"
+        app:iconSize="18dp"
+        app:layout_constraintTop_toTopOf="@id/btn_action_like"
+        app:layout_constraintStart_toEndOf="@id/btn_action_like"
+        app:layout_constraintEnd_toStartOf="@id/btn_join_meeting_main" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_join_meeting_main"
+        style="?attr/borderlessButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:insetLeft="0dp"
+        android:insetTop="0dp"
+        android:insetRight="0dp"
+        android:insetBottom="0dp"
+        android:minHeight="48dp"
+        android:text="@string/join_meeting_button"
+        android:textSize="14sp"
+        android:visibility="gone"
+        app:icon="@drawable/ic_videocam"
+        app:iconPadding="6dp"
+        app:iconSize="18dp"
+        app:layout_constraintTop_toTopOf="@id/btn_action_like"
+        app:layout_constraintStart_toEndOf="@id/btn_action_comment"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="visible" />
+
+    <!-- ====================================================== -->
+    <!-- AGENDA DU CERCLE ("Nos Rendez-vous")                   -->
+    <!-- ====================================================== -->
+    <View
+        android:id="@+id/divider_phases"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="12dp"
+        android:background="?attr/colorSurfaceVariant"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_action_like" />
+
+    <include
+        android:id="@+id/phase_analysis_layout"
+        layout="@layout/item_phase_detail"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/divider_phases" />
+
+    <include
+        android:id="@+id/phase_debate_layout"
+        layout="@layout/item_phase_detail"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/phase_analysis_layout" />
+
+    <!-- ====================================================== -->
+    <!-- SÉPARATEUR FINAL                                       -->
+    <!-- ====================================================== -->
+    <View
+        android:id="@+id/divider_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="12dp"
+        android:layout_marginTop="8dp"
+        android:background="?attr/colorSurfaceContainer"
+        app:layout_constraintTop_toBottomOf="@id/phase_debate_layout" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

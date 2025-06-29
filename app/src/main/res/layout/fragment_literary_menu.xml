@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="16dp"
+    app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
+
+    <com.google.android.material.bottomsheet.BottomSheetDragHandleView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="16dp">
+
+        <!-- Ligne 1 : Les 4 premiers boutons -->
+        <include
+            android:id="@+id/action_attach_image"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toStartOf="@+id/action_recommend_book"
+            app:layout_constraintHorizontal_chainStyle="spread_inside"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <include
+            android:id="@+id/action_recommend_book"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toStartOf="@+id/action_search_dictionary"
+            app:layout_constraintStart_toEndOf="@+id/action_attach_image"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <include
+            android:id="@+id/action_search_dictionary"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toStartOf="@+id/action_add_to_list"
+            app:layout_constraintStart_toEndOf="@+id/action_recommend_book"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <include
+            android:id="@+id/action_add_to_list"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/action_search_dictionary"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Ligne 2 : Les 4 boutons suivants -->
+        <include
+            android:id="@+id/action_literary_challenges"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toStartOf="@+id/action_quick_summary"
+            app:layout_constraintHorizontal_chainStyle="spread_inside"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/action_attach_image" />
+
+        <include
+            android:id="@+id/action_quick_summary"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toStartOf="@+id/action_start_debate"
+            app:layout_constraintStart_toEndOf="@+id/action_literary_challenges"
+            app:layout_constraintTop_toBottomOf="@id/action_attach_image" />
+
+        <include
+            android:id="@+id/action_start_debate"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toStartOf="@+id/action_guided_suggestion"
+            app:layout_constraintStart_toEndOf="@+id/action_quick_summary"
+            app:layout_constraintTop_toBottomOf="@id/action_attach_image" />
+
+        <include
+            android:id="@+id/action_guided_suggestion"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/action_start_debate"
+            app:layout_constraintTop_toBottomOf="@id/action_attach_image" />
+
+        <!-- Ligne 3 : Les 2 derniers boutons -->
+        <include
+            android:id="@+id/action_favorite_character"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toStartOf="@+id/action_plan_session"
+            app:layout_constraintHorizontal_chainStyle="spread_inside"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/action_literary_challenges" />
+
+        <include
+            android:id="@+id/action_plan_session"
+            layout="@layout/item_literary_menu_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/action_favorite_character"
+            app:layout_constraintTop_toBottomOf="@id/action_literary_challenges" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</LinearLayout>
