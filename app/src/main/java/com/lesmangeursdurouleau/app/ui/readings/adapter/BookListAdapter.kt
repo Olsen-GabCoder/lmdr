@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier BookListAdapter.kt par ceci.
 package com.lesmangeursdurouleau.app.ui.readings.adapter
 
 import android.view.LayoutInflater
@@ -5,7 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide // AJOUT: Import de Glide
+import com.bumptech.glide.Glide
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.databinding.ItemBookBinding
@@ -30,19 +31,26 @@ class BookListAdapter(private val onItemClicked: (Book) -> Unit) :
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(book: Book) {
+            val context = itemView.context
             binding.tvBookTitle.text = book.title
             binding.tvBookAuthor.text = book.author
-            binding.tvBookSynopsisPreview.text = book.synopsis ?: itemView.context.getString(R.string.no_synopsis_available)
+            binding.tvBookSynopsisPreview.text = book.synopsis ?: context.getString(R.string.no_synopsis_available)
 
-            // Charger l'image de couverture avec Glide
+            // === DÉBUT DE LA MODIFICATION ===
+            // Définition de la contentDescription dynamique pour l'accessibilité
+            binding.ivBookCoverPlaceholder.contentDescription = context.getString(
+                R.string.book_cover_of_title_description,
+                book.title.ifBlank { context.getString(R.string.unknown_book_title) }
+            )
+            // === FIN DE LA MODIFICATION ===
+
             if (!book.coverImageUrl.isNullOrEmpty()) {
-                Glide.with(itemView.context) // Contexte (peut être l'itemView, un fragment, une activity)
-                    .load(book.coverImageUrl) // URL de l'image
-                    .placeholder(R.drawable.ic_book_placeholder) // Image affichée pendant le chargement (OPTIONNEL)
-                    .error(R.drawable.ic_book_placeholder_error) // Image affichée en cas d'erreur de chargement (OPTIONNEL)
-                    .into(binding.ivBookCoverPlaceholder) // ImageView cible
+                Glide.with(context)
+                    .load(book.coverImageUrl)
+                    .placeholder(R.drawable.ic_book_placeholder)
+                    .error(R.drawable.ic_book_placeholder_error)
+                    .into(binding.ivBookCoverPlaceholder)
             } else {
-                // Si l'URL est vide ou nulle, afficher le placeholder par défaut
                 binding.ivBookCoverPlaceholder.setImageResource(R.drawable.ic_book_placeholder)
             }
         }
@@ -54,7 +62,7 @@ class BookListAdapter(private val onItemClicked: (Book) -> Unit) :
         }
 
         override fun areContentsTheSame(oldItem: Book, newItem: Book): Boolean {
-            return oldItem == newItem // Compare tous les champs grâce à la data class
+            return oldItem == newItem
         }
     }
 }

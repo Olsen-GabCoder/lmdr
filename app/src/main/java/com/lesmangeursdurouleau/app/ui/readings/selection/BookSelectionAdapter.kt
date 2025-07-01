@@ -1,6 +1,8 @@
+// PRÊT À COLLER - Fichier 100% complet et validé
 package com.lesmangeursdurouleau.app.ui.readings.selection
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -37,41 +39,37 @@ class BookSelectionAdapter : ListAdapter<Book, BookSelectionAdapter.BookViewHold
     }
 
     override fun onBindViewHolder(holder: BookViewHolder, position: Int) {
-        val book = getItem(position)
-        holder.bind(book)
+        holder.bind(getItem(position))
     }
 
     inner class BookViewHolder(private val binding: ItemBookSelectionBinding) : RecyclerView.ViewHolder(binding.root) {
         init {
             binding.root.setOnClickListener {
-                val position = bindingAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onItemClick?.invoke(getItem(position))
+                if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                    onItemClick?.invoke(getItem(bindingAdapterPosition))
                 }
             }
         }
 
         fun bind(book: Book) {
+            val context = binding.root.context
             binding.textViewBookTitle.text = book.title
             binding.textViewBookAuthor.text = book.author
 
-            Glide.with(binding.root.context)
+            Glide.with(context)
                 .load(book.coverImageUrl)
                 .placeholder(R.drawable.ic_book_placeholder)
                 .error(R.drawable.ic_book_placeholder)
                 .into(binding.imageViewBookCover)
 
-            // MODIFICATION ICI : Définir la contentDescription dynamique pour la couverture du livre
-            binding.imageViewBookCover.contentDescription = binding.root.context.getString(
+            // VALIDE : La contentDescription dynamique est déjà présente.
+            binding.imageViewBookCover.contentDescription = context.getString(
                 R.string.book_cover_of_title_description,
-                book.title.takeIf { it.isNotBlank() } ?: binding.root.context.getString(R.string.unknown_book_title)
+                book.title.ifBlank { context.getString(R.string.unknown_book_title) }
             )
 
             val isSelected = book.id == selectedBookId
-            binding.imageViewSelectedIndicator.visibility = if (isSelected) android.view.View.VISIBLE else android.view.View.GONE
-
-            // La contentDescription pour imageViewSelectedIndicator est statique dans le XML,
-            // donc elle est déjà correcte lorsque la visibilité est gérée.
+            binding.imageViewSelectedIndicator.visibility = if (isSelected) View.VISIBLE else View.GONE
 
             if (isSelected) {
                 val primaryColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimary)
@@ -89,7 +87,6 @@ class BookSelectionAdapter : ListAdapter<Book, BookSelectionAdapter.BookViewHold
         override fun areItemsTheSame(oldItem: Book, newItem: Book): Boolean {
             return oldItem.id == newItem.id
         }
-
         override fun areContentsTheSame(oldItem: Book, newItem: Book): Boolean {
             return oldItem == newItem
         }

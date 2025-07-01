@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier MonthlyReadingRepositoryImpl.kt par ceci.
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -10,13 +11,12 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import javax.inject.Inject // Hilt injection
+import javax.inject.Inject
 
 class MonthlyReadingRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore
 ) : MonthlyReadingRepository {
 
-    // AJOUTÉ : Définition du TAG dans un companion object
     companion object {
         private const val TAG = "MonthlyReadingRepoImpl"
     }
@@ -25,7 +25,7 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
 
     override fun getMonthlyReadings(year: Int, month: Int): Flow<Resource<List<MonthlyReading>>> = callbackFlow {
         trySend(Resource.Loading())
-        Log.d(TAG, "Fetching readings for $month/$year") // Utilise TAG
+        Log.d(TAG, "Fetching readings for $month/$year")
 
         val query = monthlyReadingsCollection
             .whereEqualTo("year", year)
@@ -34,7 +34,7 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
 
         val listenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.e(TAG, "Error listening for monthly readings: $error") // Utilise TAG
+                Log.e(TAG, "Error listening for monthly readings: $error")
                 trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage ?: "Inconnue"}"))
                 close(error)
                 return@addSnapshotListener
@@ -43,13 +43,14 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
             if (snapshot != null) {
                 val readings = snapshot.documents.mapNotNull { document ->
                     try {
+                        // Firestore convertit automatiquement les strings en PhaseStatus enum
                         document.toObject(MonthlyReading::class.java)?.copy(id = document.id)
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing MonthlyReading document ${document.id}: $e") // Utilise TAG
+                        Log.e(TAG, "Error parsing MonthlyReading document ${document.id}: $e")
                         null
                     }
                 }
-                Log.d(TAG, "Fetched ${readings.size} readings for $month/$year") // Utilise TAG
+                Log.d(TAG, "Fetched ${readings.size} readings for $month/$year")
                 trySend(Resource.Success(readings))
             } else {
                 trySend(Resource.Success(emptyList()))
@@ -57,14 +58,14 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
         }
 
         awaitClose {
-            Log.d(TAG, "Closing monthly readings listener.") // Utilise TAG
+            Log.d(TAG, "Closing monthly readings listener.")
             listenerRegistration.remove()
         }
     }
 
     override fun getAllMonthlyReadings(): Flow<Resource<List<MonthlyReading>>> = callbackFlow {
         trySend(Resource.Loading())
-        Log.d(TAG, "Fetching all monthly readings (for global filters)") // Utilise TAG
+        Log.d(TAG, "Fetching all monthly readings (for global filters)")
 
         val listenerRegistration = monthlyReadingsCollection
             .orderBy("year", Query.Direction.DESCENDING)
@@ -72,7 +73,7 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
             .orderBy("analysisPhase.date", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.e(TAG, "Error listening for all monthly readings: $error") // Utilise TAG
+                    Log.e(TAG, "Error listening for all monthly readings: $error")
                     trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage ?: "Inconnue"}"))
                     close(error)
                     return@addSnapshotListener
@@ -83,11 +84,11 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
                         try {
                             document.toObject(MonthlyReading::class.java)?.copy(id = document.id)
                         } catch (e: Exception) {
-                            Log.e(TAG, "Error parsing MonthlyReading document ${document.id}: $e") // Utilise TAG
+                            Log.e(TAG, "Error parsing MonthlyReading document ${document.id}: $e")
                             null
                         }
                     }
-                    Log.d(TAG, "Fetched ${readings.size} all monthly readings") // Utilise TAG
+                    Log.d(TAG, "Fetched ${readings.size} all monthly readings")
                     trySend(Resource.Success(readings))
                 } else {
                     trySend(Resource.Success(emptyList()))
@@ -95,19 +96,19 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
             }
 
         awaitClose {
-            Log.d(TAG, "Closing all monthly readings listener.") // Utilise TAG
+            Log.d(TAG, "Closing all monthly readings listener.")
             listenerRegistration.remove()
         }
     }
 
     override fun getMonthlyReadingById(readingId: String): Flow<Resource<MonthlyReading?>> = callbackFlow {
         trySend(Resource.Loading())
-        Log.d(TAG, "Fetching single reading by ID: $readingId") // Utilise TAG
+        Log.d(TAG, "Fetching single reading by ID: $readingId")
 
         val documentRef = monthlyReadingsCollection.document(readingId)
         val listenerRegistration = documentRef.addSnapshotListener { documentSnapshot, error ->
             if (error != null) {
-                Log.e(TAG, "Error listening for single monthly reading $readingId: $error") // Utilise TAG
+                Log.e(TAG, "Error listening for single monthly reading $readingId: $error")
                 trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage ?: "Inconnue"}"))
                 close(error)
                 return@addSnapshotListener
@@ -116,28 +117,29 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
             if (documentSnapshot != null && documentSnapshot.exists()) {
                 try {
                     val reading = documentSnapshot.toObject(MonthlyReading::class.java)?.copy(id = documentSnapshot.id)
-                    Log.d(TAG, "Fetched reading ID $readingId successfully (null? ${reading == null}).") // Utilise TAG
+                    Log.d(TAG, "Fetched reading ID $readingId successfully (null? ${reading == null}).")
                     trySend(Resource.Success(reading))
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing MonthlyReading document for ID $readingId: $e") // Utilise TAG
+                    Log.e(TAG, "Error parsing MonthlyReading document for ID $readingId: $e")
                     trySend(Resource.Error("Erreur de conversion des données de lecture mensuelle."))
                 }
             } else {
-                Log.w(TAG, "Monthly reading with ID $readingId does not exist.") // Utilise TAG
-                trySend(Resource.Success(null)) // Toujours envoyer null si non trouvé
+                Log.w(TAG, "Monthly reading with ID $readingId does not exist.")
+                trySend(Resource.Success(null))
             }
         }
 
         awaitClose {
-            Log.d(TAG, "Closing listener for monthly reading ID $readingId.") // Utilise TAG
+            Log.d(TAG, "Closing listener for monthly reading ID $readingId.")
             listenerRegistration.remove()
         }
     }
 
     override suspend fun addMonthlyReading(reading: MonthlyReading): Resource<Unit> {
         return try {
+            // L'appel à .add() sérialise l'objet complet, y compris le nouvel enum PhaseStatus.
             val documentRef = monthlyReadingsCollection.add(reading).await()
-            Log.d(TAG, "Monthly reading added with ID: ${documentRef.id}") // Utilise TAG
+            Log.d(TAG, "Monthly reading added with ID: ${documentRef.id}")
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error adding monthly reading: $e")
@@ -150,25 +152,15 @@ class MonthlyReadingRepositoryImpl @Inject constructor(
             return Resource.Error("L'ID de la lecture mensuelle est requis pour la mise à jour.")
         }
         return try {
-            val updates = mapOf(
-                "bookId" to reading.bookId,
-                "year" to reading.year,
-                "month" to reading.month,
-                "analysisPhase.date" to reading.analysisPhase.date,
-                "analysisPhase.status" to reading.analysisPhase.status,
-                "analysisPhase.meetingLink" to reading.analysisPhase.meetingLink,
-                "debatePhase.date" to reading.debatePhase.date,
-                "debatePhase.status" to reading.debatePhase.status,
-                "debatePhase.meetingLink" to reading.debatePhase.meetingLink,
-                "customDescription" to reading.customDescription,
-                "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()
-            )
-
-            monthlyReadingsCollection.document(reading.id).update(updates).await()
-            Log.d(TAG, "Monthly reading ID ${reading.id} updated successfully.") // Utilise TAG
+            // MODIFIÉ : Remplacement de la map manuelle par un appel direct à .set().
+            // C'est plus propre, plus sûr et plus maintenable.
+            // Firestore gère la sérialisation de l'objet, y compris l'enum PhaseStatus.
+            // Les champs annotés @ServerTimestamp seront automatiquement mis à jour.
+            monthlyReadingsCollection.document(reading.id).set(reading).await()
+            Log.d(TAG, "Monthly reading ID ${reading.id} updated successfully.")
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Error updating monthly reading ${reading.id}: $e") // Utilise TAG
+            Log.e(TAG, "Error updating monthly reading ${reading.id}: $e")
             Resource.Error("Erreur lors de la mise à jour de la lecture mensuelle: ${e.localizedMessage}")
         }
     }

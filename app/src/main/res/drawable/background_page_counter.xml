@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+
+    <solid android:color="#B3000000" /> <!-- Noir avec 70% d'opacité -->
+
+    <corners android:radius="20dp" /> <!-- Rayon des coins pour obtenir une forme de pilule -->
+
+</shape>

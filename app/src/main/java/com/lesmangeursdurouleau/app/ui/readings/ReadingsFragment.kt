@@ -1,4 +1,4 @@
-// app/src/main/java/com/lesmangeursdurouleau/app/ui/readings/ReadingsFragment.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier ReadingsFragment.kt par ceci.
 package com.lesmangeursdurouleau.app.ui.readings
 
 import android.content.Intent
@@ -11,6 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
@@ -40,13 +41,14 @@ class ReadingsFragment : Fragment() {
     private val handler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
         override fun run() {
-            monthlyReadingListAdapter.submitList(monthlyReadingListAdapter.currentList)
+            monthlyReadingListAdapter.notifyDataSetChanged()
             Log.d("ReadingsFragment", "Refreshing monthly readings list for status updates.")
-            handler.postDelayed(this, REFRESH_INTERVAL_MILLIS)
+            // CORRIGÉ : Utilisation du nom de variable correct
+            handler.postDelayed(this, refreshIntervalMillis)
         }
     }
 
-    private val REFRESH_INTERVAL_MILLIS = 60 * 60 * 1000L
+    private val refreshIntervalMillis = 60 * 60 * 1000L
 
     private var pendingMonthlyReadingId: String? = null
 
@@ -68,7 +70,7 @@ class ReadingsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        handler.post(refreshRunnable)
+        handler.postDelayed(refreshRunnable, refreshIntervalMillis)
     }
 
     override fun onPause() {
@@ -81,21 +83,16 @@ class ReadingsFragment : Fragment() {
             onEditClicked = { selectedMonthlyReadingWithBook ->
                 checkEditPermissionAndNavigate(selectedMonthlyReadingWithBook.monthlyReading.id)
             },
-            onLikeClicked = { selectedMonthlyReadingWithBook ->
-                Log.d("ReadingsFragment", "Like clicked for book: ${selectedMonthlyReadingWithBook.book?.title}")
+            onLikeClicked = {
                 Toast.makeText(requireContext(), "Fonctionnalité 'J'aime' à venir", Toast.LENGTH_SHORT).show()
             },
-            onCommentClicked = { selectedMonthlyReadingWithBook ->
-                Log.d("ReadingsFragment", "Comment clicked for book: ${selectedMonthlyReadingWithBook.book?.title}")
+            onCommentClicked = {
                 Toast.makeText(requireContext(), "Fonctionnalité 'Commenter' à venir", Toast.LENGTH_SHORT).show()
             },
             onJoinClicked = { meetingLink ->
-                Log.d("ReadingsFragment", "Join clicked with link: $meetingLink")
                 openMeetingLink(meetingLink)
             },
-            // --- IMPLÉMENTATION DE LA NOUVELLE LOGIQUE DE CLIC ---
             onBookCoverClicked = { bookId, bookTitle ->
-                Log.d("ReadingsFragment", "Book cover clicked. Navigating to detail for bookId: $bookId")
                 val action = ReadingsFragmentDirections.actionReadingsFragmentToBookDetailFragment(
                     bookId = bookId,
                     bookTitle = bookTitle ?: getString(R.string.book_details_default_title)
@@ -112,7 +109,7 @@ class ReadingsFragment : Fragment() {
 
     private fun openMeetingLink(url: String) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            val intent = Intent(Intent.ACTION_VIEW, url.toUri())
             startActivity(intent)
         } catch (e: Exception) {
             Log.e("ReadingsFragment", "Could not open meeting link: $url", e)
@@ -121,12 +118,11 @@ class ReadingsFragment : Fragment() {
     }
 
     private fun checkEditPermissionAndNavigate(monthlyReadingId: String?) {
-        val hasActiveEditPermission = readingsViewModel.canEditReadings.value
-        if (hasActiveEditPermission) {
-            Log.d("ReadingsFragment", "User has active edit permission, navigating to AddEditMonthlyReading for ID: $monthlyReadingId")
+        if (readingsViewModel.canEditReadings.value) {
+            Log.d("ReadingsFragment", "User has active edit permission, navigating...")
             navigateToAddEditMonthlyReading(monthlyReadingId)
         } else {
-            Log.d("ReadingsFragment", "User does NOT have active edit permission, showing secret code dialog for ID: $monthlyReadingId")
+            Log.d("ReadingsFragment", "User does NOT have active edit permission, showing secret code dialog.")
             pendingMonthlyReadingId = monthlyReadingId
             if (childFragmentManager.findFragmentByTag("SecretCodeDialog") == null) {
                 EnterSecretCodeDialogFragment().show(childFragmentManager, "SecretCodeDialog")
@@ -134,7 +130,7 @@ class ReadingsFragment : Fragment() {
         }
     }
 
-    private fun navigateToAddEditMonthlyReading(monthlyReadingId: String? = null) {
+    private fun navigateToAddEditMonthlyReading(monthlyReadingId: String?) {
         val action = ReadingsFragmentDirections.actionReadingsFragmentToAddEditMonthlyReadingFragment(monthlyReadingId)
         findNavController().navigate(action)
         pendingMonthlyReadingId = null
@@ -147,9 +143,6 @@ class ReadingsFragment : Fragment() {
                 Log.d("ReadingsFragment", "Permission granted from dialog. Pending ID: $pendingMonthlyReadingId")
                 pendingMonthlyReadingId?.let { id ->
                     navigateToAddEditMonthlyReading(id)
-                } ?: run {
-                    Log.d("ReadingsFragment", "No pending action, permission re-validated proactively.")
-                    readingsViewModel.forcePermissionCheck()
                 }
             } else {
                 Log.d("ReadingsFragment", "Permission NOT granted or dialog cancelled.")
@@ -174,33 +167,23 @@ class ReadingsFragment : Fragment() {
                                 val data = resource.data ?: emptyList()
                                 monthlyReadingListAdapter.submitList(data)
                                 updateEmptyStateView(data.isEmpty(), null)
-                                Log.d("ReadingsFragment", "Displayed ${data.size} monthly readings.")
                             }
                             is Resource.Error -> {
                                 binding.progressBarReadings.visibility = View.GONE
                                 monthlyReadingListAdapter.submitList(emptyList())
                                 updateEmptyStateView(true, resource.message ?: getString(R.string.error_loading_monthly_readings, "inconnu"))
-                                Log.e("ReadingsFragment", "Error loading monthly readings: ${resource.message}")
                             }
                         }
                     }
                 }
+
                 launch {
                     readingsViewModel.canEditReadings.collect { canEdit ->
+                        binding.fabAddMonthlyReading.visibility = if (canEdit) View.VISIBLE else View.GONE
                         Log.d("ReadingsFragment", "User can edit readings (observed): $canEdit")
                     }
                 }
-                launch {
-                    readingsViewModel.requestPermissionRevalidation.collect { shouldRevalidate ->
-                        if (shouldRevalidate) {
-                            Log.d("ReadingsFragment", "Received request to revalidate permission from ViewModel (proactive).")
-                            if (childFragmentManager.findFragmentByTag("SecretCodeDialog") == null) {
-                                pendingMonthlyReadingId = null
-                                EnterSecretCodeDialogFragment().show(childFragmentManager, "SecretCodeDialog")
-                            }
-                        }
-                    }
-                }
+
                 launch {
                     readingsViewModel.currentMonthYear.collect { calendar ->
                         val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
@@ -212,23 +195,14 @@ class ReadingsFragment : Fragment() {
     }
 
     private fun updateEmptyStateView(isEmpty: Boolean, errorMessage: String?) {
-        if (isEmpty) {
-            binding.recyclerViewMonthlyReadings.visibility = View.GONE
-            binding.tvErrorReadings.visibility = View.VISIBLE
-            binding.tvErrorReadings.text = errorMessage ?: getString(R.string.no_monthly_readings_available)
-        } else {
-            binding.recyclerViewMonthlyReadings.visibility = View.VISIBLE
-            binding.tvErrorReadings.visibility = View.GONE
-        }
+        binding.recyclerViewMonthlyReadings.visibility = if (isEmpty) View.GONE else View.VISIBLE
+        binding.tvErrorReadings.visibility = if (isEmpty) View.VISIBLE else View.GONE
+        binding.tvErrorReadings.text = errorMessage ?: getString(R.string.no_monthly_readings_available)
     }
 
     private fun setupClickListeners() {
-        binding.btnPreviousMonth.setOnClickListener {
-            readingsViewModel.goToPreviousMonth()
-        }
-        binding.btnNextMonth.setOnClickListener {
-            readingsViewModel.goToNextMonth()
-        }
+        binding.btnPreviousMonth.setOnClickListener { readingsViewModel.goToPreviousMonth() }
+        binding.btnNextMonth.setOnClickListener { readingsViewModel.goToNextMonth() }
         binding.chipGroupFilters.setOnCheckedStateChangeListener { _, checkedIds ->
             val filter = when (checkedIds.firstOrNull()) {
                 R.id.chip_filter_all -> ReadingsFilter.ALL
@@ -238,7 +212,6 @@ class ReadingsFragment : Fragment() {
                 else -> ReadingsFilter.ALL
             }
             readingsViewModel.setFilter(filter)
-            Log.d("ReadingsFragment", "Filter changed to: $filter")
         }
         binding.fabAddMonthlyReading.setOnClickListener {
             checkEditPermissionAndNavigate(null)

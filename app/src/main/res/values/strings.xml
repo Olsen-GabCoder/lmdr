@@ -10,6 +10,8 @@
     <string name="cancel">Annuler</string>
     <string name="na">N/A</string>
     dition -->
+    <string name="completed_on_date">Terminé le %1$s</string>
+
     <!-- Pour le sous-titre dynamique -->
     <!-- Strings pour la barre d'actions -->
     <string name="action_like">J\'aime</string>
@@ -422,4 +424,5 @@
     <string name="club_name">Nom du club</string>
     <string name="add_to_my_library">Ajout dans la librairie</string>
     <string name="book_details_default_title">Ceci est un string par défaut</string>
+    <string name="pdf_page_content_description">12</string>
 </resources>

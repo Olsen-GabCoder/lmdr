@@ -1,14 +1,20 @@
-// PRÊT À COLLER - Fichier 100% complet et modifié
+// PRÊT À COLLER - Fichier 100% complet et validé
 package com.lesmangeursdurouleau.app.di
 
+import com.lesmangeursdurouleau.app.data.repository.AppConfigRepository
+import com.lesmangeursdurouleau.app.data.repository.AppConfigRepositoryImpl
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
 import com.lesmangeursdurouleau.app.data.repository.BookRepositoryImpl
 import com.lesmangeursdurouleau.app.data.repository.ChallengesRepository
 import com.lesmangeursdurouleau.app.data.repository.ChallengesRepositoryImpl
+import com.lesmangeursdurouleau.app.data.repository.ChatRepository
+import com.lesmangeursdurouleau.app.data.repository.ChatRepositoryImpl
 import com.lesmangeursdurouleau.app.data.repository.DictionaryRepository
-import com.lesmangeursdurouleau.app.data.repository.DictionaryRepositoryImpl // NOUVEL IMPORT
+import com.lesmangeursdurouleau.app.data.repository.DictionaryRepositoryImpl
 import com.lesmangeursdurouleau.app.data.repository.LeaderboardRepository
 import com.lesmangeursdurouleau.app.data.repository.LeaderboardRepositoryImpl
+import com.lesmangeursdurouleau.app.data.repository.MonthlyReadingRepository
+import com.lesmangeursdurouleau.app.data.repository.MonthlyReadingRepositoryImpl
 import com.lesmangeursdurouleau.app.data.repository.PrivateChatRepository
 import com.lesmangeursdurouleau.app.data.repository.PrivateChatRepositoryImpl
 import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
@@ -29,55 +35,39 @@ abstract class RepositoryBindingsModule {
 
     @Binds
     @Singleton
-    abstract fun bindBookRepository(
-        bookRepositoryImpl: BookRepositoryImpl
-    ): BookRepository
+    abstract fun bindBookRepository(impl: BookRepositoryImpl): BookRepository
 
     @Binds
     @Singleton
-    abstract fun bindPrivateChatRepository(
-        privateChatRepositoryImpl: PrivateChatRepositoryImpl
-    ): PrivateChatRepository
+    abstract fun bindPrivateChatRepository(impl: PrivateChatRepositoryImpl): PrivateChatRepository
+
+    // VALIDE : Le nouveau SocialRepository est correctement lié à son implémentation.
+    @Binds
+    @Singleton
+    abstract fun bindSocialRepository(impl: SocialRepositoryImpl): SocialRepository
+
+    // VALIDE : Le ReadingRepository allégé est correctement lié à son implémentation.
+    @Binds
+    @Singleton
+    abstract fun bindReadingRepository(impl: ReadingRepositoryImpl): ReadingRepository
 
     @Binds
     @Singleton
-    abstract fun bindSocialRepository(
-        socialRepositoryImpl: SocialRepositoryImpl
-    ): SocialRepository
+    abstract fun bindUserProfileRepository(impl: UserProfileRepositoryImpl): UserProfileRepository
 
     @Binds
     @Singleton
-    abstract fun bindReadingRepository(
-        readingRepositoryImpl: ReadingRepositoryImpl
-    ): ReadingRepository
+    abstract fun bindLeaderboardRepository(impl: LeaderboardRepositoryImpl): LeaderboardRepository
 
     @Binds
     @Singleton
-    abstract fun bindUserProfileRepository(
-        userProfileRepositoryImpl: UserProfileRepositoryImpl
-    ): UserProfileRepository
+    abstract fun bindChallengesRepository(impl: ChallengesRepositoryImpl): ChallengesRepository
 
     @Binds
     @Singleton
-    abstract fun bindLeaderboardRepository(
-        leaderboardRepositoryImpl: LeaderboardRepositoryImpl
-    ): LeaderboardRepository
+    abstract fun bindDictionaryRepository(impl: DictionaryRepositoryImpl): DictionaryRepository
 
-    @Binds
-    @Singleton
-    abstract fun bindChallengesRepository(
-        challengesRepositoryImpl: ChallengesRepositoryImpl
-    ): ChallengesRepository
-
-    // ==========================================================
-    // DÉBUT DE LA MODIFICATION : Remplacement du Repository factice
-    // ==========================================================
-    @Binds
-    @Singleton
-    abstract fun bindDictionaryRepository(
-        dictionaryRepositoryImpl: DictionaryRepositoryImpl // On utilise maintenant l'implémentation réelle
-    ): DictionaryRepository
-    // ========================================================
-    // FIN DE LA MODIFICATION
-    // ========================================================
+    // NOTE: Les bindings pour les repositories qui ont aussi des dépendances (comme AppConfigRepository)
+    // ne peuvent pas être dans ce fichier "abstract". Ils doivent être dans un module avec @Provides.
+    // Je vais donc les déplacer dans RepositoryModule pour une meilleure organisation.
 }

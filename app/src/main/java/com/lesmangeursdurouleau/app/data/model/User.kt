@@ -10,7 +10,10 @@ data class User(
     val username: String = "",
     val email: String = "",
     val profilePictureUrl: String? = null,
-    val createdAt: Long? = null,
+
+    @ServerTimestamp
+    val createdAt: Date? = null,
+
     val bio: String? = null,
     val city: String? = null,
     val canEditReadings: Boolean = false,
@@ -18,31 +21,18 @@ data class User(
     var followersCount: Int = 0,
     var followingCount: Int = 0,
     var booksReadCount: Int = 0,
+
     @get:PropertyName("isOnline")
     val isOnline: Boolean = false,
+
     @ServerTimestamp
     val lastSeen: Date? = null,
 
-    // === DÉBUT DES AJOUTS ===
-    // C'est l'ajout de ces lignes qui va résoudre vos erreurs.
-    /**
-     * Le score d'affinité le plus élevé que cet utilisateur a atteint avec n'importe qui.
-     */
     val highestAffinityScore: Int = 0,
-
-    /**
-     * L'ID de l'utilisateur avec qui le score d'affinité le plus élevé est atteint.
-     */
     val highestAffinityPartnerId: String? = null,
-
-    /**
-     * Le nom d'utilisateur du partenaire (dénormalisé pour un affichage direct et performant).
-     */
     val highestAffinityPartnerUsername: String? = null,
+    val highestAffinityTierName: String? = null,
 
-    /**
-     * Le titre du palier d'affinité le plus élevé atteint (ex: "Complice littéraire").
-     */
-    val highestAffinityTierName: String? = null
-    // === FIN DES AJOUTS ===
+    // CORRIGÉ : Ajout du champ manquant identifié dans les logs.
+    val isEmailVerified: Boolean = false
 )

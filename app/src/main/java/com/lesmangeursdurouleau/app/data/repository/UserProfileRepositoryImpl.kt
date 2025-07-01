@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier UserProfileRepositoryImpl.kt par ceci.
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -31,24 +32,15 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
-    private fun createUserFromSnapshot(document: DocumentSnapshot): User {
-        return User(
-            uid = document.id,
-            username = document.getString("username") ?: "",
-            email = document.getString("email") ?: "",
-            profilePictureUrl = document.getString("profilePictureUrl"),
-            bio = document.getString("bio"),
-            city = document.getString("city"),
-            createdAt = document.getTimestamp("createdAt")?.toDate()?.time,
-            canEditReadings = document.getBoolean("canEditReadings") ?: false,
-            lastPermissionGrantedTimestamp = document.getLong("lastPermissionGrantedTimestamp"),
-            followersCount = document.getLong("followersCount")?.toInt() ?: 0,
-            followingCount = document.getLong("followingCount")?.toInt() ?: 0,
-            booksReadCount = document.getLong("booksReadCount")?.toInt() ?: 0,
-            // MODIFICATION : Ajout de la lecture des nouveaux champs de présence.
-            isOnline = document.getBoolean("isOnline") ?: false,
-            lastSeen = document.getTimestamp("lastSeen")?.toDate()
-        )
+    // CORRIGÉ: La désérialisation automatique est plus sûre et gère les nouveaux types.
+    // Si la désérialisation complète échoue, on retourne null.
+    private fun createUserFromSnapshot(document: DocumentSnapshot): User? {
+        return try {
+            document.toObject(User::class.java)?.copy(uid = document.id)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur de désérialisation pour le document User ${document.id}", e)
+            null
+        }
     }
 
     override suspend fun updateUserProfile(userId: String, username: String): Resource<Unit> {
@@ -97,7 +89,7 @@ class UserProfileRepositoryImpl @Inject constructor(
             }
             if (snapshot != null) {
                 val users = snapshot.documents.mapNotNull { doc ->
-                    try { createUserFromSnapshot(doc) } catch (e: Exception) { null }
+                    createUserFromSnapshot(doc)
                 }
                 trySend(Resource.Success(users))
             }
@@ -116,12 +108,9 @@ class UserProfileRepositoryImpl @Inject constructor(
                 close(error); return@addSnapshotListener
             }
             if (snapshot != null && snapshot.exists()) {
-                try {
-                    val user = createUserFromSnapshot(snapshot)
+                createUserFromSnapshot(snapshot)?.let { user ->
                     trySend(Resource.Success(user))
-                } catch (e: Exception) {
-                    trySend(Resource.Error("Erreur de conversion des données."))
-                }
+                } ?: trySend(Resource.Error("Erreur de conversion des données."))
             } else {
                 trySend(Resource.Error("Utilisateur non trouvé."))
             }
@@ -140,26 +129,18 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    // NOUVELLE FONCTION IMPLÉMENTÉE
     override suspend fun updateUserPresence(userId: String, isOnline: Boolean) {
         if (userId.isBlank()) return
-
         try {
             val presenceUpdate = mapOf(
                 "isOnline" to isOnline,
-                "lastSeen" to FieldValue.serverTimestamp() // Met à jour l'heure à chaque changement
+                "lastSeen" to FieldValue.serverTimestamp()
             )
             usersCollection.document(userId).update(presenceUpdate).await()
-            Log.d(TAG, "Statut de présence mis à jour pour $userId : isOnline = $isOnline")
-        } catch (e: FirebaseFirestoreException) {
-            // Loguer spécifiquement les erreurs Firestore (ex: PERMISSION_DENIED)
-            Log.e(TAG, "Erreur Firestore lors de la mise à jour de la présence pour $userId: ${e.code}", e)
         } catch (e: Exception) {
-            // Loguer les autres erreurs (ex: pas de réseau)
-            Log.e(TAG, "Erreur générale lors de la mise à jour de la présence pour $userId", e)
+            Log.e(TAG, "Erreur lors de la mise à jour de la présence pour $userId", e)
         }
     }
-
 
     override suspend fun updateUserBio(userId: String, bio: String): Resource<Unit> {
         return try {

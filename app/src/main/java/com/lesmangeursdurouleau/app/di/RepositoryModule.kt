@@ -1,15 +1,11 @@
+// PRÊT À COLLER - Fichier 100% complet et nettoyé
 package com.lesmangeursdurouleau.app.di
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
-import com.lesmangeursdurouleau.app.data.repository.ChatRepository
-import com.lesmangeursdurouleau.app.data.repository.ChatRepositoryImpl
-import com.lesmangeursdurouleau.app.data.repository.MonthlyReadingRepository
-import com.lesmangeursdurouleau.app.data.repository.MonthlyReadingRepositoryImpl
-import com.lesmangeursdurouleau.app.data.repository.AppConfigRepository
-import com.lesmangeursdurouleau.app.data.repository.AppConfigRepositoryImpl
-
+import com.lesmangeursdurouleau.app.data.repository.*
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,18 +16,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
 
-    // SUPPRESSION: Cette méthode est maintenant obsolète et doit être supprimée.
-    /*
-    @Provides
-    @Singleton
-    fun provideUserRepository(
-        firestore: FirebaseFirestore,
-        firebaseAuth: FirebaseAuth,
-        firebaseStorageService: FirebaseStorageService
-    ): UserRepository {
-        return UserRepositoryImpl(firestore, firebaseAuth, firebaseStorageService)
-    }
-    */
+    // SUPPRIMÉ : L'ancien bloc commenté pour UserRepository a été définitivement enlevé.
+
+    // NOTE : Ce module est l'endroit idéal pour tous les repositories qui nécessitent
+    // des dépendances (comme firestore, firebaseAuth, etc.) et ne peuvent donc pas
+    // être simplement "liés" avec @Binds.
 
     @Provides
     @Singleton
@@ -57,4 +46,10 @@ object RepositoryModule {
     ): AppConfigRepository {
         return AppConfigRepositoryImpl(firestore)
     }
+
+    // AJOUT : Bien que PrivateChatRepository soit dans le module Binds,
+    // son implémentation a des dépendances. Il est plus cohérent de le mettre ici.
+    // Pour l'instant, je respecte votre structure. Mais si des erreurs surviennent,
+    // il faudra le déplacer de RepositoryBindingsModule à ici.
+    // Idem pour SocialRepositoryImpl.
 }

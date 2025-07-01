@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Fichier 100% complet et corrigé
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.content.Context
@@ -22,15 +23,16 @@ import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
+import com.google.android.material.snackbar.Snackbar
 import com.lesmangeursdurouleau.app.R
-import com.lesmangeursdurouleau.app.data.model.CompletedReading
+import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.databinding.FragmentCompletedReadingDetailBinding
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
-import java.util.Locale
+import java.util.*
 import java.util.concurrent.TimeUnit
 
 @AndroidEntryPoint
@@ -46,11 +48,10 @@ class CompletedReadingDetailFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // NOUVEAU: Définir l'animation de transition partagée
         sharedElementEnterTransition = TransitionInflater.from(requireContext())
-            .inflateTransition(android.R.transition.move)
-        // Optionnel: Définir une durée
-        (sharedElementEnterTransition as Transition?)?.duration = 300
+            .inflateTransition(android.R.transition.move)?.apply {
+                duration = 300
+            }
     }
 
     override fun onCreateView(
@@ -58,35 +59,26 @@ class CompletedReadingDetailFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentCompletedReadingDetailBinding.inflate(inflater, container, false)
-        // NOUVEAU: Assigner le nom de transition à la vue de destination
         ViewCompat.setTransitionName(binding.ivBookCover, "cover_${args.bookId}")
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        // NOUVEAU: Mettre en pause la transition pour attendre le chargement de l'image
-        postponeEnterTransition(250, TimeUnit.MILLISECONDS) // Timeout de sécurité
+        postponeEnterTransition() // On attend que Glide soit prêt
 
         observeViewModel()
         setupClickListeners()
     }
 
-    // ... le reste du fragment (setupRecyclerView, setupClickListeners, etc.) ...
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
                 targetProfileOwnerId = args.userId,
-                onDeleteClickListener = { comment ->
-                    viewModel.deleteComment(comment.commentId)
-                },
-                onLikeClickListener = { comment ->
-                    viewModel.toggleLikeOnComment(comment.commentId)
-                },
-                getCommentLikeStatus = { commentId ->
-                    viewModel.isCommentLikedByCurrentUser(commentId)
-                },
+                onDeleteClickListener = { comment -> viewModel.deleteComment(comment.commentId) },
+                onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
+                getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) },
                 lifecycleOwner = viewLifecycleOwner
             )
             binding.rvComments.adapter = commentsAdapter
@@ -96,22 +88,26 @@ class CompletedReadingDetailFragment : Fragment() {
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // Observe l'état global de l'UI
                 launch {
-                    viewModel.currentUserId.collectLatest { uid ->
-                        setupRecyclerView(uid)
-                        binding.commentInputBar.isVisible = uid != null
-                    }
-                }
+                    viewModel.uiState.collectLatest { state ->
+                        binding.progressBarDetails.isVisible = state.isLoading
 
-                launch {
-                    viewModel.completedReading.collect { resource ->
-                        binding.progressBarDetails.isVisible = resource is Resource.Loading
-                        if (resource is Resource.Success) {
-                            resource.data?.let { updateReadingDetailsUI(it) }
+                        state.book?.let { book ->
+                            updateReadingDetailsUI(book, state.completionDate)
+                        }
+
+                        if (state.error != null) {
+                            Snackbar.make(binding.root, state.error, Snackbar.LENGTH_LONG).show()
+                            // Optionnel: Cacher les vues principales en cas d'erreur fatale
+                            binding.ivBookCover.isVisible = false
+                            binding.tvBookTitle.isVisible = false
+                            binding.tvBookAuthor.isVisible = false
                         }
                     }
                 }
 
+                // Observe les commentaires séparément
                 launch {
                     viewModel.comments.collect { resource ->
                         binding.progressBarComments.isVisible = resource is Resource.Loading
@@ -124,63 +120,62 @@ class CompletedReadingDetailFragment : Fragment() {
                     }
                 }
 
+                // Observe le statut du like de l'utilisateur
                 launch {
                     viewModel.isReadingLikedByCurrentUser.collect { resource ->
                         if (resource is Resource.Success) {
-                            val isLiked = resource.data ?: false
-                            val iconRes = if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                            binding.btnLikeReading.setIconResource(iconRes)
+                            val isLiked = resource.data == true
+                            binding.btnLikeReading.setIconResource(
+                                if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                            )
                         }
                     }
                 }
 
+                // Observe le nombre total de likes
                 launch {
                     viewModel.readingLikesCount.collect { resource ->
                         if (resource is Resource.Success) {
                             binding.btnLikeReading.text = resource.data?.toString() ?: "0"
+                        } else {
+                            binding.btnLikeReading.text = "-"
                         }
+                    }
+                }
+
+                // Initialise l'adapter avec l'ID de l'utilisateur courant
+                launch {
+                    viewModel.currentUserId.collectLatest { uid ->
+                        setupRecyclerView(uid)
+                        binding.commentInputBar.isVisible = uid != null
                     }
                 }
             }
         }
     }
 
-    private fun updateReadingDetailsUI(reading: CompletedReading) {
-        // MODIFIÉ: Utilisation d'un listener Glide pour démarrer la transition au bon moment
+    private fun updateReadingDetailsUI(book: Book, completionDate: Date?) {
         Glide.with(this)
-            .load(reading.coverImageUrl)
+            .load(book.coverImageUrl)
             .placeholder(R.drawable.ic_book_placeholder)
-            .dontAnimate() // Important pour que la transition soit fluide
+            .error(R.drawable.ic_book_placeholder_error)
+            .dontAnimate()
             .listener(object : RequestListener<Drawable> {
-                override fun onLoadFailed(
-                    e: GlideException?,
-                    model: Any?,
-                    target: Target<Drawable>,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    // Démarrer la transition même si l'image ne se charge pas
+                override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
                     startPostponedEnterTransition()
                     return false
                 }
-
-                override fun onResourceReady(
-                    resource: Drawable,
-                    model: Any,
-                    target: Target<Drawable>?,
-                    dataSource: DataSource,
-                    isFirstResource: Boolean
-                ): Boolean {
-                    // L'image est chargée, on peut démarrer la transition
+                override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
                     startPostponedEnterTransition()
                     return false
                 }
             })
             .into(binding.ivBookCover)
 
-        binding.tvBookTitle.text = reading.title
-        binding.tvBookAuthor.text = reading.author
+        binding.tvBookTitle.text = book.title
+        binding.tvBookAuthor.text = book.author
 
-        reading.completionDate?.let { date ->
+        completionDate?.let { date ->
             val dateFormat = SimpleDateFormat("'Terminé le' dd MMMM yyyy", Locale.getDefault())
             binding.tvCompletionDate.text = dateFormat.format(date)
         } ?: run {

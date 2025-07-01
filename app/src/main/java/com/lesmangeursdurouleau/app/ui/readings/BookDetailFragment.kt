@@ -1,4 +1,4 @@
-// app/src/main/java/com/lesmangeursdurouleau/app/ui/readings/detail/BookDetailFragment.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier BookDetailFragment.kt par ceci.
 package com.lesmangeursdurouleau.app.ui.readings
 
 import android.os.Bundle
@@ -26,7 +26,6 @@ class BookDetailFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val args: BookDetailFragmentArgs by navArgs()
-    // Le ViewModel est maintenant injecté avec ses nouvelles dépendances
     private val viewModel: BookDetailViewModel by viewModels()
 
     override fun onCreateView(
@@ -43,12 +42,9 @@ class BookDetailFragment : Fragment() {
         setupClickListeners()
 
         val bookId = args.bookId
-        Log.d("BookDetailFragment", "Received Book ID for detail: $bookId")
-
         if (bookId.isNotBlank()) {
             viewModel.loadBookDetails(bookId)
         } else {
-            Log.e("BookDetailFragment", "Book ID is blank, cannot load details.")
             binding.tvBookDetailSynopsis.text = "Erreur : ID du livre manquant."
             binding.progressBarBookDetail.visibility = View.GONE
         }
@@ -68,7 +64,7 @@ class BookDetailFragment : Fragment() {
                     binding.progressBarBookDetail.visibility = View.VISIBLE
                     binding.ivBookDetailCover.visibility = View.INVISIBLE
                     binding.tvBookDetailTitle.visibility = View.INVISIBLE
-                    binding.btnAddToLibrary.visibility = View.GONE // Cacher le bouton pendant le chargement initial
+                    binding.btnAddToLibrary.visibility = View.GONE
                 }
                 is Resource.Success -> {
                     binding.progressBarBookDetail.visibility = View.GONE
@@ -78,18 +74,15 @@ class BookDetailFragment : Fragment() {
                         binding.tvBookDetailTitle.visibility = View.VISIBLE
                     } ?: run {
                         binding.tvBookDetailSynopsis.text = "Livre non trouvé ou données invalides."
-                        Log.e("BookDetailFragment", "Book data is null on success for ID: ${args.bookId}")
                     }
                 }
                 is Resource.Error -> {
                     binding.progressBarBookDetail.visibility = View.GONE
                     binding.tvBookDetailSynopsis.text = resource.message ?: getString(R.string.error_loading_book_details)
-                    Log.e("BookDetailFragment", "Error loading book details: ${resource.message}")
                 }
             }
         }
 
-        // Observer pour savoir si le livre est dans la bibliothèque
         viewModel.isBookInLibrary.observe(viewLifecycleOwner) { resource ->
             when (resource) {
                 is Resource.Loading -> {
@@ -103,7 +96,6 @@ class BookDetailFragment : Fragment() {
                     if (isInLibrary == true) {
                         binding.btnAddToLibrary.isEnabled = false
                         binding.btnAddToLibrary.text = "Dans ma bibliothèque"
-                        // Optionnel : Changer la couleur pour un feedback visuel plus fort
                         binding.btnAddToLibrary.icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_check_single)
                     } else {
                         binding.btnAddToLibrary.isEnabled = true
@@ -112,14 +104,12 @@ class BookDetailFragment : Fragment() {
                     }
                 }
                 is Resource.Error -> {
-                    // En cas d'erreur de vérification, on cache le bouton pour ne pas induire en erreur
                     binding.btnAddToLibrary.visibility = View.GONE
                     Toast.makeText(context, resource.message, Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
-        // Observer pour le résultat de l'action d'ajout
         viewModel.addBookToLibraryResult.observe(viewLifecycleOwner) { resource ->
             when(resource) {
                 is Resource.Loading -> {
@@ -128,11 +118,9 @@ class BookDetailFragment : Fragment() {
                 }
                 is Resource.Success -> {
                     Toast.makeText(context, "Livre ajouté avec succès !", Toast.LENGTH_SHORT).show()
-                    // Pas besoin de changer l'état du bouton ici. L'observer isBookInLibrary s'en chargera automatiquement grâce au listener temps réel.
                 }
                 is Resource.Error -> {
                     Toast.makeText(context, "Erreur : ${resource.message}", Toast.LENGTH_LONG).show()
-                    // On réactive le bouton pour que l'utilisateur puisse réessayer
                     binding.btnAddToLibrary.isEnabled = true
                     binding.btnAddToLibrary.text = getString(R.string.add_to_my_library)
                 }
@@ -145,6 +133,13 @@ class BookDetailFragment : Fragment() {
         binding.tvBookDetailAuthor.text = book.author
         binding.tvBookDetailSynopsis.text = book.synopsis ?: getString(R.string.no_synopsis_available)
 
+        // === DÉBUT DE LA MODIFICATION ===
+        binding.ivBookDetailCover.contentDescription = getString(
+            R.string.book_cover_of_title_description,
+            book.title.ifBlank { getString(R.string.unknown_book_title) }
+        )
+        // === FIN DE LA MODIFICATION ===
+
         if (!book.coverImageUrl.isNullOrEmpty()) {
             Glide.with(this)
                 .load(book.coverImageUrl)
@@ -155,9 +150,7 @@ class BookDetailFragment : Fragment() {
             binding.ivBookDetailCover.setImageResource(R.drawable.ic_book_placeholder)
         }
 
-        if (activity is AppCompatActivity) {
-            (activity as AppCompatActivity).supportActionBar?.title = book.title
-        }
+        (activity as? AppCompatActivity)?.supportActionBar?.title = book.title
     }
 
     override fun onDestroyView() {

@@ -1,17 +1,20 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier Phase.kt par ceci.
 package com.lesmangeursdurouleau.app.data.model
 
-import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
+/**
+ * Représente une étape d'une lecture mensuelle (par exemple, analyse ou débat).
+ *
+ * @property date La date planifiée pour la phase.
+ * @property status Le statut actuel de la phase, utilisant l'enum PhaseStatus pour la robustesse.
+ * @property meetingLink Un lien optionnel vers une réunion en ligne pour cette phase.
+ */
 data class Phase(
     val date: Date? = null,
-    val status: String = "PLANIFIED", 
+    // MODIFIÉ: Le type est maintenant l'enum PhaseStatus, avec une valeur par défaut sécurisée.
+    val status: PhaseStatus = PhaseStatus.PLANIFIED,
     val meetingLink: String? = null
-) {
-    // Constants for phase statuses
-    companion object {
-        const val STATUS_PLANIFIED = "PLANIFIED"
-        const val STATUS_IN_PROGRESS = "IN_PROGRESS"
-        const val STATUS_COMPLETED = "COMPLETED"
-    }
-}
+)
+
+// SUPPRIMÉ: Le companion object avec les constantes String est désormais inutile.

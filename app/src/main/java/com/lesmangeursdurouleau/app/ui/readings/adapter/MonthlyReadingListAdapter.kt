@@ -1,4 +1,4 @@
-// app/src/main/java/com/lesmangeursdurouleau/app/ui/readings/adapter/MonthlyReadingListAdapter.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier MonthlyReadingListAdapter.kt par ceci.
 package com.lesmangeursdurouleau.app.ui.readings.adapter
 
 import android.annotation.SuppressLint
@@ -14,6 +14,7 @@ import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.MonthlyReading
 import com.lesmangeursdurouleau.app.data.model.Phase
+import com.lesmangeursdurouleau.app.data.model.PhaseStatus // NOUVEL IMPORT
 import com.lesmangeursdurouleau.app.databinding.ItemMonthlyReadingBinding
 import com.lesmangeursdurouleau.app.databinding.ItemPhaseDetailBinding
 import java.text.SimpleDateFormat
@@ -35,7 +36,6 @@ class MonthlyReadingListAdapter(
     private val onLikeClicked: (MonthlyReadingWithBook) -> Unit,
     private val onCommentClicked: (MonthlyReadingWithBook) -> Unit,
     private val onJoinClicked: (meetingLink: String) -> Unit,
-    // --- NOUVEAU PARAMÈTRE POUR LA NAVIGATION ---
     private val onBookCoverClicked: (bookId: String, bookTitle: String?) -> Unit
 ) : ListAdapter<MonthlyReadingWithBook, MonthlyReadingListAdapter.MonthlyReadingViewHolder>(MonthlyReadingDiffCallback()) {
 
@@ -60,20 +60,16 @@ class MonthlyReadingListAdapter(
             val book = data.book
             val context = itemView.context
 
-            // --- 1. En-tête ---
             binding.tvClubName.text = context.getString(R.string.club_name)
             binding.tvHeaderSubtitle.text = context.getString(
                 R.string.post_subtitle_template,
                 subtitleDateFormatter.format(monthlyReading.getCalendar().time).capitalize(Locale.FRENCH),
             )
-
-            // --- 2. Mot de l'animateur ---
             binding.tvAnimatorQuote.text = monthlyReading.customDescription?.let { "\"$it\"" } ?: ""
             binding.tvAnimatorQuote.visibility = if (monthlyReading.customDescription.isNullOrBlank()) View.GONE else View.VISIBLE
-
-            // --- 3. Carte du livre ---
             binding.tvBookTitle.text = book?.title ?: context.getString(R.string.unknown_book_title)
             binding.tvBookAuthor.text = book?.author ?: context.getString(R.string.unknown_author)
+
             if (!book?.coverImageUrl.isNullOrEmpty()) {
                 if (book != null) {
                     Glide.with(context)
@@ -86,7 +82,6 @@ class MonthlyReadingListAdapter(
                 binding.ivBookCover.setImageResource(R.drawable.ic_book_placeholder)
             }
 
-            // --- 4. Section des phases (via la fonction d'aide) ---
             val analysisStatus = bindPhaseDetails(
                 binding.phaseAnalysisLayout,
                 monthlyReading.analysisPhase,
@@ -101,44 +96,27 @@ class MonthlyReadingListAdapter(
                 R.drawable.ic_people
             )
 
-            // --- 5. Indicateurs Sociaux & Barre d'Actions ---
-            binding.tvSocialFeedback.text = "❤️ 12 Appréciations" // Placeholder
+            binding.tvSocialFeedback.text = "❤️ 12 Appréciations"
 
             val isAnalysisJoinable = analysisStatus == PhaseDisplayStatus.IN_PROGRESS && !monthlyReading.analysisPhase.meetingLink.isNullOrBlank()
             val isDebateJoinable = debateStatus == PhaseDisplayStatus.IN_PROGRESS && !monthlyReading.debatePhase.meetingLink.isNullOrBlank()
 
-            if (isAnalysisJoinable || isDebateJoinable) {
-                binding.btnJoinMeetingMain.visibility = View.VISIBLE
-            } else {
-                binding.btnJoinMeetingMain.visibility = View.GONE
-            }
+            binding.btnJoinMeetingMain.visibility = if (isAnalysisJoinable || isDebateJoinable) View.VISIBLE else View.GONE
 
-            // --- 6. Configuration des Listeners ---
             binding.btnEditMonthlyReading.setOnClickListener { onEditClicked(data) }
             binding.btnActionLike.setOnClickListener { onLikeClicked(data) }
             binding.btnActionComment.setOnClickListener { onCommentClicked(data) }
 
             binding.btnJoinMeetingMain.setOnClickListener {
-                val linkToOpen = if (isAnalysisJoinable) {
-                    monthlyReading.analysisPhase.meetingLink
-                } else if (isDebateJoinable) {
-                    monthlyReading.debatePhase.meetingLink
-                } else { null }
-
+                val linkToOpen = if (isAnalysisJoinable) monthlyReading.analysisPhase.meetingLink else monthlyReading.debatePhase.meetingLink
                 linkToOpen?.let { onJoinClicked(it) }
             }
 
-            // --- AJOUT : CLICK LISTENER SUR LA COUVERTURE DU LIVRE ---
-            // On s'assure que le livre et son ID existent avant de rendre la couverture cliquable
             if (book != null && book.id.isNotBlank()) {
-                binding.ivBookCover.setOnClickListener {
-                    onBookCoverClicked(book.id, book.title)
-                }
-                // Optionnel: Ajouter un feedback visuel au clic
+                binding.ivBookCover.setOnClickListener { onBookCoverClicked(book.id, book.title) }
                 binding.ivBookCover.isClickable = true
                 binding.ivBookCover.isFocusable = true
             } else {
-                // Si pas de livre ou d'ID, on s'assure que ce n'est pas cliquable
                 binding.ivBookCover.setOnClickListener(null)
                 binding.ivBookCover.isClickable = false
                 binding.ivBookCover.isFocusable = false
@@ -164,9 +142,10 @@ class MonthlyReadingListAdapter(
                 Calendar.getInstance().apply { time = it; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
             }
 
+            // MODIFIÉ: La logique de comparaison utilise maintenant l'enum PhaseStatus.
             val displayStatus = when {
-                phase.status == Phase.STATUS_COMPLETED -> PhaseDisplayStatus.COMPLETED
-                phase.status == Phase.STATUS_IN_PROGRESS -> PhaseDisplayStatus.IN_PROGRESS
+                phase.status == PhaseStatus.COMPLETED -> PhaseDisplayStatus.COMPLETED
+                phase.status == PhaseStatus.IN_PROGRESS -> PhaseDisplayStatus.IN_PROGRESS
                 phaseDate == null -> PhaseDisplayStatus.PLANIFIED
                 phaseDate.before(today) -> PhaseDisplayStatus.COMPLETED
                 phaseDate == today -> PhaseDisplayStatus.IN_PROGRESS
@@ -191,7 +170,6 @@ class MonthlyReadingListAdapter(
                     chip.setTextColor(ContextCompat.getColor(context, R.color.chip_text_completed))
                 }
             }
-
             return displayStatus
         }
     }

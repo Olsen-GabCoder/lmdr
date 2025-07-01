@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier CompletedReadingsFragment.kt par ceci.
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.os.Bundle
@@ -7,24 +8,19 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.transition.MaterialElevationScale
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.Query
 import com.lesmangeursdurouleau.app.R
-import com.lesmangeursdurouleau.app.data.model.CompletedReading
 import com.lesmangeursdurouleau.app.databinding.FragmentCompletedReadingsBinding
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
@@ -56,12 +52,6 @@ class CompletedReadingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        // NOUVEAU: Préparer le fragment pour la transition de retour
-        postponeEnterTransition()
-        view.doOnPreDraw { startPostponedEnterTransition() }
-
-        Log.d(TAG, "CompletedReadingsFragment créé. UserID: ${args.userId}, Username: ${args.username}")
         updateActionBarTitle(args.username)
         setupRecyclerView()
         setupSortChips()
@@ -70,39 +60,35 @@ class CompletedReadingsFragment : Fragment() {
 
     private fun setupRecyclerView() {
         val currentUserId = firebaseAuth.currentUser?.uid
+        // MODIFIÉ: Initialisation du nouvel adaptateur
         completedReadingsAdapter = CompletedReadingsAdapter(
             currentUserId = currentUserId,
             profileOwnerId = args.userId,
-            onItemClickListener = { completedReading, coverImageView ->
-                Log.d(TAG, "Clic sur la lecture terminée : ${completedReading.title}, transitionName: ${ViewCompat.getTransitionName(coverImageView)}")
-
-                // NOUVEAU: Création des extras pour la transition
-                val extras = FragmentNavigatorExtras(coverImageView to (ViewCompat.getTransitionName(coverImageView) ?: ""))
-
-                val action = CompletedReadingsFragmentDirections.actionCompletedReadingsFragmentToCompletedReadingDetailFragment(
-                    userId = args.userId,
-                    bookId = completedReading.bookId,
-                    username = args.username,
-                    bookTitle = completedReading.title
-                )
-                // MODIFIÉ: Navigation avec les extras
-                findNavController().navigate(action, extras)
+            onItemClickListener = { item, _ ->
+                item.book?.let { book ->
+                    Log.d(TAG, "Clic sur la lecture terminée : ${book.title}")
+                    val action = CompletedReadingsFragmentDirections.actionCompletedReadingsFragmentToCompletedReadingDetailFragment(
+                        userId = args.userId,
+                        bookId = book.id,
+                        username = args.username,
+                        bookTitle = book.title
+                    )
+                    findNavController().navigate(action)
+                } ?: Toast.makeText(context, "Détails du livre non disponibles.", Toast.LENGTH_SHORT).show()
             },
-            onDeleteClickListener = { completedReading ->
-                showDeleteConfirmationDialog(completedReading)
+            onDeleteClickListener = { item ->
+                showDeleteConfirmationDialog(item)
             }
         )
 
         binding.rvCompletedReadings.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = completedReadingsAdapter
-            setHasFixedSize(false)
         }
     }
 
-    // ... le reste du fragment (setupSortChips, showDeleteConfirmationDialog, setupObservers, etc.) reste identique ...
     private fun setupSortChips() {
-        binding.sortChipGroup.setOnCheckedChangeListener { group, checkedId ->
+        binding.sortChipGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.chip_sort_date_desc -> viewModel.setSortOption("completionDate", Query.Direction.DESCENDING)
                 R.id.chip_sort_date_asc -> viewModel.setSortOption("completionDate", Query.Direction.ASCENDING)
@@ -112,16 +98,14 @@ class CompletedReadingsFragment : Fragment() {
         }
     }
 
-    private fun showDeleteConfirmationDialog(reading: CompletedReading) {
+    private fun showDeleteConfirmationDialog(item: CompletedReadingWithBook) {
+        val bookTitle = item.book?.title ?: getString(R.string.unknown_book_title)
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_reading_dialog_title)
-            .setMessage(getString(R.string.delete_reading_dialog_message, reading.title))
-            .setNegativeButton(R.string.cancel) { dialog, _ ->
-                dialog.dismiss()
-            }
-            .setPositiveButton(R.string.delete) { dialog, _ ->
-                viewModel.deleteCompletedReading(reading.bookId)
-                dialog.dismiss()
+            .setMessage(getString(R.string.delete_reading_dialog_message, bookTitle))
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete) { _, _ ->
+                viewModel.deleteCompletedReading(item.completedReading.bookId)
             }
             .show()
     }
@@ -130,28 +114,31 @@ class CompletedReadingsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.completedReadings.collectLatest { resource ->
+                    // MODIFIÉ: Observation du nouveau flow de données combinées
+                    viewModel.completedReadingsWithBooks.collectLatest { resource ->
                         val showToolbar = resource is Resource.Success && !resource.data.isNullOrEmpty()
                         binding.sortToolbar.isVisible = showToolbar
                         binding.divider.isVisible = showToolbar
 
                         binding.progressBarCompletedReadings.isVisible = resource is Resource.Loading
-                        binding.tvNoCompletedReadings.isVisible = resource is Resource.Success && resource.data.isNullOrEmpty()
+                        binding.rvCompletedReadings.isVisible = resource is Resource.Success && !resource.data.isNullOrEmpty()
+
+                        val isSuccessAndEmpty = resource is Resource.Success && resource.data.isNullOrEmpty()
+                        binding.tvNoCompletedReadings.isVisible = isSuccessAndEmpty
+                        if(isSuccessAndEmpty) {
+                            binding.tvNoCompletedReadings.text = getString(R.string.no_completed_readings_yet, args.username ?: "cet utilisateur")
+                        }
+
                         binding.tvCompletedReadingsError.isVisible = resource is Resource.Error
 
                         when (resource) {
                             is Resource.Success -> {
-                                binding.rvCompletedReadings.isVisible = true
                                 completedReadingsAdapter.submitList(resource.data)
                             }
                             is Resource.Error -> {
-                                binding.rvCompletedReadings.isVisible = false
                                 binding.tvCompletedReadingsError.text = resource.message ?: getString(R.string.error_unknown)
-                                Toast.makeText(context, getString(R.string.error_loading_completed_readings, resource.message), Toast.LENGTH_LONG).show()
                             }
-                            is Resource.Loading -> {
-                                binding.rvCompletedReadings.isVisible = false
-                            }
+                            is Resource.Loading -> { /* Géré par isVisible */ }
                         }
                     }
                 }
@@ -159,13 +146,9 @@ class CompletedReadingsFragment : Fragment() {
                 launch {
                     viewModel.deleteStatus.collectLatest { resource ->
                         when(resource) {
-                            is Resource.Success -> {
-                                Toast.makeText(context, R.string.reading_deleted_successfully, Toast.LENGTH_SHORT).show()
-                            }
-                            is Resource.Error -> {
-                                Toast.makeText(context, resource.message, Toast.LENGTH_LONG).show()
-                            }
-                            else -> { /* Ne rien faire pour Loading */ }
+                            is Resource.Success -> Toast.makeText(context, R.string.reading_deleted_successfully, Toast.LENGTH_SHORT).show()
+                            is Resource.Error -> Toast.makeText(context, resource.message, Toast.LENGTH_LONG).show()
+                            else -> { /* No-op */ }
                         }
                     }
                 }
