@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier AddEditMonthlyReadingViewModel.kt par ceci.
+// PRÊT À COLLER - Remplacez le contenu de votre fichier AddEditMonthlyReadingViewModel.kt
 package com.lesmangeursdurouleau.app.ui.readings.addedit
 
 import androidx.lifecycle.SavedStateHandle
@@ -8,7 +8,7 @@ import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.MonthlyReading
 import com.lesmangeursdurouleau.app.data.model.PhaseStatus
 import com.lesmangeursdurouleau.app.domain.usecase.books.GetBooksUseCase
-import com.lesmangeursdurouleau.app.domain.usecase.monthlyreadings.GetMonthlyReadingsUseCase
+import com.lesmangeursdurouleau.app.domain.usecase.monthlyreadings.GetMonthlyReadingByIdUseCase
 import com.lesmangeursdurouleau.app.domain.usecase.monthlyreadings.SaveMonthlyReadingUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,7 +20,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AddEditMonthlyReadingViewModel @Inject constructor(
     private val getBooksUseCase: GetBooksUseCase,
-    private val getMonthlyReadingsUseCase: GetMonthlyReadingsUseCase,
+    private val getMonthlyReadingByIdUseCase: GetMonthlyReadingByIdUseCase,
     private val saveMonthlyReadingUseCase: SaveMonthlyReadingUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -38,7 +38,7 @@ class AddEditMonthlyReadingViewModel @Inject constructor(
 
     init {
         loadAllBooks()
-        monthlyReadingId?.let { loadMonthlyReading(it) }
+        monthlyReadingId?.let { loadMonthlyReadingForEdit(it) }
     }
 
     private fun loadAllBooks() {
@@ -47,40 +47,28 @@ class AddEditMonthlyReadingViewModel @Inject constructor(
         }
     }
 
-    private fun loadMonthlyReading(readingId: String) {
+    private fun loadMonthlyReadingForEdit(readingId: String) {
         viewModelScope.launch {
-            val monthlyReadingFlow = getMonthlyReadingsUseCase(readingId)
+            val monthlyReadingFlow = getMonthlyReadingByIdUseCase(readingId)
 
-            // CORRIGÉ: Le bloc combine renvoie maintenant toujours le bon type d'objet Resource.
-            combine(monthlyReadingFlow, allBooks.filter { it is Resource.Success }) { readingResource, booksResource ->
-                when {
-                    readingResource is Resource.Success && booksResource is Resource.Success -> {
+            combine(monthlyReadingFlow, allBooks.filterIsInstance<Resource.Success<List<Book>>>()) { readingResource, booksResource ->
+                when (readingResource) {
+                    is Resource.Success -> {
                         val reading = readingResource.data
                         val book = reading?.let { r -> booksResource.data?.find { it.id == r.bookId } }
                         Resource.Success(Pair(reading, book))
                     }
-                    readingResource is Resource.Error -> {
-                        // On propage l'erreur de lecture.
-                        Resource.Error<Pair<MonthlyReading?, Book?>>(readingResource.message ?: "Erreur de chargement de la lecture.")
-                    }
-                    booksResource is Resource.Error -> {
-                        // On propage l'erreur des livres.
-                        Resource.Error<Pair<MonthlyReading?, Book?>>(booksResource.message ?: "Erreur de chargement des livres.")
-                    }
-                    else -> {
-                        // Le cas par défaut est maintenant un Resource.Loading, et non plus un AuthResultWrapper.
-                        Resource.Loading<Pair<MonthlyReading?, Book?>>()
-                    }
+                    is Resource.Error -> Resource.Error(readingResource.message.toString())
+                    is Resource.Loading -> Resource.Loading()
                 }
-            }.collect {
-                // Le cast forcé n'est plus nécessaire car le type est maintenant correct.
-                _monthlyReadingAndBookForEdit.value = it
+            }.collect { result ->
+                _monthlyReadingAndBookForEdit.value = result
             }
         }
     }
 
     fun save(
-        book: Book,
+        bookFromForm: Book,
         year: Int,
         month: Int,
         analysisDate: Date,
@@ -105,7 +93,7 @@ class AddEditMonthlyReadingViewModel @Inject constructor(
                 debateStatus = debateStatus,
                 debateMeetingLink = debateLink,
                 customDescription = customDescription,
-                book = book,
+                bookFromForm = bookFromForm,
                 existingBookId = existingBookId
             )
             _saveResult.value = result

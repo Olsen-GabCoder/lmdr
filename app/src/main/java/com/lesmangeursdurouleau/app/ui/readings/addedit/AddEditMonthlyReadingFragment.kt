@@ -5,7 +5,6 @@ import android.app.DatePickerDialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.MenuItem
 import android.view.View
@@ -48,7 +47,6 @@ class AddEditMonthlyReadingFragment : Fragment() {
     private lateinit var bookDropdownAdapter: ArrayAdapter<String>
     private lateinit var phaseStatusAdapter: ArrayAdapter<String>
 
-    // Stockage local des états du formulaire pour les passer au ViewModel
     private var selectedBookId: String? = null
     private var analysisDate: Date? = null
     private var debateDate: Date? = null
@@ -82,7 +80,6 @@ class AddEditMonthlyReadingFragment : Fragment() {
         setupObservers()
 
         if (args.monthlyReadingId == null) {
-            // Mode Ajout
             val currentCalendar = Calendar.getInstance()
             binding.etYear.setText(currentCalendar.get(Calendar.YEAR).toString())
             binding.etMonth.setText(SimpleDateFormat("MMMM", Locale.getDefault()).format(currentCalendar.time))
@@ -91,7 +88,6 @@ class AddEditMonthlyReadingFragment : Fragment() {
             binding.actvAnalysisStatus.setText(getString(R.string.status_planified), false)
             binding.actvDebateStatus.setText(getString(R.string.status_planified), false)
         } else {
-            // Mode Édition
             (activity as? AppCompatActivity)?.supportActionBar?.title = getString(R.string.edit_monthly_reading_title)
         }
     }
@@ -99,24 +95,20 @@ class AddEditMonthlyReadingFragment : Fragment() {
     private fun setupBookInputFields() {
         bookDropdownAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, mutableListOf())
         binding.actvSelectBookAutocomplete.setAdapter(bookDropdownAdapter)
-
         binding.actvSelectBookAutocomplete.setOnItemClickListener { parent, _, position, _ ->
             val selectedBookTitle = parent.getItemAtPosition(position).toString()
             val selectedBookFromDropdown = (viewModel.allBooks.value as? Resource.Success)?.data?.find { it.title == selectedBookTitle }
             selectedBookFromDropdown?.let { book ->
-                selectedBookId = book.id // Met à jour l'ID local
+                selectedBookId = book.id
                 binding.etBookTitle.setText(book.title)
                 binding.etBookAuthor.setText(book.author)
                 binding.etBookSynopsis.setText(book.synopsis)
                 binding.etBookCoverUrl.setText(book.coverImageUrl)
             }
         }
-
         binding.actvSelectBookAutocomplete.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                // Si l'utilisateur efface ou modifie le titre, on considère que c'est un nouveau livre
-                // ou que la sélection est annulée.
                 selectedBookId = null
             }
             override fun afterTextChanged(s: Editable?) {}
@@ -141,38 +133,26 @@ class AddEditMonthlyReadingFragment : Fragment() {
     }
 
     private fun setupPhaseStatusSpinners() {
-        val statusOptions = arrayOf(
-            getString(R.string.status_planified),
-            getString(R.string.status_in_progress),
-            getString(R.string.status_completed)
-        )
+        val statusOptions = arrayOf(getString(R.string.status_planified), getString(R.string.status_in_progress), getString(R.string.status_completed))
         val statusTextToEnumMap = mapOf(
             getString(R.string.status_planified) to PhaseStatus.PLANIFIED,
             getString(R.string.status_in_progress) to PhaseStatus.IN_PROGRESS,
             getString(R.string.status_completed) to PhaseStatus.COMPLETED
         )
-
         phaseStatusAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_dropdown_item_1line, statusOptions)
         binding.actvAnalysisStatus.setAdapter(phaseStatusAdapter)
         binding.actvDebateStatus.setAdapter(phaseStatusAdapter)
-
         binding.actvAnalysisStatus.setOnItemClickListener { parent, _, position, _ ->
-            statusTextToEnumMap[parent.getItemAtPosition(position).toString()]?.let {
-                analysisStatus = it
-            }
+            statusTextToEnumMap[parent.getItemAtPosition(position).toString()]?.let { analysisStatus = it }
         }
         binding.actvDebateStatus.setOnItemClickListener { parent, _, position, _ ->
-            statusTextToEnumMap[parent.getItemAtPosition(position).toString()]?.let {
-                debateStatus = it
-            }
+            statusTextToEnumMap[parent.getItemAtPosition(position).toString()]?.let { debateStatus = it }
         }
     }
 
     private fun showDatePicker(onDateSelected: (Int, Int, Int) -> Unit) {
         val c = Calendar.getInstance()
-        DatePickerDialog(requireContext(), { _, year, month, day ->
-            onDateSelected(year, month, day)
-        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+        DatePickerDialog(requireContext(), { _, year, month, day -> onDateSelected(year, month, day) }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
     }
 
     private fun setupListeners() {
@@ -182,44 +162,36 @@ class AddEditMonthlyReadingFragment : Fragment() {
     private fun validateAndSave() {
         val bookTitle = binding.etBookTitle.text.toString().trim()
         val bookAuthor = binding.etBookAuthor.text.toString().trim()
-
         var isValid = true
         if (bookTitle.isEmpty()) {
-            binding.tilBookTitle.error = getString(R.string.error_book_title_required)
-            isValid = false
+            binding.tilBookTitle.error = getString(R.string.error_book_title_required); isValid = false
         }
         if (bookAuthor.isEmpty()) {
-            binding.tilBookAuthor.error = getString(R.string.error_book_author_required)
-            isValid = false
+            binding.tilBookAuthor.error = getString(R.string.error_book_author_required); isValid = false
         }
         if (analysisDate == null) {
-            binding.tilAnalysisDate.error = getString(R.string.error_date_required)
-            isValid = false
+            binding.tilAnalysisDate.error = getString(R.string.error_date_required); isValid = false
         }
         if (debateDate == null) {
-            binding.tilDebateDate.error = getString(R.string.error_date_required)
-            isValid = false
+            binding.tilDebateDate.error = getString(R.string.error_date_required); isValid = false
         }
         if (analysisDate != null && debateDate != null && analysisDate!!.after(debateDate!!)) {
-            binding.tilDebateDate.error = getString(R.string.error_invalid_date_order)
-            isValid = false
+            binding.tilDebateDate.error = getString(R.string.error_invalid_date_order); isValid = false
         }
 
         if (isValid) {
             val bookToSave = Book(
-                id = "", // L'ID sera géré par le UseCase
                 title = bookTitle,
                 author = bookAuthor,
                 synopsis = binding.etBookSynopsis.text.toString().trim().ifEmpty { null },
                 coverImageUrl = binding.etBookCoverUrl.text.toString().trim().ifEmpty { null }
             )
+            val calendar = Calendar.getInstance().apply { time = analysisDate!! }
 
-            val calendar = Calendar.getInstance()
-            analysisDate?.let { calendar.time = it }
-
-            // Appel de la méthode de sauvegarde unifiée du ViewModel
+            // CORRIGÉ: L'appel à la méthode `save` est maintenant aligné avec la signature du ViewModel.
+            // Le paramètre `book` est correctement nommé.
             viewModel.save(
-                book = bookToSave,
+                bookFromForm = bookToSave,
                 year = calendar.get(Calendar.YEAR),
                 month = calendar.get(Calendar.MONTH) + 1,
                 analysisDate = analysisDate!!,
@@ -243,7 +215,6 @@ class AddEditMonthlyReadingFragment : Fragment() {
                             val bookTitles = resource.data?.map { it.title } ?: emptyList()
                             bookDropdownAdapter.clear()
                             bookDropdownAdapter.addAll(bookTitles)
-                            bookDropdownAdapter.notifyDataSetChanged()
                         }
                     }
                 }
@@ -252,26 +223,17 @@ class AddEditMonthlyReadingFragment : Fragment() {
                     launch {
                         viewModel.monthlyReadingAndBookForEdit.collectLatest { resource ->
                             when (resource) {
-                                is Resource.Loading -> {
-                                    binding.progressBarAddEditMonthlyReading.visibility = View.VISIBLE
-                                    setFormEnabled(false)
-                                }
+                                is Resource.Loading -> setFormEnabled(false)
                                 is Resource.Success -> {
-                                    binding.progressBarAddEditMonthlyReading.visibility = View.GONE
                                     setFormEnabled(true)
                                     resource.data?.let { (monthlyReading, book) ->
-                                        if (monthlyReading != null) {
-                                            populateForm(monthlyReading, book)
-                                        } else {
-                                            Toast.makeText(requireContext(), "Lecture mensuelle non trouvée.", Toast.LENGTH_SHORT).show()
-                                            findNavController().popBackStack()
-                                        }
+                                        if (monthlyReading != null) populateForm(monthlyReading, book)
+                                        else findNavController().popBackStack()
                                     }
                                 }
                                 is Resource.Error -> {
-                                    binding.progressBarAddEditMonthlyReading.visibility = View.GONE
                                     setFormEnabled(true)
-                                    Toast.makeText(requireContext(), "Erreur de chargement: ${resource.message}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(requireContext(), "Erreur: ${resource.message}", Toast.LENGTH_LONG).show()
                                     findNavController().popBackStack()
                                 }
                             }
@@ -282,22 +244,19 @@ class AddEditMonthlyReadingFragment : Fragment() {
                 launch {
                     viewModel.saveResult.collectLatest { resource ->
                         resource?.let {
+                            setFormEnabled(it !is Resource.Loading)
+                            binding.progressBarAddEditMonthlyReading.visibility = if (it is Resource.Loading) View.VISIBLE else View.GONE
                             when (it) {
-                                is Resource.Loading -> {
-                                    binding.progressBarAddEditMonthlyReading.visibility = View.VISIBLE
-                                    setFormEnabled(false)
-                                }
                                 is Resource.Success -> {
-                                    val successMessage = if (args.monthlyReadingId == null) R.string.success_adding_monthly_reading else R.string.success_updating_monthly_reading
-                                    Toast.makeText(requireContext(), getString(successMessage), Toast.LENGTH_SHORT).show()
+                                    val message = if (args.monthlyReadingId == null) R.string.success_adding_monthly_reading else R.string.success_updating_monthly_reading
+                                    Toast.makeText(requireContext(), getString(message), Toast.LENGTH_SHORT).show()
                                     findNavController().popBackStack()
                                 }
                                 is Resource.Error -> {
-                                    binding.progressBarAddEditMonthlyReading.visibility = View.GONE
-                                    setFormEnabled(true)
-                                    val errorTemplate = if (args.monthlyReadingId == null) R.string.error_adding_monthly_reading else R.string.error_updating_monthly_reading
-                                    Toast.makeText(requireContext(), getString(errorTemplate, it.message ?: "inconnu"), Toast.LENGTH_LONG).show()
+                                    val message = if (args.monthlyReadingId == null) R.string.error_adding_monthly_reading else R.string.error_updating_monthly_reading
+                                    Toast.makeText(requireContext(), getString(message, it.message ?: "inconnu"), Toast.LENGTH_LONG).show()
                                 }
+                                is Resource.Loading -> { /* Géré par setFormEnabled */ }
                             }
                         }
                     }
@@ -314,29 +273,21 @@ class AddEditMonthlyReadingFragment : Fragment() {
             binding.etBookSynopsis.setText(it.synopsis)
             binding.etBookCoverUrl.setText(it.coverImageUrl)
             selectedBookId = it.id
-        } ?: if (args.monthlyReadingId != null) {
-            Toast.makeText(requireContext(), getString(R.string.error_book_not_found), Toast.LENGTH_LONG).show()
-        } else {
-
         }
-
         binding.etYear.setText(monthlyReading.year.toString())
         binding.etMonth.setText(SimpleDateFormat("MMMM", Locale.getDefault()).format(
             Calendar.getInstance().apply { set(Calendar.MONTH, monthlyReading.month - 1) }.time
         ))
-
         analysisDate = monthlyReading.analysisPhase.date
         analysisDate?.let { binding.etAnalysisDate.setText(dateFormatter.format(it)) }
         binding.etAnalysisLink.setText(monthlyReading.analysisPhase.meetingLink)
         analysisStatus = monthlyReading.analysisPhase.status
         binding.actvAnalysisStatus.setText(statusEnumToText(analysisStatus), false)
-
         debateDate = monthlyReading.debatePhase.date
         debateDate?.let { binding.etDebateDate.setText(dateFormatter.format(it)) }
         binding.etDebateLink.setText(monthlyReading.debatePhase.meetingLink)
         debateStatus = monthlyReading.debatePhase.status
         binding.actvDebateStatus.setText(statusEnumToText(debateStatus), false)
-
         binding.etCustomDescription.setText(monthlyReading.customDescription)
     }
 
@@ -349,19 +300,14 @@ class AddEditMonthlyReadingFragment : Fragment() {
     }
 
     private fun setFormEnabled(enabled: Boolean) {
-        binding.tilSelectBookAutocomplete.isEnabled = enabled
-        binding.tilBookTitle.isEnabled = enabled
-        binding.tilBookAuthor.isEnabled = enabled
-        binding.tilBookSynopsis.isEnabled = enabled
-        binding.tilBookCoverUrl.isEnabled = enabled
-        binding.tilAnalysisDate.isEnabled = enabled
-        binding.tilAnalysisStatus.isEnabled = enabled
-        binding.tilAnalysisLink.isEnabled = enabled
-        binding.tilDebateDate.isEnabled = enabled
-        binding.tilDebateStatus.isEnabled = enabled
-        binding.tilDebateLink.isEnabled = enabled
-        binding.tilCustomDescription.isEnabled = enabled
-        binding.btnSaveMonthlyReading.isEnabled = enabled
+        listOf(
+            binding.tilSelectBookAutocomplete, binding.tilBookTitle, binding.tilBookAuthor,
+            binding.tilBookSynopsis, binding.tilBookCoverUrl, binding.tilAnalysisDate,
+            binding.tilAnalysisStatus, binding.tilAnalysisLink, binding.tilDebateDate,
+            binding.tilDebateStatus, binding.tilDebateLink, binding.tilCustomDescription,
+            binding.btnSaveMonthlyReading
+        ).forEach { it.isEnabled = enabled }
+        binding.progressBarAddEditMonthlyReading.visibility = if(enabled) View.GONE else View.VISIBLE
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
