@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier User.kt par ceci.
+// PRÊT À COLLER - Fichier 1/2
 package com.lesmangeursdurouleau.app.data.model
 
 import com.google.firebase.firestore.PropertyName
@@ -33,6 +33,9 @@ data class User(
     val highestAffinityPartnerUsername: String? = null,
     val highestAffinityTierName: String? = null,
 
-    // CORRIGÉ : Ajout du champ manquant identifié dans les logs.
-    val isEmailVerified: Boolean = false
+    val isEmailVerified: Boolean = false,
+
+    // CORRIGÉ: Ajout des champs manquants identifiés dans les logs Firestore
+    val fcmToken: String? = null,
+    val isTypingInGeneralChat: Boolean = false
 )

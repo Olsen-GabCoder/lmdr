@@ -8,7 +8,6 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.SetOptions
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
@@ -32,8 +31,9 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
-    // CORRIGÉ: La désérialisation automatique est plus sûre et gère les nouveaux types.
-    // Si la désérialisation complète échoue, on retourne null.
+    // CORRIGÉ : La désérialisation est maintenant dans un bloc try-catch pour plus de robustesse.
+    // Si la désérialisation complète échoue (par ex. un nouveau champ est ajouté dans Firestore mais pas dans le modèle),
+    // on logue l'erreur et on retourne null au lieu de planter.
     private fun createUserFromSnapshot(document: DocumentSnapshot): User? {
         return try {
             document.toObject(User::class.java)?.copy(uid = document.id)
@@ -110,7 +110,7 @@ class UserProfileRepositoryImpl @Inject constructor(
             if (snapshot != null && snapshot.exists()) {
                 createUserFromSnapshot(snapshot)?.let { user ->
                     trySend(Resource.Success(user))
-                } ?: trySend(Resource.Error("Erreur de conversion des données."))
+                } ?: trySend(Resource.Error("Erreur de conversion des données utilisateur."))
             } else {
                 trySend(Resource.Error("Utilisateur non trouvé."))
             }

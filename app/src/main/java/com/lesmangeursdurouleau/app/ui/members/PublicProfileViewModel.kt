@@ -1,14 +1,11 @@
-// PRÊT À COLLER - Fichier 100% complet et corrigé
+// PRÊT À COLLER - Fichier 2/3
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.Timestamp
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.model.User
@@ -24,32 +21,35 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class CurrentReadingUiState(
-    val isLoading: Boolean = false,
-    val error: String? = null,
-    val bookReading: UserBookReading? = null,
-    val bookDetails: Book? = null,
-    val isOwnedProfile: Boolean = false
+data class CurrentReadingExperience(
+    val reading: UserBookReading,
+    val book: Book,
+    val comments: List<Comment> = emptyList(),
+    val likesCount: Int = 0,
+    val isLikedByCurrentUser: Boolean = false
 )
 
-sealed class CommentEvent {
-    data class ShowCommentError(val message: String) : CommentEvent()
-    data object ClearCommentInput : CommentEvent()
-    data class CommentDeletedSuccess(val commentId: String) : CommentEvent()
-    data class ShowCommentLikeError(val message: String) : CommentEvent()
+data class PublicProfileUiState(
+    val profileLoadState: ProfileLoadState = ProfileLoadState.Loading,
+    val user: User? = null,
+    val isFollowing: Boolean = false,
+    val isOwnedProfile: Boolean = false,
+    val readingExperience: CurrentReadingExperience? = null
+)
+
+sealed class ProfileLoadState {
+    object Loading : ProfileLoadState()
+    object Success : ProfileLoadState()
+    data class Error(val message: String) : ProfileLoadState()
 }
 
-sealed class LikeEvent {
-    data class ShowLikeError(val message: String) : LikeEvent()
-}
-
-@HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
+@HiltViewModel
 class PublicProfileViewModel @Inject constructor(
     private val userProfileRepository: UserProfileRepository,
-    private val bookRepository: BookRepository,
     private val socialRepository: SocialRepository,
     private val readingRepository: ReadingRepository,
+    private val bookRepository: BookRepository,
     private val firebaseAuth: FirebaseAuth,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -58,274 +58,149 @@ class PublicProfileViewModel @Inject constructor(
         private const val TAG = "PublicProfileViewModel"
     }
 
-    private val _userProfile = MutableLiveData<Resource<User>>()
-    val userProfile: LiveData<Resource<User>> = _userProfile
+    private val targetUserId: String = savedStateHandle.get<String>("userId")!!
+    val currentUserId: String? = firebaseAuth.currentUser?.uid
 
-    private val userIdFromArgs: String? = savedStateHandle.get<String>("userId")
+    private val _uiState = MutableStateFlow(PublicProfileUiState())
+    val uiState: StateFlow<PublicProfileUiState> = _uiState.asStateFlow()
 
-    private val _currentUserId = MutableLiveData<String?>(firebaseAuth.currentUser?.uid)
-    val currentUserId: LiveData<String?> = _currentUserId
-
-    private val _isFollowing = MutableStateFlow<Resource<Boolean>>(Resource.Loading())
-    val isFollowing: StateFlow<Resource<Boolean>> = _isFollowing.asStateFlow()
-
-    private val _isFollowedByTarget = MutableStateFlow<Resource<Boolean>>(Resource.Loading())
-    private val _isMutualFollow = MutableStateFlow<Resource<Boolean>>(Resource.Loading())
-    val isMutualFollow: StateFlow<Resource<Boolean>> = _isMutualFollow.asStateFlow()
-
-    private val _currentReadingUiState = MutableStateFlow(CurrentReadingUiState(isLoading = true))
-    val currentReadingUiState: StateFlow<CurrentReadingUiState> = _currentReadingUiState.asStateFlow()
-
-    private val _bookIdForInteractions = MutableStateFlow<String?>(null)
-
-    private val _comments = MutableStateFlow<Resource<List<Comment>>>(Resource.Loading())
-    val comments: StateFlow<Resource<List<Comment>>> = _comments.asStateFlow()
-
-    private val _currentUserProfileForCommenting = MutableStateFlow<Resource<User>>(Resource.Loading())
-
-    private val _commentEvents = MutableSharedFlow<CommentEvent>()
-    val commentEvents: SharedFlow<CommentEvent> = _commentEvents.asSharedFlow()
-
-    private val _isLikedByCurrentUser = MutableStateFlow<Resource<Boolean>>(Resource.Loading())
-    val isLikedByCurrentUser: StateFlow<Resource<Boolean>> = _isLikedByCurrentUser.asStateFlow()
-
-    private val _likesCount = MutableStateFlow<Resource<Int>>(Resource.Loading())
-    val likesCount: StateFlow<Resource<Int>> = _likesCount.asStateFlow()
-
-    private val _likeEvents = MutableSharedFlow<LikeEvent>()
-    val likeEvents: SharedFlow<LikeEvent> = _likeEvents.asSharedFlow()
+    private val _userInteractionEvents = MutableSharedFlow<String>()
+    val userInteractionEvents: SharedFlow<String> = _userInteractionEvents.asSharedFlow()
 
     init {
-        val targetUserId = userIdFromArgs
-        val currentAuthUserId = firebaseAuth.currentUser?.uid
+        loadProfileData()
+    }
 
-        if (!targetUserId.isNullOrBlank()) {
-            val isProfileOwner = targetUserId == currentAuthUserId
-            fetchUserProfile(targetUserId)
+    private fun loadProfileData() {
+        viewModelScope.launch {
+            val userProfileFlow = userProfileRepository.getUserById(targetUserId)
+            val isFollowingFlow = if (currentUserId != null && currentUserId != targetUserId) {
+                socialRepository.isFollowing(currentUserId, targetUserId)
+            } else {
+                flowOf(Resource.Success(false))
+            }
 
-            viewModelScope.launch {
-                _currentReadingUiState.value = CurrentReadingUiState(isLoading = true, isOwnedProfile = isProfileOwner)
-                readingRepository.getCurrentReading(targetUserId)
-                    .flatMapLatest { readingResource ->
-                        val userBookReading = (readingResource as? Resource.Success)?.data
-                        if (userBookReading != null) {
-                            bookRepository.getBookById(userBookReading.bookId)
-                                .map { bookResource ->
-                                    CurrentReadingUiState(
-                                        isLoading = bookResource is Resource.Loading,
-                                        bookReading = userBookReading,
-                                        bookDetails = (bookResource as? Resource.Success)?.data,
-                                        error = (bookResource as? Resource.Error)?.message,
-                                        isOwnedProfile = isProfileOwner
-                                    )
-                                }
+            val readingExperienceFlow: Flow<Resource<CurrentReadingExperience?>> = readingRepository.getCurrentReading(targetUserId)
+                .flatMapLatest { readingResource ->
+                    val reading = (readingResource as? Resource.Success)?.data
+                    if (reading == null || reading.bookId.isBlank()) {
+                        return@flatMapLatest flowOf(Resource.Success(null))
+                    }
+
+                    val bookFlow = bookRepository.getBookById(reading.bookId)
+                    val commentsFlow = socialRepository.getCommentsForBook(reading.bookId)
+                    val likesCountFlow = socialRepository.getBookLikesCount(reading.bookId)
+                    val isLikedFlow = currentUserId?.let { uid -> socialRepository.isBookLikedByUser(reading.bookId, uid) } ?: flowOf(Resource.Success(false))
+
+                    combine(bookFlow, commentsFlow, likesCountFlow, isLikedFlow) { bookRes, commentsRes, likesRes, isLikedRes ->
+                        if (bookRes is Resource.Success && bookRes.data != null) {
+                            Resource.Success(
+                                CurrentReadingExperience(
+                                    reading = reading,
+                                    book = bookRes.data,
+                                    comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
+                                    likesCount = (likesRes as? Resource.Success)?.data ?: 0,
+                                    isLikedByCurrentUser = (isLikedRes as? Resource.Success)?.data ?: false
+                                )
+                            )
+                        } else if (bookRes is Resource.Error) {
+                            Resource.Error("Livre associé non trouvé: ${bookRes.message}")
                         } else {
-                            flowOf(CurrentReadingUiState(isLoading = false, isOwnedProfile = isProfileOwner))
+                            Resource.Loading()
                         }
                     }
-                    .catch { e -> emit(CurrentReadingUiState(isLoading = false, error = e.localizedMessage, isOwnedProfile = isProfileOwner)) }
-                    .collectLatest { _currentReadingUiState.value = it }
-            }
-
-            viewModelScope.launch {
-                _currentReadingUiState.map { it.bookReading?.bookId }.distinctUntilChanged().collectLatest { bookId ->
-                    _bookIdForInteractions.value = bookId
                 }
-            }
 
-            observeSocialInteractions(currentAuthUserId)
+            combine(userProfileFlow, isFollowingFlow, readingExperienceFlow) { user, isFollowing, readingExperience ->
+                if (user is Resource.Loading) return@combine PublicProfileUiState(profileLoadState = ProfileLoadState.Loading)
+                if (user is Resource.Error) return@combine PublicProfileUiState(profileLoadState = ProfileLoadState.Error(user.message ?: "Erreur utilisateur"))
 
-            if (!currentAuthUserId.isNullOrBlank() && !isProfileOwner) {
-                observeFollowingStatus(currentAuthUserId, targetUserId)
-                observeFollowedByTargetStatus(targetUserId, currentAuthUserId)
-                combineFollowStatus()
-            } else {
-                _isFollowing.value = Resource.Success(false)
-                _isFollowedByTarget.value = Resource.Success(false)
-                _isMutualFollow.value = Resource.Success(false)
-            }
-        } else {
-            _userProfile.value = Resource.Error("ID utilisateur manquant pour charger le profil.")
-        }
-    }
-
-    private fun observeSocialInteractions(currentAuthUserId: String?) {
-        viewModelScope.launch {
-            _bookIdForInteractions.filterNotNull().flatMapLatest { bookId ->
-                socialRepository.getCommentsForBook(bookId)
-            }.collectLatest { _comments.value = it }
-        }
-
-        if (!currentAuthUserId.isNullOrBlank()) {
-            viewModelScope.launch {
-                userProfileRepository.getUserById(currentAuthUserId).collectLatest {
-                    _currentUserProfileForCommenting.value = it
-                }
-            }
-
-            viewModelScope.launch {
-                _bookIdForInteractions.filterNotNull().flatMapLatest { bookId ->
-                    socialRepository.isBookLikedByUser(bookId, currentAuthUserId)
-                }.collectLatest { _isLikedByCurrentUser.value = it }
-            }
-
-            viewModelScope.launch {
-                _bookIdForInteractions.filterNotNull().flatMapLatest { bookId ->
-                    socialRepository.getBookLikesCount(bookId)
-                }.collectLatest { _likesCount.value = it }
-            }
-        }
-    }
-
-    private fun combineFollowStatus() {
-        viewModelScope.launch {
-            _isFollowing.combine(_isFollowedByTarget) { isAFollowsB, isBFollowsA ->
-                if (isAFollowsB is Resource.Success && isBFollowsA is Resource.Success) {
-                    Resource.Success(isAFollowsB.data == true && isBFollowsA.data == true)
-                } else if (isAFollowsB is Resource.Error) {
-                    isAFollowsB
-                } else if (isBFollowsA is Resource.Error) {
-                    isBFollowsA
-                } else {
-                    Resource.Loading()
-                }
+                PublicProfileUiState(
+                    profileLoadState = ProfileLoadState.Success,
+                    user = (user as Resource.Success).data,
+                    isFollowing = (isFollowing as? Resource.Success)?.data ?: false,
+                    isOwnedProfile = targetUserId == currentUserId,
+                    readingExperience = (readingExperience as? Resource.Success)?.data
+                )
             }.catch { e ->
-                _isMutualFollow.value = Resource.Error(e.localizedMessage ?: "Erreur de combinaison")
-            }.collectLatest {
-                _isMutualFollow.value = it
+                Log.e(TAG, "Erreur dans le flow de combinaison du profil", e)
+                emit(PublicProfileUiState(profileLoadState = ProfileLoadState.Error("Erreur technique: ${e.localizedMessage}")))
+            }.collect { newState ->
+                _uiState.value = newState
             }
         }
     }
 
-    private fun fetchUserProfile(id: String) {
+    fun toggleLikeOnCurrentReading() {
+        val bookId = uiState.value.readingExperience?.book?.id ?: return
+        if (currentUserId.isNullOrBlank()) return
+
         viewModelScope.launch {
-            _userProfile.value = Resource.Loading()
-            userProfileRepository.getUserById(id)
-                .catch { e -> _userProfile.postValue(Resource.Error("Erreur technique: ${e.localizedMessage}")) }
-                .collectLatest { _userProfile.value = it }
+            val result = socialRepository.toggleLikeOnBook(bookId, currentUserId)
+            if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
+            }
         }
     }
 
-    private fun observeFollowingStatus(currentUserId: String, targetUserId: String) {
-        viewModelScope.launch {
-            socialRepository.isFollowing(currentUserId, targetUserId)
-                .catch { e -> _isFollowing.value = Resource.Error(e.localizedMessage ?: "Erreur") }
-                .collectLatest { _isFollowing.value = it }
-        }
-    }
-
-    private fun observeFollowedByTargetStatus(targetUserId: String, currentUserId: String) {
-        viewModelScope.launch {
-            socialRepository.isFollowing(targetUserId, currentUserId)
-                .catch { e -> _isFollowedByTarget.value = Resource.Error(e.localizedMessage ?: "Erreur") }
-                .collectLatest { _isFollowedByTarget.value = it }
-        }
-    }
-
-    fun toggleFollowStatus() {
-        val currentUserUid = firebaseAuth.currentUser?.uid
-        val targetId = userIdFromArgs
-
-        if (currentUserUid.isNullOrBlank() || targetId.isNullOrBlank() || currentUserUid == targetId) {
-            viewModelScope.launch { _likeEvents.emit(LikeEvent.ShowLikeError("Action impossible.")) }
+    fun postCommentOnCurrentReading(commentText: String) {
+        val experience = uiState.value.readingExperience ?: return
+        val currentUser = firebaseAuth.currentUser ?: return
+        if (commentText.isBlank()) {
+            viewModelScope.launch { _userInteractionEvents.emit("Le commentaire ne peut pas être vide.") }
             return
         }
 
+        val comment = Comment(
+            userId = currentUser.uid,
+            userName = currentUser.displayName ?: "Anonyme",
+            userPhotoUrl = currentUser.photoUrl?.toString(),
+            targetUserId = targetUserId,
+            bookId = experience.book.id,
+            commentText = commentText.trim()
+        )
         viewModelScope.launch {
-            val result = if (_isFollowing.value.data == true) {
-                socialRepository.unfollowUser(currentUserUid, targetId)
+            val result = socialRepository.addCommentOnBook(experience.book.id, comment)
+            if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
+            }
+        }
+    }
+
+    fun deleteComment(comment: Comment) {
+        val experience = uiState.value.readingExperience ?: return
+        viewModelScope.launch {
+            val result = socialRepository.deleteCommentOnBook(experience.book.id, comment.commentId)
+            if(result is Resource.Error) _userInteractionEvents.emit(result.message ?: "Erreur suppression")
+        }
+    }
+
+    fun toggleLikeOnComment(comment: Comment) {
+        val experience = uiState.value.readingExperience ?: return
+        val uid = currentUserId ?: return
+        viewModelScope.launch {
+            val result = socialRepository.toggleLikeOnComment(experience.book.id, comment.commentId, uid)
+            if(result is Resource.Error) _userInteractionEvents.emit(result.message ?: "Erreur like")
+        }
+    }
+
+    fun getCommentLikeStatus(commentId: String): Flow<Resource<Boolean>> {
+        val experience = uiState.value.readingExperience
+        if(experience == null || currentUserId == null) return flowOf(Resource.Error("Info manquante"))
+        return socialRepository.isCommentLikedByCurrentUser(experience.book.id, commentId, currentUserId)
+    }
+
+    fun toggleFollowStatus() {
+        if (currentUserId.isNullOrBlank() || currentUserId == targetUserId) return
+        viewModelScope.launch {
+            val result = if (uiState.value.isFollowing) {
+                socialRepository.unfollowUser(currentUserId, targetUserId)
             } else {
-                socialRepository.followUser(currentUserUid, targetId)
+                socialRepository.followUser(currentUserId, targetUserId)
             }
             if (result is Resource.Error) {
                 Log.e(TAG, "Erreur lors du toggleFollow: ${result.message}")
             }
         }
-    }
-
-    fun postComment(commentText: String) {
-        val bookId = _bookIdForInteractions.value
-        val currentUser = (_currentUserProfileForCommenting.value as? Resource.Success)?.data
-        val targetId = userIdFromArgs
-
-        if (bookId.isNullOrBlank() || currentUser == null || commentText.isBlank() || targetId.isNullOrBlank()) {
-            viewModelScope.launch { _commentEvents.emit(CommentEvent.ShowCommentError("Impossible de poster le commentaire.")) }
-            return
-        }
-
-        val newComment = Comment(
-            userId = currentUser.uid,
-            userName = currentUser.username,
-            userPhotoUrl = currentUser.profilePictureUrl,
-            targetUserId = targetId,
-            commentText = commentText.trim(),
-            timestamp = Timestamp.now(),
-            bookId = bookId
-        )
-
-        viewModelScope.launch {
-            val result = socialRepository.addCommentOnBook(bookId, newComment)
-            if (result is Resource.Success) {
-                _commentEvents.emit(CommentEvent.ClearCommentInput)
-            } else if (result is Resource.Error) {
-                _commentEvents.emit(CommentEvent.ShowCommentError(result.message ?: "Erreur inconnue."))
-            }
-        }
-    }
-
-    // CORRIGÉ: La méthode accepte maintenant un objet Comment complet.
-    fun deleteComment(comment: Comment) {
-        val currentAuthUserId = firebaseAuth.currentUser?.uid
-        val profileOwnerId = userIdFromArgs
-
-        // CORRIGÉ: La logique de permission utilise maintenant les propriétés de l'objet comment.
-        if (currentAuthUserId != comment.userId && currentAuthUserId != profileOwnerId) {
-            viewModelScope.launch { _commentEvents.emit(CommentEvent.ShowCommentError("Action non autorisée.")) }
-            return
-        }
-
-        viewModelScope.launch {
-            // CORRIGÉ: Les arguments de la méthode sont maintenant extraits de l'objet comment.
-            val result = socialRepository.deleteCommentOnBook(comment.bookId, comment.commentId)
-            if (result is Resource.Success) {
-                _commentEvents.emit(CommentEvent.CommentDeletedSuccess(comment.commentId))
-            } else if (result is Resource.Error) {
-                _commentEvents.emit(CommentEvent.ShowCommentError(result.message ?: "Erreur de suppression."))
-            }
-        }
-    }
-
-    fun toggleLike() {
-        val bookId = _bookIdForInteractions.value
-        val currentId = currentUserId.value
-        if (bookId.isNullOrBlank() || currentId.isNullOrBlank()) return
-
-        viewModelScope.launch {
-            val result = socialRepository.toggleLikeOnBook(bookId, currentId)
-            if (result is Resource.Error) {
-                _likeEvents.emit(LikeEvent.ShowLikeError(result.message ?: "Erreur inconnue."))
-            }
-        }
-    }
-
-    fun toggleLikeOnComment(comment: Comment) {
-        val currentId = currentUserId.value
-        if (currentId.isNullOrBlank()) return
-
-        viewModelScope.launch {
-            val result = socialRepository.toggleLikeOnComment(comment.bookId, comment.commentId, currentId)
-            if (result is Resource.Error) {
-                _commentEvents.emit(CommentEvent.ShowCommentLikeError(result.message ?: "Erreur inconnue."))
-            }
-        }
-    }
-
-    fun getCommentLikeStatus(commentId: String): Flow<Resource<Boolean>> {
-        val bookId = _bookIdForInteractions.value
-        val currentId = currentUserId.value
-        if (bookId.isNullOrBlank() || currentId.isNullOrBlank()) {
-            return flowOf(Resource.Error("Données manquantes."))
-        }
-        return socialRepository.isCommentLikedByCurrentUser(bookId, commentId, currentId)
     }
 }

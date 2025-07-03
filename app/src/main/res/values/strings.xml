@@ -11,7 +11,13 @@
     <string name="na">N/A</string>
     dition -->
     <string name="completed_on_date">Terminé le %1$s</string>
-
+    <!-- Strings pour le nouveau design du Profil Public -->
+    <string name="profile_cover_image_description">Image de couverture du profil</string>
+    <string name="action_message">Message</string>
+    <string name="section_title_about">À Propos</string>
+    <string name="section_title_affinity_partner">Partenaire d\'Affinité</string>
+    <string name="section_title_recent_library">Sur son étagère</string>
+    <string name="section_title_recent_activity">Activité Récente</string>
     <!-- Pour le sous-titre dynamique -->
     <!-- Strings pour la barre d'actions -->
     <string name="action_like">J\'aime</string>
@@ -124,7 +130,7 @@
     <string name="error_updating_bio">Erreur lors de la mise à jour de la biographie.</string>
     <string name="profile_title_default">Profil</string>
     <string name="city_label">Ville :</string>
-    <string name="message_button_label">Envoyer un message</string>
+    <string name="message_button_label">Message</string>
     <string name="leaderboard_button_label">Voir le classement</string>
     <string name="leaderboard_title">Classement des Affinités</string>
     <string name="city_hint">Votre ville (optionnel)</string>
