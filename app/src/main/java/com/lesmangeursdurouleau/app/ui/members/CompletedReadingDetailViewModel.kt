@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// NOUVELLE data class pour l'UI, combinant les informations nécessaires.
+// La data class pour l'UI, combinant les informations nécessaires.
 data class CompletedReadingDetailUiState(
     val isLoading: Boolean = true,
     val book: Book? = null,
@@ -31,7 +31,7 @@ data class CompletedReadingDetailUiState(
 class CompletedReadingDetailViewModel @Inject constructor(
     private val readingRepository: ReadingRepository,
     private val socialRepository: SocialRepository,
-    private val bookRepository: BookRepository, // NOUVELLE INJECTION
+    private val bookRepository: BookRepository,
     private val firebaseAuth: FirebaseAuth,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -39,10 +39,9 @@ class CompletedReadingDetailViewModel @Inject constructor(
     private val targetUserId: String = savedStateHandle.get<String>("userId")!!
     private val bookId: String = savedStateHandle.get<String>("bookId")!!
 
-    // CORRIGÉ: La propriété est maintenant publique pour être accessible par le Fragment.
     val currentUserId: StateFlow<String?> = MutableStateFlow(firebaseAuth.currentUser?.uid).asStateFlow()
 
-    // NOUVEAU: StateFlow pour l'état complet de l'UI
+    // StateFlow pour l'état complet de l'UI
     val uiState: StateFlow<CompletedReadingDetailUiState> =
         readingRepository.getCompletedReadingDetail(targetUserId, bookId)
             .flatMapLatest { readingResource ->
@@ -52,7 +51,6 @@ class CompletedReadingDetailViewModel @Inject constructor(
                     is Resource.Success -> {
                         val reading = readingResource.data
                         if (reading != null) {
-                            // Si la lecture existe, on va chercher les détails du livre.
                             bookRepository.getBookById(reading.bookId)
                                 .map { bookResource ->
                                     CompletedReadingDetailUiState(
@@ -63,7 +61,6 @@ class CompletedReadingDetailViewModel @Inject constructor(
                                     )
                                 }
                         } else {
-                            // La lecture n'a pas été trouvée.
                             flowOf(CompletedReadingDetailUiState(isLoading = false, error = "Lecture terminée non trouvée."))
                         }
                     }
@@ -82,6 +79,8 @@ class CompletedReadingDetailViewModel @Inject constructor(
             initialValue = Resource.Loading()
         )
 
+    // CORRIGÉ : L'appel est maintenant fait à 'isBookLikedByUser', qui est la méthode correcte
+    // pour aimer un livre de manière générale, et non une lecture active spécifique.
     val isReadingLikedByCurrentUser: StateFlow<Resource<Boolean>> = currentUserId.flatMapLatest { id ->
         if (id == null) flowOf(Resource.Success(false))
         else socialRepository.isBookLikedByUser(bookId, id)
@@ -91,6 +90,7 @@ class CompletedReadingDetailViewModel @Inject constructor(
         initialValue = Resource.Loading()
     )
 
+    // NOTE : Cette méthode est correcte car elle récupère le compteur global du livre.
     val readingLikesCount: StateFlow<Resource<Int>> = socialRepository.getBookLikesCount(bookId)
         .stateIn(
             scope = viewModelScope,
@@ -98,9 +98,13 @@ class CompletedReadingDetailViewModel @Inject constructor(
             initialValue = Resource.Loading()
         )
 
+    // NOTE : Cette méthode est correcte car elle aime le livre de manière globale.
     fun toggleLikeOnReading() {
         val uid = currentUserId.value ?: return
         viewModelScope.launch {
+            // Note pour la maintenance future : si on voulait créer une notification sociale
+            // de type "X a aimé le livre que Y a lu", cette méthode devrait être changée pour
+            // appeler une Cloud Function. Pour l'instant, elle n'a pas d'effet social.
             socialRepository.toggleLikeOnBook(bookId, uid)
         }
     }

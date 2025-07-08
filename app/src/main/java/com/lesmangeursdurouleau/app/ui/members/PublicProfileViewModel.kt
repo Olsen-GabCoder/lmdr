@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier 2/3
+// PRÊT À COLLER - Fichier PublicProfileViewModel.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.util.Log
@@ -26,7 +26,10 @@ data class CurrentReadingExperience(
     val book: Book,
     val comments: List<Comment> = emptyList(),
     val likesCount: Int = 0,
-    val isLikedByCurrentUser: Boolean = false
+    val isLikedByCurrentUser: Boolean = false,
+    val isBookmarkedByCurrentUser: Boolean = false,
+    val currentUserRating: Float? = null,
+    val isRecommendedByCurrentUser: Boolean = false
 )
 
 data class PublicProfileUiState(
@@ -80,35 +83,49 @@ class PublicProfileViewModel @Inject constructor(
                 flowOf(Resource.Success(false))
             }
 
-            val readingExperienceFlow: Flow<Resource<CurrentReadingExperience?>> = readingRepository.getCurrentReading(targetUserId)
-                .flatMapLatest { readingResource ->
+            val readingExperienceFlow: Flow<Resource<CurrentReadingExperience?>> =
+                readingRepository.getCurrentReading(targetUserId).flatMapLatest { readingResource ->
                     val reading = (readingResource as? Resource.Success)?.data
                     if (reading == null || reading.bookId.isBlank()) {
                         return@flatMapLatest flowOf(Resource.Success(null))
                     }
 
-                    val bookFlow = bookRepository.getBookById(reading.bookId)
-                    val commentsFlow = socialRepository.getCommentsForBook(reading.bookId)
-                    val likesCountFlow = socialRepository.getBookLikesCount(reading.bookId)
-                    val isLikedFlow = currentUserId?.let { uid -> socialRepository.isBookLikedByUser(reading.bookId, uid) } ?: flowOf(Resource.Success(false))
-
-                    combine(bookFlow, commentsFlow, likesCountFlow, isLikedFlow) { bookRes, commentsRes, likesRes, isLikedRes ->
-                        if (bookRes is Resource.Success && bookRes.data != null) {
-                            Resource.Success(
-                                CurrentReadingExperience(
-                                    reading = reading,
-                                    book = bookRes.data,
-                                    comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
-                                    likesCount = (likesRes as? Resource.Success)?.data ?: 0,
-                                    isLikedByCurrentUser = (isLikedRes as? Resource.Success)?.data ?: false
+                    bookRepository.getBookById(reading.bookId)
+                        .combine(socialRepository.getCommentsForBook(reading.bookId)) { bookRes, commentsRes ->
+                            Pair(bookRes, commentsRes)
+                        }.combine(socialRepository.getBookLikesCount(reading.bookId)) { pair, likesRes ->
+                            Triple(pair.first, pair.second, likesRes)
+                        }.flatMapLatest { (bookRes, commentsRes, likesRes) ->
+                            if (bookRes !is Resource.Success || bookRes.data == null) {
+                                return@flatMapLatest flowOf(
+                                    if (bookRes is Resource.Error) Resource.Error(bookRes.message ?: "Erreur livre") else Resource.Loading()
                                 )
-                            )
-                        } else if (bookRes is Resource.Error) {
-                            Resource.Error("Livre associé non trouvé: ${bookRes.message}")
-                        } else {
-                            Resource.Loading()
+                            }
+
+                            // MODIFIÉ : Appel à la nouvelle méthode isReadingLikedByUser
+                            val isLikedFlow = currentUserId?.let {
+                                socialRepository.isReadingLikedByUser(targetUserId, reading.bookId, it)
+                            } ?: flowOf(Resource.Success(false))
+
+                            val isBookmarkedFlow = currentUserId?.let { socialRepository.isBookBookmarkedByUser(reading.bookId, it) } ?: flowOf(Resource.Success(false))
+                            val userRatingFlow = currentUserId?.let { socialRepository.getUserRatingForBook(reading.bookId, it) } ?: flowOf(Resource.Success(null))
+                            val isRecommendedFlow = currentUserId?.let { socialRepository.isBookRecommendedByUser(reading.bookId, it) } ?: flowOf(Resource.Success(false))
+
+                            combine(isLikedFlow, isBookmarkedFlow, userRatingFlow, isRecommendedFlow) { isLiked, isBookmarked, userRating, isRecommended ->
+                                Resource.Success(
+                                    CurrentReadingExperience(
+                                        reading = reading,
+                                        book = bookRes.data,
+                                        comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
+                                        likesCount = (likesRes as? Resource.Success)?.data ?: 0,
+                                        isLikedByCurrentUser = (isLiked as? Resource.Success)?.data ?: false,
+                                        isBookmarkedByCurrentUser = (isBookmarked as? Resource.Success)?.data ?: false,
+                                        currentUserRating = (userRating as? Resource.Success)?.data,
+                                        isRecommendedByCurrentUser = (isRecommended as? Resource.Success)?.data ?: false
+                                    )
+                                )
+                            }
                         }
-                    }
                 }
 
             combine(userProfileFlow, isFollowingFlow, readingExperienceFlow) { user, isFollowing, readingExperience ->
@@ -133,12 +150,49 @@ class PublicProfileViewModel @Inject constructor(
 
     fun toggleLikeOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
+        val likerId = currentUserId ?: return
+
+        viewModelScope.launch {
+            // MODIFIÉ : Appel à la nouvelle méthode toggleLikeOnReading avec tous les paramètres requis.
+            val result = socialRepository.toggleLikeOnReading(targetUserId, bookId, likerId)
+            if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
+            }
+        }
+    }
+
+    fun toggleBookmarkOnCurrentReading() {
+        val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
 
         viewModelScope.launch {
-            val result = socialRepository.toggleLikeOnBook(bookId, currentUserId)
+            val result = socialRepository.toggleBookmarkOnBook(bookId, currentUserId)
             if (result is Resource.Error) {
                 _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
+            }
+        }
+    }
+
+    fun rateCurrentReading(rating: Float) {
+        val bookId = uiState.value.readingExperience?.book?.id ?: return
+        if (currentUserId.isNullOrBlank()) return
+
+        viewModelScope.launch {
+            val result = socialRepository.rateBook(bookId, currentUserId, rating)
+            if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur lors de la notation")
+            }
+        }
+    }
+
+    fun toggleRecommendationOnCurrentReading() {
+        val bookId = uiState.value.readingExperience?.book?.id ?: return
+        if (currentUserId.isNullOrBlank()) return
+
+        viewModelScope.launch {
+            val result = socialRepository.toggleRecommendationOnBook(bookId, currentUserId)
+            if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur lors de la recommandation")
             }
         }
     }

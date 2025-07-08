@@ -1,5 +1,7 @@
+// PRÊT À COLLER - Fichier PublicProfileFragment.kt complet
 package com.lesmangeursdurouleau.app.ui.members
 
+import android.annotation.SuppressLint
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.TypedValue
@@ -50,8 +52,16 @@ class PublicProfileFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerViews()
+        setupResultListener()
         observeUiState()
         setupClickListeners()
+    }
+
+    private fun setupResultListener() {
+        childFragmentManager.setFragmentResultListener(RatingDialogFragment.REQUEST_KEY, this) { _, bundle ->
+            val rating = bundle.getFloat(RatingDialogFragment.RESULT_KEY_RATING)
+            viewModel.rateCurrentReading(rating)
+        }
     }
 
     private fun setupRecyclerViews() {
@@ -80,13 +90,14 @@ class PublicProfileFragment : Fragment() {
                 }
                 launch {
                     viewModel.userInteractionEvents.collectLatest { message ->
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                        showToast(message)
                     }
                 }
             }
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun bindUiState(state: PublicProfileUiState) {
         binding.progressBarPublicProfile.isVisible = state.profileLoadState is ProfileLoadState.Loading
         binding.tvPublicProfileError.isVisible = state.profileLoadState is ProfileLoadState.Error
@@ -104,22 +115,24 @@ class PublicProfileFragment : Fragment() {
             populateProfileData(user)
             updateFollowButton(state.isFollowing, state.isOwnedProfile)
 
-            binding.cardPublicProfileBio.isVisible = !user.bio.isNullOrBlank()
+            binding.tvPublicProfileBio.isVisible = !user.bio.isNullOrBlank()
             binding.tvPublicProfileBio.text = user.bio
 
-            binding.cardPublicProfileCity.isVisible = !user.city.isNullOrBlank()
+            binding.tvPublicProfileCity.isVisible = !user.city.isNullOrBlank()
             binding.tvPublicProfileCity.text = user.city
 
             val hasAffinityPartner = user.highestAffinityScore > 0 && !user.highestAffinityPartnerUsername.isNullOrBlank()
             binding.cardStrongestAffinity.isVisible = hasAffinityPartner
             if (hasAffinityPartner) {
-                binding.tvAffinityPartnerInfo.text = getString(R.string.strongest_affinity_score_format, user.highestAffinityScore, user.highestAffinityPartnerUsername)
+                binding.tvAffinityPartnerInfo.text = getString(R.string.literary_accomplice_template, user.highestAffinityPartnerUsername)
                 binding.tvAffinityTier.text = user.highestAffinityTierName ?: ""
             }
 
             val readingExperience = state.readingExperience
             binding.cardCurrentReading.isVisible = readingExperience != null
             if (readingExperience != null) {
+                binding.tvCurrentReadingPostHeader.text = getString(R.string.current_reading_post_header_template, user.username)
+
                 binding.tvCurrentReadingBookTitle.text = readingExperience.book.title
                 binding.tvCurrentReadingBookAuthor.text = readingExperience.book.author
                 binding.ivCurrentReadingBookCover.contentDescription = getString(R.string.book_cover_of_title_description, readingExperience.book.title)
@@ -137,24 +150,54 @@ class PublicProfileFragment : Fragment() {
 
                 val quote = readingExperience.reading.favoriteQuote
                 binding.llFavoriteQuoteSection.isVisible = !quote.isNullOrBlank()
-                binding.tvFavoriteQuote.text = if(!quote.isNullOrBlank()) "“${quote}”" else ""
+                binding.tvFavoriteQuote.text = if (!quote.isNullOrBlank()) "“${quote}”" else ""
 
                 val note = readingExperience.reading.personalReflection
                 binding.llPersonalNoteSection.isVisible = !note.isNullOrBlank()
                 binding.tvPersonalNote.text = note
 
-                binding.btnToggleLike.text = readingExperience.likesCount.toString()
-                binding.btnToggleLike.setIconResource(if (readingExperience.isLikedByCurrentUser) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline)
-
-                // CORRECTION DU CRASH
-                val likeColor: Int
-                if (readingExperience.isLikedByCurrentUser) {
-                    likeColor = ContextCompat.getColor(requireContext(), R.color.red_love)
+                // --- MISE À JOUR DE LA BARRE D'ACTIONS SOCIALES ---
+                // Like
+                binding.tvSocialLikeCount.text = readingExperience.likesCount.toString()
+                val likeIconRes = if (readingExperience.isLikedByCurrentUser) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+                binding.btnSocialLike.setImageResource(likeIconRes)
+                val likeColor = if (readingExperience.isLikedByCurrentUser) {
+                    ContextCompat.getColor(requireContext(), R.color.red_love)
                 } else {
-                    likeColor = MaterialColors.getColor(binding.btnToggleLike, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                    MaterialColors.getColor(binding.btnSocialLike, com.google.android.material.R.attr.colorOnSurfaceVariant)
                 }
-                binding.btnToggleLike.iconTint = ColorStateList.valueOf(likeColor)
-                binding.btnToggleLike.setTextColor(likeColor)
+                binding.btnSocialLike.imageTintList = ColorStateList.valueOf(likeColor)
+
+                // Favoris (Bookmark)
+                val bookmarkIconRes = if (readingExperience.isBookmarkedByCurrentUser) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark_outline
+                binding.btnSocialBookmark.setImageResource(bookmarkIconRes)
+                val bookmarkColor = if (readingExperience.isBookmarkedByCurrentUser) {
+                    MaterialColors.getColor(binding.btnSocialBookmark, com.google.android.material.R.attr.colorPrimary)
+                } else {
+                    MaterialColors.getColor(binding.btnSocialBookmark, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                }
+                binding.btnSocialBookmark.imageTintList = ColorStateList.valueOf(bookmarkColor)
+
+                // Notation (Rating)
+                val hasRated = readingExperience.currentUserRating != null && readingExperience.currentUserRating > 0f
+                val ratingIconRes = if (hasRated) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+                binding.btnSocialRate.setImageResource(ratingIconRes)
+                val ratingColor = if (hasRated) {
+                    ContextCompat.getColor(requireContext(), R.color.amber_star)
+                } else {
+                    MaterialColors.getColor(binding.btnSocialRate, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                }
+                binding.btnSocialRate.imageTintList = ColorStateList.valueOf(ratingColor)
+
+                // Recommandation
+                val recommendIconRes = if (readingExperience.isRecommendedByCurrentUser) R.drawable.ic_thumb_up_filled else R.drawable.ic_thumb_up_outline
+                binding.btnSocialRecommend.setImageResource(recommendIconRes)
+                val recommendColor = if (readingExperience.isRecommendedByCurrentUser) {
+                    MaterialColors.getColor(binding.btnSocialRecommend, com.google.android.material.R.attr.colorPrimary)
+                } else {
+                    MaterialColors.getColor(binding.btnSocialRecommend, com.google.android.material.R.attr.colorOnSurfaceVariant)
+                }
+                binding.btnSocialRecommend.imageTintList = ColorStateList.valueOf(recommendColor)
 
                 commentsAdapter.submitList(readingExperience.comments)
             }
@@ -188,10 +231,11 @@ class PublicProfileFragment : Fragment() {
 
         if (isFollowing) {
             followButton.text = getString(R.string.unfollow)
-            followButton.setTextColor(ContextCompat.getColor(requireContext(), R.color.error_color))
+            val errorColor = ContextCompat.getColor(requireContext(), R.color.error_color)
+            followButton.setTextColor(errorColor)
             followButton.icon = null
             followButton.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), android.R.color.transparent))
-            followButton.strokeColor = ColorStateList.valueOf(ContextCompat.getColor(requireContext(), R.color.error_color))
+            followButton.strokeColor = ColorStateList.valueOf(errorColor)
             followButton.strokeWidth = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 1f, resources.displayMetrics).toInt()
         } else {
             followButton.text = getString(R.string.follow)
@@ -217,7 +261,22 @@ class PublicProfileFragment : Fragment() {
             findNavController().navigate(action)
         }
 
-        binding.btnToggleLike.setOnClickListener { viewModel.toggleLikeOnCurrentReading() }
+        binding.btnSocialLike.setOnClickListener { viewModel.toggleLikeOnCurrentReading() }
+
+        binding.btnSocialBookmark.setOnClickListener { viewModel.toggleBookmarkOnCurrentReading() }
+
+        binding.btnSocialRate.setOnClickListener {
+            val experience = viewModel.uiState.value.readingExperience
+            if (experience != null) {
+                RatingDialogFragment.newInstance(
+                    bookTitle = experience.book.title,
+                    currentRating = experience.currentUserRating ?: 0f
+                ).show(childFragmentManager, RatingDialogFragment.TAG)
+            }
+        }
+
+        binding.btnSocialRecommend.setOnClickListener { viewModel.toggleRecommendationOnCurrentReading() }
+
         binding.btnSendComment.setOnClickListener {
             val commentText = binding.etCommentInput.text.toString()
             viewModel.postCommentOnCurrentReading(commentText)
@@ -225,6 +284,9 @@ class PublicProfileFragment : Fragment() {
             val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
             imm?.hideSoftInputFromWindow(view?.windowToken, 0)
         }
+
+        binding.btnSocialShare.setOnClickListener { showToast(getString(R.string.action_share) + " : Bientôt disponible !") }
+
 
         binding.llFollowersClickableArea.setOnClickListener {
             val targetUsername = viewModel.uiState.value.user?.username ?: args.username
@@ -254,6 +316,10 @@ class PublicProfileFragment : Fragment() {
             )
             findNavController().navigate(action)
         }
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {

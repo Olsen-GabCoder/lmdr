@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier complet avec la CORRECTION pour les notifications de message
+// PRÊT À COLLER - Fichier MyFirebaseMessagingService.kt complet
 package com.lesmangeursdurouleau.app.notifications
 
 import android.app.NotificationChannel
@@ -40,11 +40,12 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         const val ACTION_TIER_UPGRADE = "com.lesmangeursdurouleau.app.TIER_UPGRADE"
 
+        // --- Canaux de Notification ---
         const val CHANNEL_ID_GENERAL = "general_notifications_channel"
         const val CHANNEL_NAME_GENERAL = "Notifications Générales"
         const val CHANNEL_DESC_GENERAL = "Notifications générales du club de lecture."
 
-        const val CHANNEL_ID_PRIVATE_MESSAGES = "private_messages_channel" // Canal existant, juste déclaré ici
+        const val CHANNEL_ID_PRIVATE_MESSAGES = "private_messages_channel"
         const val CHANNEL_NAME_PRIVATE_MESSAGES = "Messages Privés"
         const val CHANNEL_DESC_PRIVATE_MESSAGES = "Notifications pour les nouveaux messages privés."
 
@@ -52,22 +53,36 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val CHANNEL_NAME_REWARDS = "Récompenses et Affinité"
         const val CHANNEL_DESC_REWARDS = "Notifications pour les nouveaux paliers d'affinité."
 
+        // NOUVEAU CANAL POUR LES NOTIFICATIONS SOCIALES
+        const val CHANNEL_ID_SOCIAL = "social_interactions_channel"
+        const val CHANNEL_NAME_SOCIAL = "Interactions Sociales"
+        const val CHANNEL_DESC_SOCIAL = "Notifications pour les 'J'aime', commentaires et nouveaux complices."
+
+        // --- Clés de Données Communes ---
         const val NOTIFICATION_TYPE_KEY = "notificationType"
         const val TITLE_KEY = "title"
         const val BODY_KEY = "body"
+        const val ENTITY_ID_KEY = "entityId" // Clé générique pour bookId, commentId, etc.
+        const val ACTOR_ID_KEY = "actorId"   // Clé pour l'ID de l'utilisateur qui a fait l'action
 
+        // --- Clés Spécifiques (existantes) ---
         const val MONTHLY_READING_ID_KEY = "monthlyReadingId"
-
         const val CONVERSATION_ID_KEY = "conversationId"
         const val NEW_TIER_NAME_KEY = "newTierName"
         const val PARTNER_NAME_KEY = "partnerName"
 
+        // --- Types de Notification (existants) ---
         const val TYPE_NEW_MONTHLY_READING = "new_monthly_reading"
         const val TYPE_PHASE_REMINDER = "phase_reminder"
         const val TYPE_PHASE_STATUS_CHANGE = "phase_status_change"
         const val TYPE_MEETING_LINK_UPDATE = "meeting_link_update"
         const val TYPE_NEW_PRIVATE_MESSAGE = "new_private_message"
         const val TYPE_TIER_UPGRADE = "TIER_UPGRADE"
+
+        // NOUVEAUX TYPES DE NOTIFICATION SOCIALE
+        const val TYPE_NEW_FOLLOWER = "NEW_FOLLOWER"
+        const val TYPE_LIKE_ON_READING = "LIKE_ON_READING"
+        const val TYPE_COMMENT_ON_READING = "COMMENT_ON_READING"
     }
 
     override fun onNewToken(token: String) {
@@ -112,14 +127,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     sendGeneralNotification(title, body, monthlyReadingId, notificationType)
                 }
 
-                // === DÉBUT DE LA CORRECTION ===
                 TYPE_NEW_PRIVATE_MESSAGE -> {
                     val conversationId = remoteMessage.data[CONVERSATION_ID_KEY]
-                    Log.d(TAG, "Notification de nouveau message privé reçue pour la conversation $conversationId.")
-                    // On recrée la notification manuellement pour être sûr qu'elle s'affiche
                     sendPrivateMessageNotification(title, body, conversationId)
                 }
-                // === FIN DE LA CORRECTION ===
 
                 TYPE_TIER_UPGRADE -> {
                     val conversationId = remoteMessage.data[CONVERSATION_ID_KEY]
@@ -131,9 +142,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                         putExtra(BODY_KEY, body)
                     }
                     LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-                    Log.d(TAG, "Broadcast local TIER_UPGRADE envoyé pour la conversation $conversationId")
-
                     sendRewardNotification(title, body, conversationId)
+                }
+
+                // GESTION DES NOUVELLES NOTIFICATIONS SOCIALES
+                TYPE_NEW_FOLLOWER,
+                TYPE_LIKE_ON_READING,
+                TYPE_COMMENT_ON_READING -> {
+                    val entityId = remoteMessage.data[ENTITY_ID_KEY]
+                    val actorId = remoteMessage.data[ACTOR_ID_KEY]
+                    sendSocialNotification(title, body, notificationType, entityId, actorId)
                 }
 
                 else -> {
@@ -159,7 +177,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notify((System.currentTimeMillis() / 1000).toInt(), notificationBuilder)
     }
 
-    // === NOUVELLE FONCTION POUR LES MESSAGES PRIVÉS ===
     private fun sendPrivateMessageNotification(title: String, messageBody: String, conversationId: String?) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -167,9 +184,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             putExtra(CONVERSATION_ID_KEY, conversationId)
         }
         val pendingIntent = createPendingIntent(intent, conversationId.hashCode())
-        // On s'assure d'utiliser le bon canal, celui que vous utilisiez déjà
         val notificationBuilder = createNotificationBuilder(CHANNEL_ID_PRIVATE_MESSAGES, title, messageBody, pendingIntent)
-        // On utilise l'ID de la conversation comme ID de notification pour que les messages d'une même conversation se regroupent/remplacent
         notify(conversationId.hashCode(), notificationBuilder)
     }
 
@@ -184,12 +199,28 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notify(conversationId.hashCode(), notificationBuilder)
     }
 
+    // NOUVELLE FONCTION POUR LES NOTIFICATIONS SOCIALES
+    private fun sendSocialNotification(title: String, messageBody: String, notificationType: String, entityId: String?, actorId: String?) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(NOTIFICATION_TYPE_KEY, notificationType)
+            putExtra(ENTITY_ID_KEY, entityId)
+            putExtra(ACTOR_ID_KEY, actorId)
+        }
+        // Utiliser une combinaison pour un requestCode unique
+        val requestCode = (notificationType.hashCode() + (entityId?.hashCode() ?: 0) + (actorId?.hashCode() ?: 0))
+        val pendingIntent = createPendingIntent(intent, requestCode)
+        val notificationBuilder = createNotificationBuilder(CHANNEL_ID_SOCIAL, title, messageBody, pendingIntent)
+        // Utiliser un ID de notification basé sur le temps pour qu'elles s'empilent
+        notify((System.currentTimeMillis() / 1000).toInt(), notificationBuilder)
+    }
+
     private fun createPendingIntent(intent: Intent, requestCode: Int): PendingIntent {
         return PendingIntent.getActivity(
             this,
             requestCode,
             intent,
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
 
@@ -216,12 +247,15 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val generalChannel = NotificationChannel(CHANNEL_ID_GENERAL, CHANNEL_NAME_GENERAL, NotificationManager.IMPORTANCE_HIGH).apply { description = CHANNEL_DESC_GENERAL }
             val rewardsChannel = NotificationChannel(CHANNEL_ID_REWARDS, CHANNEL_NAME_REWARDS, NotificationManager.IMPORTANCE_HIGH).apply { description = CHANNEL_DESC_REWARDS }
-            // On déclare aussi le canal des messages privés ici pour être sûr qu'il existe
             val privateMessagesChannel = NotificationChannel(CHANNEL_ID_PRIVATE_MESSAGES, CHANNEL_NAME_PRIVATE_MESSAGES, NotificationManager.IMPORTANCE_HIGH).apply { description = CHANNEL_DESC_PRIVATE_MESSAGES }
+            // DÉCLARATION DU NOUVEAU CANAL
+            val socialChannel = NotificationChannel(CHANNEL_ID_SOCIAL, CHANNEL_NAME_SOCIAL, NotificationManager.IMPORTANCE_DEFAULT).apply { description = CHANNEL_DESC_SOCIAL }
+
 
             notificationManager.createNotificationChannel(generalChannel)
             notificationManager.createNotificationChannel(rewardsChannel)
             notificationManager.createNotificationChannel(privateMessagesChannel)
+            notificationManager.createNotificationChannel(socialChannel)
         }
     }
 

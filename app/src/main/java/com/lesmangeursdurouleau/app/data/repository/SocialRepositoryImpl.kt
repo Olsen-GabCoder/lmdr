@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier 100% complet et corrigé
+// PRÊT À COLLER - Fichier SocialRepositoryImpl.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -23,6 +23,9 @@ class SocialRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "SocialRepositoryImpl"
+        private const val SUBCOLLECTION_FAVORITED_BY = "favoritedBy"
+        private const val SUBCOLLECTION_RATINGS = "ratings"
+        private const val SUBCOLLECTION_RECOMMENDED_BY = "recommendedBy"
     }
 
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
@@ -95,7 +98,8 @@ class SocialRepositoryImpl @Inject constructor(
             } else {
                 usersCollection.whereIn(FieldPath.documentId(), userIds).get()
                     .addOnSuccessListener { usersSnapshot ->
-                        trySend(Resource.Success(usersSnapshot.toObjects(User::class.java)))
+                        val userList = usersSnapshot.documents.mapNotNull { doc -> doc.toObject(User::class.java)?.copy(uid = doc.id) }
+                        trySend(Resource.Success(userList))
                     }
                     .addOnFailureListener { e ->
                         trySend(Resource.Error(e.localizedMessage ?: "Erreur de chargement des profils."))
@@ -145,6 +149,52 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun toggleLikeOnReading(targetUserId: String, bookId: String, likerId: String): Resource<Unit> {
+        return try {
+            val likeDocRef = usersCollection.document(targetUserId)
+                .collection(FirebaseConstants.SUBCOLLECTION_USER_READINGS)
+                .document(FirebaseConstants.DOCUMENT_ACTIVE_READING)
+                .collection(FirebaseConstants.SUBCOLLECTION_ACTIVE_READING_LIKES)
+                .document(likerId)
+
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(likeDocRef)
+                if (snapshot.exists()) {
+                    transaction.delete(likeDocRef)
+                } else {
+                    val likeData = mapOf(
+                        "likerId" to likerId,
+                        "bookId" to bookId,
+                        "timestamp" to FieldValue.serverTimestamp()
+                    )
+                    transaction.set(likeDocRef, likeData)
+                }
+            }.await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "toggleLikeOnReading: Erreur: ${e.message}", e)
+            Resource.Error("Erreur de like: ${e.localizedMessage}")
+        }
+    }
+
+    override fun isReadingLikedByUser(targetUserId: String, bookId: String, likerId: String): Flow<Resource<Boolean>> = callbackFlow {
+        trySend(Resource.Loading())
+        val listener = usersCollection.document(targetUserId)
+            .collection(FirebaseConstants.SUBCOLLECTION_USER_READINGS)
+            .document(FirebaseConstants.DOCUMENT_ACTIVE_READING)
+            .collection(FirebaseConstants.SUBCOLLECTION_ACTIVE_READING_LIKES)
+            .document(likerId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.localizedMessage ?: "Erreur réseau"))
+                    close(error)
+                    return@addSnapshotListener
+                }
+                trySend(Resource.Success(snapshot?.exists() == true))
+            }
+        awaitClose { listener.remove() }
+    }
+
     override suspend fun toggleLikeOnBook(bookId: String, currentUserId: String): Resource<Unit> {
         return try {
             val likeDocRef = booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_LIKES).document(currentUserId)
@@ -177,30 +227,141 @@ class SocialRepositoryImpl @Inject constructor(
 
     override fun getBookLikesCount(bookId: String): Flow<Resource<Int>> = callbackFlow {
         trySend(Resource.Loading())
-        val listener = booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_LIKES)
+        val listener = booksCollection.document(bookId).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                trySend(Resource.Error(error.localizedMessage ?: "Erreur réseau"))
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null && snapshot.exists()) {
+                val count = snapshot.getLong(FirebaseConstants.FIELD_LIKES_COUNT)?.toInt() ?: 0
+                trySend(Resource.Success(count))
+            } else {
+                trySend(Resource.Success(0))
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun toggleBookmarkOnBook(bookId: String, currentUserId: String): Resource<Unit> {
+        return try {
+            val bookmarkDocRef = booksCollection.document(bookId).collection(SUBCOLLECTION_FAVORITED_BY).document(currentUserId)
+            val bookDocRef = booksCollection.document(bookId)
+
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(bookmarkDocRef)
+                if (snapshot.exists()) {
+                    transaction.delete(bookmarkDocRef)
+                    transaction.update(bookDocRef, "favoritesCount", FieldValue.increment(-1))
+                } else {
+                    transaction.set(bookmarkDocRef, mapOf("userId" to currentUserId, "timestamp" to FieldValue.serverTimestamp()))
+                    transaction.update(bookDocRef, "favoritesCount", FieldValue.increment(1))
+                }
+            }.await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "toggleBookmarkOnBook: Erreur: ${e.message}", e)
+            Resource.Error("Erreur lors de l'ajout/suppression du favori: ${e.localizedMessage}")
+        }
+    }
+
+    override fun isBookBookmarkedByUser(bookId: String, currentUserId: String): Flow<Resource<Boolean>> = callbackFlow {
+        trySend(Resource.Loading())
+        val listener = booksCollection.document(bookId).collection(SUBCOLLECTION_FAVORITED_BY).document(currentUserId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     trySend(Resource.Error(error.localizedMessage ?: "Erreur réseau"))
                     close(error); return@addSnapshotListener
                 }
-                trySend(Resource.Success(snapshot?.size() ?: 0))
+                trySend(Resource.Success(snapshot?.exists() == true))
             }
         awaitClose { listener.remove() }
     }
 
-    override suspend fun toggleLikeOnComment(bookId: String, commentId: String, currentUserId: String): Resource<Unit> {
+    override suspend fun rateBook(bookId: String, userId: String, rating: Float): Resource<Unit> {
         return try {
-            val commentRef = booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).document(commentId)
-            val likeRef = commentRef.collection(FirebaseConstants.SUBCOLLECTION_LIKES).document(currentUserId)
-            firestore.runTransaction { transaction ->
-                if (transaction.get(likeRef).exists()) {
-                    transaction.delete(likeRef)
-                    transaction.update(commentRef, "likesCount", FieldValue.increment(-1))
+            val ratingDocRef = booksCollection.document(bookId).collection(SUBCOLLECTION_RATINGS).document(userId)
+            val ratingData = mapOf(
+                "userId" to userId,
+                "rating" to rating,
+                "timestamp" to FieldValue.serverTimestamp()
+            )
+            ratingDocRef.set(ratingData).await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "rateBook: Erreur: ${e.message}", e)
+            Resource.Error("Erreur lors de la notation: ${e.localizedMessage}")
+        }
+    }
+
+    override fun getUserRatingForBook(bookId: String, userId: String): Flow<Resource<Float?>> = callbackFlow {
+        trySend(Resource.Loading())
+        val listener = booksCollection.document(bookId).collection(SUBCOLLECTION_RATINGS).document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.localizedMessage ?: "Erreur réseau"))
+                    close(error); return@addSnapshotListener
+                }
+                if (snapshot != null && snapshot.exists()) {
+                    val rating = snapshot.getDouble("rating")?.toFloat()
+                    trySend(Resource.Success(rating))
                 } else {
-                    transaction.set(likeRef, mapOf("userId" to currentUserId, "timestamp" to FieldValue.serverTimestamp()))
-                    transaction.update(commentRef, "likesCount", FieldValue.increment(1))
+                    trySend(Resource.Success(null))
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun toggleRecommendationOnBook(bookId: String, userId: String): Resource<Unit> {
+        return try {
+            val recommendationDocRef = booksCollection.document(bookId).collection(SUBCOLLECTION_RECOMMENDED_BY).document(userId)
+            val bookDocRef = booksCollection.document(bookId)
+
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(recommendationDocRef)
+                if (snapshot.exists()) {
+                    transaction.delete(recommendationDocRef)
+                    transaction.update(bookDocRef, "recommendationsCount", FieldValue.increment(-1))
+                } else {
+                    transaction.set(recommendationDocRef, mapOf("userId" to userId, "timestamp" to FieldValue.serverTimestamp()))
+                    transaction.update(bookDocRef, "recommendationsCount", FieldValue.increment(1))
                 }
             }.await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "toggleRecommendationOnBook: Erreur: ${e.message}", e)
+            Resource.Error("Erreur lors de la recommandation: ${e.localizedMessage}")
+        }
+    }
+
+    override fun isBookRecommendedByUser(bookId: String, userId: String): Flow<Resource<Boolean>> = callbackFlow {
+        trySend(Resource.Loading())
+        val listener = booksCollection.document(bookId).collection(SUBCOLLECTION_RECOMMENDED_BY).document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(Resource.Error(error.localizedMessage ?: "Erreur réseau"))
+                    close(error); return@addSnapshotListener
+                }
+                trySend(Resource.Success(snapshot?.exists() == true))
+            }
+        awaitClose { listener.remove() }
+    }
+
+    // MODIFIÉ : La gestion du compteur a été retirée, car elle est maintenant gérée par la Cloud Function.
+    override suspend fun toggleLikeOnComment(bookId: String, commentId: String, currentUserId: String): Resource<Unit> {
+        return try {
+            val likeRef = booksCollection.document(bookId)
+                .collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).document(commentId)
+                .collection(FirebaseConstants.SUBCOLLECTION_LIKES).document(currentUserId)
+
+            // Simplification : plus besoin de transaction pour le compteur.
+            val likeDoc = likeRef.get().await()
+
+            if (likeDoc.exists()) {
+                likeRef.delete().await()
+            } else {
+                likeRef.set(mapOf("userId" to currentUserId, "timestamp" to FieldValue.serverTimestamp())).await()
+            }
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "toggleLikeOnComment: Erreur: ${e.message}", e)

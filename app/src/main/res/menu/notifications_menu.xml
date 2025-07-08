@@ -1,0 +1,9 @@
+<!-- PRÊT À COLLER - Fichier res/menu/notifications_menu.xml -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_mark_all_as_read"
+        android:title="@string/action_mark_all_as_read"
+        android:icon="@drawable/ic_mark_chat_read"
+        app:showAsAction="ifRoom" />
+</menu>

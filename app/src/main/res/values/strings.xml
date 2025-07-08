@@ -311,7 +311,7 @@
     <string name="follow">Suivre</string>
     <string name="unfollow">Désabonner</string>
     <string name="followers_label">Abonnés</string>
-    <string name="following_label">Abonnements</string>
+    <string name="following_label">Suivi(e)s</string>
     <string name="loading_follow_status">Chargement...</string>
     <string name="follow_error">Erreur de suivi</string>
     <string name="my_profile_title">Mon Profil</string>
@@ -329,7 +329,13 @@
     <string name="icon_quote_description">Icône de guillemet ouvrant, indiquant le champ de citation favorite.</string>
     <string name="icon_total_pages_description">Icône numérique, indiquant le champ du nombre total de pages.</string>
     <string name="icon_current_page_description">Icône numérique, indiquant le champ de la page actuelle.</string>
-
+    <string name="no_notifications_yet">Aucune notification pour le moment</string>
+    <string name="title_notifications">Notifications</string>
+    <string name="notification_new_follower">%1$s a commencé à vous suivre.</string>
+    <string name="notification_like_on_reading">%1$s a aimé votre lecture de %2$s.</string>
+    <string name="notification_comment_on_reading">%1$s a commenté votre lecture de %2$s.</string>
+    <string name="action_mark_all_as_read">Tout marquer comme lu</string>
+    <string name="title_messages">Messages</string>
     <string name="change_book_button">Changer de livre</string>
     <string name="title_not_available">Titre non disponible</string>
     <string name="author_not_available">Auteur non disponible</string>
@@ -404,6 +410,8 @@
     <string name="delete_reading_button_description">Supprimer cette lecture de l\'historique</string>
     <string name="reading_deleted_successfully">Lecture supprimée avec succès.</string>
     <!-- Strings for Sorting History -->
+    <string name="submit_rating_button">Noter </string>
+    <string name="rate_this_book_title">Noter ce livre</string>
     <string name="sort_by_label">Trier par :</string>
     <string name="sort_by_date_desc">Date (plus récentes)</string>
     <string name="sort_by_date_asc">Date (plus anciennes)</string>
@@ -422,9 +430,19 @@
     <string name="reaction_sad">Réaction triste</string>
     <string name="message_copied_to_clipboard">Message copié dans le presse-papiers</string>
     <string name="edit">Modifier</string>
-    <!-- Fichier: res/values/strings.xml -->
     <string name="edited_indicator">(modifié)</string>
-
+    <string name="cover_photo_description">Photo de couverture de l\'utilisateur</string>
+    <string name="change_cover_photo_description">Changer la photo de couverture</string>
+    <string name="change_cover_photo">Changer la photo de couverture</string>
+    <!-- =================================================================== -->
+    <!-- AJOUTS POUR LA REFONTE DU PROFIL PUBLIC - 2023-10-27                  -->
+    <!-- =================================================================== -->
+    <string name="action_rate">Noter</string>
+    <string name="action_bookmark">Ajouter aux favoris</string>
+    <string name="action_recommend">Recommander</string>
+    <string name="action_share">Partager</string>
+    <string name="current_reading_post_header_template">Lisez avec %1$s...</string>
+    <string name="literary_accomplice_template">✨ Complice Littéraire avec @%1$s</string>
     <!-- AJOUT: Description pour l'indicateur de statut du message pour l'accessibilité -->
     <string name="message_status_indicator">Indicateur de statut du message</string>
     <string name="club_name">Nom du club</string>

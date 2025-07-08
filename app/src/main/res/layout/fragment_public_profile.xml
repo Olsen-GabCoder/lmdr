@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
+<androidx.core.widget.NestedScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/scrollView_public_profile"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurfaceVariant"
+    android:background="?attr/colorSurface"
     android:fillViewport="true"
     tools:context=".ui.members.PublicProfileFragment">
 
@@ -17,40 +17,38 @@
         android:orientation="vertical"
         android:paddingBottom="32dp">
 
-        <FrameLayout
+        <!-- =================================================================== -->
+        <!-- A. EN-TÊTE DE PROFIL                                                  -->
+        <!-- =================================================================== -->
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
+
             <ImageView
                 android:id="@+id/iv_profile_cover"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="180dp"
+                android:contentDescription="@string/profile_cover_image_description"
                 android:scaleType="centerCrop"
                 android:src="@color/gradient_start_violet"
-                android:contentDescription="@string/profile_picture_content_description" />
-        </FrameLayout>
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:layout_marginTop="-70dp">
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/public_profile_picture_card"
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/iv_public_profile_picture"
                 android:layout_width="140dp"
                 android:layout_height="140dp"
-                app:cardCornerRadius="70dp"
-                app:cardElevation="8dp"
+                android:scaleType="centerCrop"
+                app:layout_constraintBottom_toBottomOf="@+id/iv_profile_cover"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/iv_profile_cover"
+                app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
                 app:strokeColor="?attr/colorSurface"
-                app:strokeWidth="4dp">
-                <ImageView
-                    android:id="@+id/iv_public_profile_picture"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    tools:src="@drawable/ic_profile_placeholder"
-                    android:contentDescription="@string/profile_picture_description" />
-            </com.google.android.material.card.MaterialCardView>
+                app:strokeWidth="4dp"
+                tools:src="@drawable/ic_profile_placeholder" />
+
             <TextView
                 android:id="@+id/tv_public_profile_username"
                 android:layout_width="wrap_content"
@@ -59,9 +57,50 @@
                 android:textAppearance="?attr/textAppearanceHeadline5"
                 android:textColor="?attr/colorOnSurface"
                 android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/iv_public_profile_picture"
                 tools:text="Nom d'Utilisateur" />
-        </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/ll_action_buttons"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:baselineAligned="false"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tv_public_profile_username"
+                tools:visibility="visible">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_toggle_follow"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    app:cornerRadius="8dp"
+                    tools:text="@string/follow" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_send_message"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/message_button_label"
+                    app:cornerRadius="8dp"
+                    app:icon="@drawable/ic_send" />
+            </LinearLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- =================================================================== -->
+        <!-- B. INDICATEURS CLÉS ET BIOGRAPHIE                                     -->
+        <!-- =================================================================== -->
         <LinearLayout
             android:id="@+id/ll_stats_container"
             android:layout_width="match_parent"
@@ -71,10 +110,10 @@
             <LinearLayout
                 android:id="@+id/ll_followers_clickable_area"
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_weight="1"
                 android:gravity="center"
+                android:orientation="vertical"
                 android:padding="8dp">
                 <TextView
                     android:id="@+id/tv_followers_count"
@@ -93,10 +132,10 @@
             <LinearLayout
                 android:id="@+id/ll_following_clickable_area"
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_weight="1"
                 android:gravity="center"
+                android:orientation="vertical"
                 android:padding="8dp">
                 <TextView
                     android:id="@+id/tv_following_count"
@@ -115,10 +154,10 @@
             <LinearLayout
                 android:id="@+id/ll_books_read_clickable_area"
                 android:layout_width="0dp"
-                android:layout_weight="1"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_weight="1"
                 android:gravity="center"
+                android:orientation="vertical"
                 android:padding="8dp">
                 <TextView
                     android:id="@+id/tv_books_read_count"
@@ -131,379 +170,365 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/books_read_label"
-                android:textAppearance="?attr/textAppearanceBody2"
-                android:textColor="?attr/colorOnSurfaceVariant" />
+                    android:textAppearance="?attr/textAppearanceBody2"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/ll_action_buttons"
+        <TextView
+            android:id="@+id/tv_public_profile_bio"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
+            android:layout_marginHorizontal="20dp"
             android:layout_marginTop="24dp"
+            android:lineSpacingMultiplier="1.2"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
             android:visibility="gone"
-            tools:visibility="visible">
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_toggle_follow"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
-                app:cornerRadius="8dp"
-                tools:text="@string/follow" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_send_message"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                app:cornerRadius="8dp"
-                app:icon="@drawable/ic_send"
-                android:text="@string/message_button_label" />
-        </LinearLayout>
+            tools:text="Olsen Kampala est un ingénieur logiciel passionné par la littérature africaine et les nouvelles technologies. Lire, c'est guérir."
+            tools:visibility="visible" />
 
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_public_profile_bio"
-            android:layout_width="match_parent"
+        <!-- NOTE: Section optimisée pour utiliser un seul TextView avec drawableStartCompat -->
+        <TextView
+            android:id="@+id/tv_public_profile_city"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="24dp"
-            app:cardElevation="2dp"
-            android:visibility="gone"
-            tools:visibility="visible">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-                <TextView
-                    android:id="@+id/tv_public_profile_bio_title"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/bio_label"
-                    android:textAppearance="?attr/textAppearanceTitleMedium"
-                    android:textColor="?attr/colorOnSurface"
-                    android:textStyle="bold"
-                    android:drawablePadding="12dp"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="8dp"
-                    app:drawableStartCompat="@drawable/ic_description_outline"
-                    app:drawableTint="?attr/colorPrimary"/>
-                <TextView
-                    android:id="@+id/tv_public_profile_bio"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:lineSpacingMultiplier="1.2"
-                    tools:text="Olsen Kampala est un ingénieur..."/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_public_profile_city"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
+            android:layout_gravity="start"
+            android:layout_marginHorizontal="20dp"
             android:layout_marginTop="16dp"
-            app:cardElevation="2dp"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_location_outline"
+            app:drawableTint="?attr/colorOnSurfaceVariant"
+            tools:text="Dakar, Sénégal"
+            tools:visibility="visible" />
+
+        <!-- =================================================================== -->
+        <!-- C. PIÈCE MAÎTRESSE : LA LECTURE EN COURS (LE "POST")                  -->
+        <!-- =================================================================== -->
+        <LinearLayout
+            android:id="@+id/card_current_reading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="vertical"
             android:visibility="gone"
             tools:visibility="visible">
+
+            <TextView
+                android:id="@+id/tv_current_reading_post_header"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginBottom="16dp"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnSurface"
+                android:textStyle="bold"
+                tools:text="Lisez avec Nom d'Utilisateur..." />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="20dp"
-                android:gravity="center_vertical">
-                <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:src="@drawable/ic_location_outline"
-                    android:layout_marginEnd="16dp"
-                    app:tint="?attr/colorPrimary"
-                    android:contentDescription="@string/city_label"/>
-                <TextView
-                    android:id="@+id/tv_public_profile_city"
-                    android:layout_width="wrap_content"
+                android:paddingHorizontal="20dp">
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/iv_current_reading_book_cover"
+                    android:layout_width="100dp"
+                    android:layout_height="150dp"
+                    android:scaleType="centerCrop"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
+                    tools:src="@tools:sample/backgrounds/scenic" />
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    tools:text="Dakar, Sénégal"/>
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:id="@+id/tv_current_reading_book_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxLines="3"
+                        android:textAppearance="?attr/textAppearanceTitleLarge"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textStyle="bold"
+                        tools:text="Le Seigneur des Anneaux" />
+                    <TextView
+                        android:id="@+id/tv_current_reading_book_author"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:maxLines="2"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="J.R.R. Tolkien" />
+                </LinearLayout>
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/card_current_reading"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="16dp"
-            app:cardElevation="2dp"
-            android:visibility="gone"
-            tools:visibility="visible">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
                 android:orientation="vertical"
-                android:paddingVertical="20dp">
+                android:paddingHorizontal="20dp">
+                <TextView
+                    android:id="@+id/tv_current_reading_progress_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:textAppearance="?attr/textAppearanceBody2"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    tools:text="50%" />
+                <ProgressBar
+                    android:id="@+id/progress_bar_current_reading"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:max="100"
+                    android:progressDrawable="@drawable/custom_progress_bar"
+                    tools:progress="50" />
+            </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/ll_favorite_quote_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:visibility="gone"
+                tools:visibility="visible">
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/current_reading_title"
-                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:text="@string/favorite_quote_hint"
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+                <TextView
+                    android:id="@+id/tv_favorite_quote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/background_quote"
+                    android:paddingStart="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="8dp"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
                     android:textColor="?attr/colorOnSurface"
-                    android:textStyle="bold"
-                    android:drawablePadding="12dp"
-                    android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp"
-                    android:layout_marginHorizontal="20dp" />
+                    android:textStyle="italic"
+                    tools:text="C'est une curieuse chose que d'aller sur les routes." />
+            </LinearLayout>
 
+            <LinearLayout
+                android:id="@+id/ll_personal_note_section"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/personal_reflection_hint"
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+                <TextView
+                    android:id="@+id/tv_personal_note"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:lineSpacingMultiplier="1.2"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurface"
+                    tools:text="Cette partie sur le Conseil d'Elrond est absolument magistrale." />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/ll_social_actions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="12dp">
+
+                <ImageButton
+                    android:id="@+id/btn_social_like"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/action_like"
+                    android:src="@drawable/ic_heart_outline"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+                <TextView
+                    android:id="@+id/tv_social_like_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    tools:text="12" />
+
+                <ImageButton
+                    android:id="@+id/btn_social_rate"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:contentDescription="@string/action_rate"
+                    android:src="@drawable/ic_star_outline"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+                <ImageButton
+                    android:id="@+id/btn_social_bookmark"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:contentDescription="@string/action_bookmark"
+                    android:src="@drawable/ic_bookmark_outline"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+                <ImageButton
+                    android:id="@+id/btn_social_recommend"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:contentDescription="@string/action_recommend"
+                    android:src="@drawable/ic_thumb_up_outline"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <ImageButton
+                    android:id="@+id/btn_social_share"
+                    style="?android:attr/borderlessButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/action_share"
+                    android:src="@drawable/ic_share_outline"
+                    app:tint="?attr/colorOnSurfaceVariant" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp">
+                <View
+                    android:id="@+id/comments_divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginBottom="16dp"
+                    android:background="?attr/colorOutline" />
+                <TextView
+                    android:id="@+id/tv_comments_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/comments_section_title"
+                    android:textAppearance="?attr/textAppearanceTitleSmall"
+                    android:textColor="?attr/colorOnSurface" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_comments"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="false"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                    tools:itemCount="2"
+                    tools:listitem="@layout/item_comment" />
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:paddingHorizontal="20dp">
-                    <com.google.android.material.imageview.ShapeableImageView
-                        android:id="@+id/iv_current_reading_book_cover"
-                        android:layout_width="100dp"
-                        android:layout_height="150dp"
-                        android:scaleType="centerCrop"
-                        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Medium"
-                        tools:src="@tools:sample/backgrounds/scenic" />
-                    <LinearLayout
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/til_comment_input"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:layout_marginStart="16dp">
-                        <TextView
-                            android:id="@+id/tv_current_reading_book_title"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textAppearance="?attr/textAppearanceTitleLarge"
-                            android:textColor="?attr/colorOnSurface"
-                            android:textStyle="bold"
-                            android:maxLines="3"
-                            tools:text="Le Seigneur des Anneaux"/>
-                        <TextView
-                            android:id="@+id/tv_current_reading_book_author"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:textAppearance="?attr/textAppearanceBodyMedium"
-                            android:textColor="?attr/colorOnSurfaceVariant"
-                            android:maxLines="2"
-                            tools:text="J.R.R. Tolkien"/>
-                    </LinearLayout>
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="20dp"
-                    android:layout_marginTop="16dp">
-                    <TextView
-                        android:id="@+id/tv_current_reading_progress_text"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="?attr/textAppearanceBody2"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:gravity="end"
-                        tools:text="50%"/>
-                    <ProgressBar
-                        android:id="@+id/progress_bar_current_reading"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:progressDrawable="@drawable/custom_progress_bar"
-                        android:max="100"
-                        tools:progress="50" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/ll_favorite_quote_section"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="20dp"
-                    android:layout_marginTop="20dp"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-                    <TextView
+                        android:hint="@string/comment_input_hint"
+                        app:boxCornerRadiusBottomEnd="24dp"
+                        app:boxCornerRadiusBottomStart="24dp"
+                        app:boxCornerRadiusTopEnd="24dp"
+                        app:boxCornerRadiusTopStart="24dp">
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/et_comment_input"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_send_comment"
+                        style="@style/Widget.Material3.Button.IconButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/favorite_quote_hint"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textColor="?attr/colorOnSurfaceVariant"/>
-                    <TextView
-                        android:id="@+id/tv_favorite_quote"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:paddingStart="16dp"
-                        android:paddingVertical="8dp"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textStyle="italic"
-                        android:textColor="?attr/colorOnSurface"
-                        tools:text="C'est une curieuse chose que d'aller sur les routes."/>
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/ll_personal_note_section"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:paddingHorizontal="20dp"
-                    android:layout_marginTop="16dp"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/personal_reflection_hint"
-                        android:textAppearance="?attr/textAppearanceLabelLarge"
-                        android:textColor="?attr/colorOnSurfaceVariant"/>
-                    <TextView
-                        android:id="@+id/tv_personal_note"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:lineSpacingMultiplier="1.2"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?attr/colorOnSurface"
-                        tools:text="Cette partie sur le Conseil d'Elrond est absolument magistrale."/>
-                </LinearLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_toggle_like"
-                    style="@style/Widget.Material3.Button.TextButton.Icon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginHorizontal="12dp"
-                    app:icon="@drawable/ic_heart_red"
-                    app:iconTint="?attr/colorOnSurfaceVariant"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    tools:text="12 J'aime"/>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginTop="16dp"
-                    android:paddingHorizontal="20dp"
-                    android:background="?attr/colorSurfaceVariant">
-                    <View
-                        android:id="@+id/comments_divider"
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginBottom="16dp"
-                        android:background="?attr/colorOutline" />
-                    <TextView
-                        android:id="@+id/tv_comments_title"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/comments_section_title"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="?attr/colorOnSurface"/>
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_comments"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:nestedScrollingEnabled="false"
-                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                        tools:itemCount="2"
-                        tools:listitem="@layout/item_comment"/>
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginTop="16dp"
-                        android:gravity="center_vertical">
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/til_comment_input"
-                            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:hint="@string/comment_input_hint"
-                            app:boxCornerRadiusTopStart="24dp"
-                            app:boxCornerRadiusTopEnd="24dp"
-                            app:boxCornerRadiusBottomStart="24dp"
-                            app:boxCornerRadiusBottomEnd="24dp">
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/et_comment_input"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"/>
-                        </com.google.android.material.textfield.TextInputLayout>
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btn_send_comment"
-                            style="@style/Widget.Material3.Button.IconButton"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            app:icon="@drawable/ic_send"/>
-                    </LinearLayout>
+                        android:layout_marginStart="8dp"
+                        app:icon="@drawable/ic_send" />
                 </LinearLayout>
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
-        <com.google.android.material.card.MaterialCardView
+        <!-- =================================================================== -->
+        <!-- D. SECTION D'AFFINITÉ                                                 -->
+        <!-- =================================================================== -->
+        <LinearLayout
             android:id="@+id/card_strongest_affinity"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="16dp"
-            app:cardElevation="2dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/background_affinity_distinct"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="20dp"
             android:visibility="gone"
-            tools:visibility="visible"
-            app:cardBackgroundColor="?attr/colorPrimary">
+            tools:visibility="visible">
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="16dp"
+                android:contentDescription="@string/strongest_affinity_title"
+                android:src="@drawable/ic_heart_fire"
+                app:tint="?attr/colorOnPrimary" />
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="20dp"
-                android:gravity="center_vertical">
-                <ImageView
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_heart_fire"
-                    app:tint="?attr/colorOnPrimary"
-                    android:layout_marginEnd="16dp"
-                    android:contentDescription="@string/strongest_affinity_title"/>
-                <LinearLayout
-                    android:layout_width="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/tv_affinity_partner_info"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-                    <TextView
-                        android:id="@+id/tv_affinity_partner_info"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:textColor="?attr/colorOnPrimary"
-                        android:textStyle="bold"
-                        tools:text="Affinité maximale : 131 points avec @Ondit"/>
-                    <TextView
-                        android:id="@+id/tv_affinity_tier"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?attr/colorOnPrimary"
-                        android:alpha="0.9"
-                        tools:text="Ame sœur littéraire"/>
-                </LinearLayout>
+                    android:textAppearance="?attr/textAppearanceBodyLarge"
+                    android:textColor="?attr/colorOnPrimary"
+                    android:textStyle="bold"
+                    tools:text="✨ Complice Littéraire avec @Ondit" />
+                <TextView
+                    android:id="@+id/tv_affinity_tier"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:alpha="0.9"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnPrimary"
+                    tools:text="Ame sœur littéraire" />
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
 
         <ProgressBar
             android:id="@+id/progress_bar_public_profile"
@@ -513,19 +538,19 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="64dp"
             android:visibility="gone"
-            tools:visibility="visible"/>
+            tools:visibility="visible" />
 
         <TextView
             android:id="@+id/tv_public_profile_error"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="64dp"
             android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="64dp"
             android:gravity="center"
             android:textColor="?attr/colorError"
             android:visibility="gone"
             tools:text="Erreur: Utilisateur non trouvé" />
 
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

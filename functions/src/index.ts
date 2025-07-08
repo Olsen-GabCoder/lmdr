@@ -1,9 +1,14 @@
+// PRÊT À COLLER - Fichier index.ts mis à jour
 import * as admin from "firebase-admin";
 
-// Initialisation globale de l'SDK Admin. À ne faire qu'une fois.
-admin.initializeApp();
+// Initialisation globale de l'SDK Admin.
+try {
+  admin.initializeApp();
+} catch (e) {
 
-// Importe et ré-exporte toutes les fonctions depuis leurs fichiers respectifs.
-// L'opérateur "..." fusionne les objets exportés.
+}
+
+
 export * from "./monthlyReadings";
-export * from "./privateMessasging"
+export * from "./privateMessaging";
+export * from "./socialInteractions";

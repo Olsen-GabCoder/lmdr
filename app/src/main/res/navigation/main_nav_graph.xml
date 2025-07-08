@@ -32,6 +32,17 @@
         </action>
     </fragment>
 
+    <fragment
+        android:id="@+id/notificationsDestination"
+        android:name="com.lesmangeursdurouleau.app.notifications.NotificationsFragment"
+        android:label="@string/title_notifications"
+        tools:layout="@layout/fragment_notifications">
+        <action
+            android:id="@+id/action_notificationsFragment_to_publicProfileFragment"
+            app:destination="@id/publicProfileFragmentDestination" />
+    </fragment>
+
+
     <!-- Réunions -->
     <fragment
         android:id="@+id/navigation_meetings"
@@ -58,10 +69,12 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
-        <!-- NOUVELLE ACTION: Vers la liste des conversations privées -->
         <action
             android:id="@+id/action_navigation_members_profile_to_conversationsListFragmentDestination"
             app:destination="@id/conversationsListFragmentDestination" />
+        <action
+            android:id="@+id/action_navigation_members_profile_to_notificationsDestination"
+            app:destination="@id/notificationsDestination" />
     </fragment>
 
     <!-- Liste des Membres -->
@@ -146,7 +159,6 @@
             <argument android:name="userId" app:argType="string" />
             <argument android:name="username" app:argType="string" app:nullable="true" />
         </action>
-        <!-- NOUVELLE ACTION: Vers l'écran de chat privé -->
         <action
             android:id="@+id/action_publicProfileFragmentDestination_to_privateChatFragmentDestination"
             app:destination="@id/privateChatFragmentDestination" />

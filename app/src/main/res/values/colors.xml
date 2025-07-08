@@ -105,6 +105,7 @@
     <color name="bronze_medal">#CD7F32</color>
     <color name="separator_color">#BDBDBD</color>
     <color name="ucrop_dimmed_layer_color">#80000000</color>
+    <color name="notification_unread_background">#0D816CFF</color>
 
     <!-- Couleurs pour l'écran d'authentification -->
     <color name="auth_background_dark">#2C004F</color>
@@ -116,7 +117,7 @@
     <color name="outline_stroke_color">#E0E0E0</color>
     <color name="google_btn_text_color">#4285F4</color>
     <color name="google_btn_border_color">#DADCE0</color>
-
+    <color name="amber_star">#FFC107</color>
     <!-- Couleurs legacy ou à vérifier (regroupées) -->
     <color name="red_love">#FF4081</color>
     <color name="background_chat_original_light">#F5F7FA</color>
