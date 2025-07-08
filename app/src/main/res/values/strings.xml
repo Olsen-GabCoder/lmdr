@@ -318,6 +318,13 @@
     <string name="title_followers_of">Followers de %s</string>
     <string name="title_following_by">Abonnements de %s</string>
     <string name="no_followers_found">Aucun follower trouvé.</string>
+    <string name="action_reply">Répondre</string>
+    <string name="hide_replies">Masquer les réponses de %1$s</string>
+    <string name="anonymous_user">Utilisateur anonyme</string>
+
+    <string name="action_cancel_reply">Annuler la réponse</string>
+    <string name="reply_to_user_hint">Répondre à %1$s...</string>
+    <string name="indicator_reply">Réponse</string>
     <string name="no_following_found">Aucun abonnement trouvé.</string>
     <string name="mutual_follow_badge_description">Indicateur de suivi réciproque</string>
     <string name="current_reading_title">Lecture en cours</string>

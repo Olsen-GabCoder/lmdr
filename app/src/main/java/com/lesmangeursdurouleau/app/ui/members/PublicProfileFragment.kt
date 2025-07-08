@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier PublicProfileFragment.kt complet
+// PRÊT À COLLER - Fichier PublicProfileFragment.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.annotation.SuppressLint
@@ -8,6 +8,7 @@ import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -54,7 +55,9 @@ class PublicProfileFragment : Fragment() {
         setupRecyclerViews()
         setupResultListener()
         observeUiState()
-        setupClickListeners()
+        // MODIFIÉ : Séparation des listeners pour la clarté
+        setupMainClickListeners()
+        setupCommentSectionListeners()
     }
 
     private fun setupResultListener() {
@@ -65,13 +68,25 @@ class PublicProfileFragment : Fragment() {
     }
 
     private fun setupRecyclerViews() {
+        // MODIFIÉ : Instanciation de l'adapter avec les nouveaux listeners
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
             targetProfileOwnerId = args.userId,
+            lifecycleOwner = viewLifecycleOwner,
+            onReplyClickListener = { parentComment ->
+                viewModel.startReplyingTo(parentComment)
+                // Faire apparaître le clavier et focus sur le champ de texte
+                binding.etCommentInput.requestFocus()
+                val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                imm?.showSoftInput(binding.etCommentInput, InputMethodManager.SHOW_IMPLICIT)
+            },
+            onViewRepliesClickListener = { parentComment ->
+                // Logique pour voir/cacher les réponses à implémenter si nécessaire
+                Toast.makeText(context, "Voir les réponses pour ${parentComment.commentId}", Toast.LENGTH_SHORT).show()
+            },
             onDeleteClickListener = { comment -> viewModel.deleteComment(comment) },
             onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment) },
-            getCommentLikeStatus = { commentId -> viewModel.getCommentLikeStatus(commentId) },
-            lifecycleOwner = viewLifecycleOwner
+            getCommentLikeStatus = { commentId -> viewModel.getCommentLikeStatus(commentId) }
         )
         binding.rvComments.apply {
             layoutManager = LinearLayoutManager(context)
@@ -101,23 +116,19 @@ class PublicProfileFragment : Fragment() {
     private fun bindUiState(state: PublicProfileUiState) {
         binding.progressBarPublicProfile.isVisible = state.profileLoadState is ProfileLoadState.Loading
         binding.tvPublicProfileError.isVisible = state.profileLoadState is ProfileLoadState.Error
-
-        val isSuccess = state.profileLoadState is ProfileLoadState.Success
-        binding.contentContainer.visibility = if (isSuccess) View.VISIBLE else View.INVISIBLE
+        binding.contentContainer.visibility = if (state.profileLoadState is ProfileLoadState.Success) View.VISIBLE else View.INVISIBLE
 
         if (state.profileLoadState is ProfileLoadState.Error) {
             binding.tvPublicProfileError.text = state.profileLoadState.message
         }
 
-        if (isSuccess && state.user != null) {
-            val user = state.user
+        state.user?.let { user ->
             (activity as? AppCompatActivity)?.supportActionBar?.title = user.username
             populateProfileData(user)
             updateFollowButton(state.isFollowing, state.isOwnedProfile)
 
             binding.tvPublicProfileBio.isVisible = !user.bio.isNullOrBlank()
             binding.tvPublicProfileBio.text = user.bio
-
             binding.tvPublicProfileCity.isVisible = !user.city.isNullOrBlank()
             binding.tvPublicProfileCity.text = user.city
 
@@ -127,81 +138,67 @@ class PublicProfileFragment : Fragment() {
                 binding.tvAffinityPartnerInfo.text = getString(R.string.literary_accomplice_template, user.highestAffinityPartnerUsername)
                 binding.tvAffinityTier.text = user.highestAffinityTierName ?: ""
             }
-
-            val readingExperience = state.readingExperience
-            binding.cardCurrentReading.isVisible = readingExperience != null
-            if (readingExperience != null) {
-                binding.tvCurrentReadingPostHeader.text = getString(R.string.current_reading_post_header_template, user.username)
-
-                binding.tvCurrentReadingBookTitle.text = readingExperience.book.title
-                binding.tvCurrentReadingBookAuthor.text = readingExperience.book.author
-                binding.ivCurrentReadingBookCover.contentDescription = getString(R.string.book_cover_of_title_description, readingExperience.book.title)
-
-                Glide.with(this)
-                    .load(readingExperience.book.coverImageUrl)
-                    .placeholder(R.drawable.ic_book_placeholder)
-                    .into(binding.ivCurrentReadingBookCover)
-
-                val progress = if (readingExperience.reading.totalPages > 0) {
-                    (readingExperience.reading.currentPage.toFloat() / readingExperience.reading.totalPages * 100).toInt()
-                } else 0
-                binding.progressBarCurrentReading.progress = progress
-                binding.tvCurrentReadingProgressText.text = "$progress%"
-
-                val quote = readingExperience.reading.favoriteQuote
-                binding.llFavoriteQuoteSection.isVisible = !quote.isNullOrBlank()
-                binding.tvFavoriteQuote.text = if (!quote.isNullOrBlank()) "“${quote}”" else ""
-
-                val note = readingExperience.reading.personalReflection
-                binding.llPersonalNoteSection.isVisible = !note.isNullOrBlank()
-                binding.tvPersonalNote.text = note
-
-                // --- MISE À JOUR DE LA BARRE D'ACTIONS SOCIALES ---
-                // Like
-                binding.tvSocialLikeCount.text = readingExperience.likesCount.toString()
-                val likeIconRes = if (readingExperience.isLikedByCurrentUser) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
-                binding.btnSocialLike.setImageResource(likeIconRes)
-                val likeColor = if (readingExperience.isLikedByCurrentUser) {
-                    ContextCompat.getColor(requireContext(), R.color.red_love)
-                } else {
-                    MaterialColors.getColor(binding.btnSocialLike, com.google.android.material.R.attr.colorOnSurfaceVariant)
-                }
-                binding.btnSocialLike.imageTintList = ColorStateList.valueOf(likeColor)
-
-                // Favoris (Bookmark)
-                val bookmarkIconRes = if (readingExperience.isBookmarkedByCurrentUser) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark_outline
-                binding.btnSocialBookmark.setImageResource(bookmarkIconRes)
-                val bookmarkColor = if (readingExperience.isBookmarkedByCurrentUser) {
-                    MaterialColors.getColor(binding.btnSocialBookmark, com.google.android.material.R.attr.colorPrimary)
-                } else {
-                    MaterialColors.getColor(binding.btnSocialBookmark, com.google.android.material.R.attr.colorOnSurfaceVariant)
-                }
-                binding.btnSocialBookmark.imageTintList = ColorStateList.valueOf(bookmarkColor)
-
-                // Notation (Rating)
-                val hasRated = readingExperience.currentUserRating != null && readingExperience.currentUserRating > 0f
-                val ratingIconRes = if (hasRated) R.drawable.ic_star_filled else R.drawable.ic_star_outline
-                binding.btnSocialRate.setImageResource(ratingIconRes)
-                val ratingColor = if (hasRated) {
-                    ContextCompat.getColor(requireContext(), R.color.amber_star)
-                } else {
-                    MaterialColors.getColor(binding.btnSocialRate, com.google.android.material.R.attr.colorOnSurfaceVariant)
-                }
-                binding.btnSocialRate.imageTintList = ColorStateList.valueOf(ratingColor)
-
-                // Recommandation
-                val recommendIconRes = if (readingExperience.isRecommendedByCurrentUser) R.drawable.ic_thumb_up_filled else R.drawable.ic_thumb_up_outline
-                binding.btnSocialRecommend.setImageResource(recommendIconRes)
-                val recommendColor = if (readingExperience.isRecommendedByCurrentUser) {
-                    MaterialColors.getColor(binding.btnSocialRecommend, com.google.android.material.R.attr.colorPrimary)
-                } else {
-                    MaterialColors.getColor(binding.btnSocialRecommend, com.google.android.material.R.attr.colorOnSurfaceVariant)
-                }
-                binding.btnSocialRecommend.imageTintList = ColorStateList.valueOf(recommendColor)
-
-                commentsAdapter.submitList(readingExperience.comments)
-            }
         }
+
+        val readingExperience = state.readingExperience
+        binding.cardCurrentReading.isVisible = readingExperience != null
+        readingExperience?.let { experience ->
+            binding.tvCurrentReadingPostHeader.text = getString(R.string.current_reading_post_header_template, state.user?.username ?: "")
+            binding.tvCurrentReadingBookTitle.text = experience.book.title
+            binding.tvCurrentReadingBookAuthor.text = experience.book.author
+            binding.ivCurrentReadingBookCover.contentDescription = getString(R.string.book_cover_of_title_description, experience.book.title)
+            Glide.with(this).load(experience.book.coverImageUrl).placeholder(R.drawable.ic_book_placeholder).into(binding.ivCurrentReadingBookCover)
+
+            val progress = if (experience.reading.totalPages > 0) (experience.reading.currentPage.toFloat() / experience.reading.totalPages * 100).toInt() else 0
+            binding.progressBarCurrentReading.progress = progress
+            binding.tvCurrentReadingProgressText.text = "$progress%"
+
+            val quote = experience.reading.favoriteQuote
+            binding.llFavoriteQuoteSection.isVisible = !quote.isNullOrBlank()
+            binding.tvFavoriteQuote.text = if (!quote.isNullOrBlank()) "“${quote}”" else ""
+            val note = experience.reading.personalReflection
+            binding.llPersonalNoteSection.isVisible = !note.isNullOrBlank()
+            binding.tvPersonalNote.text = note
+
+            updateSocialActionButtons(experience)
+
+            // MODIFIÉ : Appel à la nouvelle méthode de soumission de l'adapter.
+            commentsAdapter.submitCommentList(experience.comments)
+        }
+
+        // AJOUT : Gérer l'UI en fonction de l'état de la réponse.
+        val replyingTo = state.replyingToComment
+        if (replyingTo != null) {
+            binding.tilCommentInput.hint = getString(R.string.reply_to_user_hint, replyingTo.userName)
+            binding.btnCancelReply.isVisible = true
+        } else {
+            binding.tilCommentInput.hint = getString(R.string.comment_input_hint)
+            binding.btnCancelReply.isVisible = false
+        }
+    }
+
+    private fun updateSocialActionButtons(experience: CurrentReadingExperience) {
+        binding.tvSocialLikeCount.text = experience.likesCount.toString()
+        val likeIconRes = if (experience.isLikedByCurrentUser) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
+        binding.btnSocialLike.setImageResource(likeIconRes)
+        val likeColor = if (experience.isLikedByCurrentUser) ContextCompat.getColor(requireContext(), R.color.red_love) else MaterialColors.getColor(binding.btnSocialLike, com.google.android.material.R.attr.colorOnSurfaceVariant)
+        binding.btnSocialLike.imageTintList = ColorStateList.valueOf(likeColor)
+
+        val bookmarkIconRes = if (experience.isBookmarkedByCurrentUser) R.drawable.ic_bookmark_filled else R.drawable.ic_bookmark_outline
+        binding.btnSocialBookmark.setImageResource(bookmarkIconRes)
+        val bookmarkColor = if (experience.isBookmarkedByCurrentUser) MaterialColors.getColor(binding.btnSocialBookmark, com.google.android.material.R.attr.colorPrimary) else MaterialColors.getColor(binding.btnSocialBookmark, com.google.android.material.R.attr.colorOnSurfaceVariant)
+        binding.btnSocialBookmark.imageTintList = ColorStateList.valueOf(bookmarkColor)
+
+        val hasRated = experience.currentUserRating != null && experience.currentUserRating > 0f
+        val ratingIconRes = if (hasRated) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+        binding.btnSocialRate.setImageResource(ratingIconRes)
+        val ratingColor = if (hasRated) ContextCompat.getColor(requireContext(), R.color.amber_star) else MaterialColors.getColor(binding.btnSocialRate, com.google.android.material.R.attr.colorOnSurfaceVariant)
+        binding.btnSocialRate.imageTintList = ColorStateList.valueOf(ratingColor)
+
+        val recommendIconRes = if (experience.isRecommendedByCurrentUser) R.drawable.ic_thumb_up_filled else R.drawable.ic_thumb_up_outline
+        binding.btnSocialRecommend.setImageResource(recommendIconRes)
+        val recommendColor = if (experience.isRecommendedByCurrentUser) MaterialColors.getColor(binding.btnSocialRecommend, com.google.android.material.R.attr.colorPrimary) else MaterialColors.getColor(binding.btnSocialRecommend, com.google.android.material.R.attr.colorOnSurfaceVariant)
+        binding.btnSocialRecommend.imageTintList = ColorStateList.valueOf(recommendColor)
     }
 
     private fun populateProfileData(user: User) {
@@ -209,14 +206,7 @@ class PublicProfileFragment : Fragment() {
         binding.tvFollowersCount.text = user.followersCount.toString()
         binding.tvFollowingCount.text = user.followingCount.toString()
         binding.tvBooksReadCount.text = user.booksReadCount.toString()
-
-        Glide.with(this)
-            .load(user.profilePictureUrl)
-            .placeholder(R.drawable.ic_profile_placeholder)
-            .error(R.drawable.ic_profile_placeholder)
-            .circleCrop()
-            .transition(DrawableTransitionOptions.withCrossFade())
-            .into(binding.ivPublicProfilePicture)
+        Glide.with(this).load(user.profilePictureUrl).placeholder(R.drawable.ic_profile_placeholder).error(R.drawable.ic_profile_placeholder).circleCrop().transition(DrawableTransitionOptions.withCrossFade()).into(binding.ivPublicProfilePicture)
     }
 
     private fun updateFollowButton(isFollowing: Boolean, isOwnedProfile: Boolean) {
@@ -225,10 +215,8 @@ class PublicProfileFragment : Fragment() {
             binding.llActionButtons.visibility = View.GONE
             return
         }
-
         binding.llActionButtons.visibility = View.VISIBLE
         followButton.isEnabled = true
-
         if (isFollowing) {
             followButton.text = getString(R.string.unfollow)
             val errorColor = ContextCompat.getColor(requireContext(), R.color.error_color)
@@ -248,73 +236,48 @@ class PublicProfileFragment : Fragment() {
         }
     }
 
-    private fun setupClickListeners() {
+    private fun setupMainClickListeners() {
         binding.btnToggleFollow.setOnClickListener {
             viewModel.toggleFollowStatus()
             it.isEnabled = false
         }
-
         binding.btnSendMessage.setOnClickListener {
-            val action = PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToPrivateChatFragmentDestination(
-                targetUserId = args.userId
-            )
-            findNavController().navigate(action)
+            findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToPrivateChatFragmentDestination(args.userId))
         }
-
         binding.btnSocialLike.setOnClickListener { viewModel.toggleLikeOnCurrentReading() }
-
         binding.btnSocialBookmark.setOnClickListener { viewModel.toggleBookmarkOnCurrentReading() }
-
         binding.btnSocialRate.setOnClickListener {
-            val experience = viewModel.uiState.value.readingExperience
-            if (experience != null) {
-                RatingDialogFragment.newInstance(
-                    bookTitle = experience.book.title,
-                    currentRating = experience.currentUserRating ?: 0f
-                ).show(childFragmentManager, RatingDialogFragment.TAG)
+            viewModel.uiState.value.readingExperience?.let {
+                RatingDialogFragment.newInstance(it.book.title, it.currentUserRating ?: 0f).show(childFragmentManager, RatingDialogFragment.TAG)
             }
         }
-
         binding.btnSocialRecommend.setOnClickListener { viewModel.toggleRecommendationOnCurrentReading() }
+        binding.btnSocialShare.setOnClickListener { showToast(getString(R.string.action_share) + " : Bientôt disponible !") }
 
+        val targetUsername = { viewModel.uiState.value.user?.username ?: args.username }
+        binding.llFollowersClickableArea.setOnClickListener {
+            findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowers(args.userId, "followers", getString(R.string.title_followers_of, targetUsername())))
+        }
+        binding.llFollowingClickableArea.setOnClickListener {
+            findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowing(args.userId, "following", getString(R.string.title_following_by, targetUsername())))
+        }
+        binding.llBooksReadClickableArea.setOnClickListener {
+            findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToCompletedReadingsFragment(args.userId, targetUsername()))
+        }
+    }
+
+    // AJOUT : Listeners spécifiques à la section des commentaires.
+    private fun setupCommentSectionListeners() {
         binding.btnSendComment.setOnClickListener {
             val commentText = binding.etCommentInput.text.toString()
             viewModel.postCommentOnCurrentReading(commentText)
             binding.etCommentInput.text?.clear()
-            val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+            val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(view?.windowToken, 0)
         }
 
-        binding.btnSocialShare.setOnClickListener { showToast(getString(R.string.action_share) + " : Bientôt disponible !") }
-
-
-        binding.llFollowersClickableArea.setOnClickListener {
-            val targetUsername = viewModel.uiState.value.user?.username ?: args.username
-            val action = PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowers(
-                userId = args.userId,
-                listType = "followers",
-                listTitle = getString(R.string.title_followers_of, targetUsername)
-            )
-            findNavController().navigate(action)
-        }
-
-        binding.llFollowingClickableArea.setOnClickListener {
-            val targetUsername = viewModel.uiState.value.user?.username ?: args.username
-            val action = PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowing(
-                userId = args.userId,
-                listType = "following",
-                listTitle = getString(R.string.title_following_by, targetUsername)
-            )
-            findNavController().navigate(action)
-        }
-
-        binding.llBooksReadClickableArea.setOnClickListener {
-            val targetUsername = viewModel.uiState.value.user?.username ?: args.username
-            val action = PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToCompletedReadingsFragment(
-                userId = args.userId,
-                username = targetUsername
-            )
-            findNavController().navigate(action)
+        binding.btnCancelReply.setOnClickListener {
+            viewModel.cancelReply()
         }
     }
 

@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier socialInteractions.ts complet et MODIFIÉ
+// PRÊT À COLLER - Fichier socialInteractions.ts - VERSION CORRIGÉE (Linter)
 import * as functions from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
@@ -64,11 +64,12 @@ async function sendSocialPushNotification(
 // ============================================================================
 
 /**
- * Déclenché lorsqu'un utilisateur en suit un autre.
+ * Déclenché lorsqu'un utilisateur en suit un autre. (Inchangé)
  */
 export const onNewFollower = functions.onDocumentCreated(
   "users/{followedId}/followers/{followerId}",
   async (event) => {
+    // ... (Logique existante de onNewFollower)
     const { followedId, followerId } = event.params;
     logger.log(`Début de onNewFollower: ${followerId} a suivi ${followedId}`);
 
@@ -109,14 +110,12 @@ export const onNewFollower = functions.onDocumentCreated(
 );
 
 
-// --- LOGIQUE DE LIKE/UNLIKE SUR UNE LECTURE ---
+// --- LOGIQUE DE LIKE/UNLIKE SUR UNE LECTURE (Inchangé) ---
 
-/**
- * Déclenché lorsqu'un utilisateur aime la lecture active d'un autre utilisateur.
- */
 export const onNewLikeOnReading = functions.onDocumentCreated(
   "users/{targetUserId}/user_readings/activeReading/likes/{likerId}",
   async (event) => {
+    // ... (Logique existante de onNewLikeOnReading)
     const likeSnapshot = event.data;
     if (!likeSnapshot) {
       logger.error("Le snapshot du like est vide, la fonction ne peut pas s'exécuter.");
@@ -183,12 +182,10 @@ export const onNewLikeOnReading = functions.onDocumentCreated(
   }
 );
 
-/**
- * Déclenché lorsqu'un utilisateur retire son "like" de la lecture active d'un autre.
- */
 export const onUnlikeOnReading = functions.onDocumentDeleted(
   "users/{targetUserId}/user_readings/activeReading/likes/{likerId}",
   async (event) => {
+    // ... (Logique existante de onUnlikeOnReading)
     const likeSnapshot = event.data;
     if (!likeSnapshot) {
       logger.error("Le snapshot du like supprimé est vide.");
@@ -217,34 +214,29 @@ export const onUnlikeOnReading = functions.onDocumentDeleted(
 );
 
 
-// --- LOGIQUE DE LIKE/UNLIKE SUR UN COMMENTAIRE ---
+// --- LOGIQUE DE LIKE/UNLIKE SUR UN COMMENTAIRE (Inchangé) ---
 
-/**
- * Déclenché lorsqu'un utilisateur aime un commentaire.
- */
 export const onNewLikeOnComment = functions.onDocumentCreated(
   "books/{bookId}/comments/{commentId}/likes/{likerId}",
   async (event) => {
+    // ... (Logique existante de onNewLikeOnComment)
     const { bookId, commentId, likerId } = event.params;
     logger.log(`Début de onNewLikeOnComment: ${likerId} a aimé le commentaire ${commentId}`);
 
     const commentRef = db.collection("books").doc(bookId).collection("comments").doc(commentId);
 
     try {
-        // 1. Mettre à jour le compteur du commentaire
         await commentRef.update({ likesCount: admin.firestore.FieldValue.increment(1) });
         logger.log(`Compteur de likes incrémenté pour le commentaire ${commentId}.`);
 
-        // 2. Récupérer les informations nécessaires pour la notification
         const commentDoc = await commentRef.get();
         if (!commentDoc.exists) {
             logger.error(`Le commentaire parent ${commentId} n'existe pas.`);
             return;
         }
         const commentData = commentDoc.data()!;
-        const recipientId = commentData.userId; // L'auteur du commentaire
+        const recipientId = commentData.userId;
 
-        // Ne pas s'auto-notifier
         if (recipientId === likerId) {
             logger.log("L'utilisateur a aimé son propre commentaire. Pas de notification.");
             return;
@@ -257,27 +249,25 @@ export const onNewLikeOnComment = functions.onDocumentCreated(
         }
         const likerData = likerDoc.data()!;
 
-        // 3. Créer le document de notification
         const notificationData = {
           recipientId: recipientId,
           actorId: likerId,
           actorUsername: likerData.username || "Quelqu'un",
           actorProfilePictureUrl: likerData.profilePictureUrl || null,
-          type: "LIKE_ON_COMMENT", // NOUVEAU TYPE
-          entityId: bookId, // On pointe vers le livre pour la navigation
+          type: "LIKE_ON_COMMENT",
+          entityId: bookId,
           entityTitle: `votre commentaire : "${commentData.commentText.substring(0, 50)}..."`,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           isRead: false,
         };
         await db.collection("users").doc(recipientId).collection("notifications").add(notificationData);
 
-        // 4. Envoyer la notification push
         const title = `Nouveau "J'aime" de ${notificationData.actorUsername}`;
         const body = `${notificationData.actorUsername} a aimé votre commentaire.`;
         await sendSocialPushNotification(recipientId, title, body, {
           notificationType: "LIKE_ON_COMMENT",
           actorId: likerId,
-          entityId: bookId, // On envoie le bookId pour que le clic sur la notif redirige vers le bon livre
+          entityId: bookId,
         });
 
     } catch (error) {
@@ -286,12 +276,10 @@ export const onNewLikeOnComment = functions.onDocumentCreated(
   }
 );
 
-/**
- * Déclenché lorsqu'un utilisateur retire son "like" d'un commentaire.
- */
 export const onUnlikeOnComment = functions.onDocumentDeleted(
   "books/{bookId}/comments/{commentId}/likes/{likerId}",
   async (event) => {
+    // ... (Logique existante de onUnlikeOnComment)
     const { bookId, commentId, likerId } = event.params;
     logger.log(`Début de onUnlikeOnComment: ${likerId} a retiré son like du commentaire ${commentId}`);
 
@@ -306,8 +294,11 @@ export const onUnlikeOnComment = functions.onDocumentDeleted(
 );
 
 
+// --- LOGIQUE DE CRÉATION/SUPPRESSION DE COMMENTAIRE (MODIFIÉE POUR GÉRER LES RÉPONSES) ---
+
 /**
- * Déclenché lorsqu'un utilisateur commente la lecture de quelqu'un.
+ * Déclenché lorsqu'un utilisateur crée un commentaire (ou une réponse).
+ * Gère les notifications et la mise à jour du compteur de réponses.
  */
 export const onNewCommentOnReading = functions.onDocumentCreated(
   "books/{bookId}/comments/{commentId}",
@@ -315,19 +306,40 @@ export const onNewCommentOnReading = functions.onDocumentCreated(
     const commentSnapshot = event.data;
     if (!commentSnapshot) return;
 
+    // CORRIGÉ: On utilise event.id qui est toujours disponible
+    const commentId = event.id;
     const { bookId } = event.params;
     const commentData = commentSnapshot.data();
     const actorId = commentData.userId;
-    const recipientId = commentData.targetUserId;
+    const postAuthorId = commentData.targetUserId;
+    const parentCommentId = commentData.parentCommentId;
 
-    logger.log(`Début de onNewCommentOnReading: ${actorId} a commenté le livre ${bookId} de ${recipientId}`);
+    logger.log(`Début de onNewCommentOnReading: ${actorId} a commenté (ID: ${commentId}) le livre ${bookId}. Parent: ${parentCommentId || 'aucun'}`);
 
-    if (recipientId === actorId) {
-        logger.log("L'utilisateur a commenté sa propre lecture. Pas de notification.");
-        return;
-    }
+    let recipientId = postAuthorId;
+    let notificationType = "COMMENT_ON_READING";
 
     try {
+        if (parentCommentId) {
+            notificationType = "REPLY_TO_COMMENT";
+            const parentCommentRef = db.collection("books").doc(bookId).collection("comments").doc(parentCommentId);
+
+            await parentCommentRef.update({ replyCount: admin.firestore.FieldValue.increment(1) });
+            logger.log(`replyCount incrémenté pour le commentaire parent ${parentCommentId}.`);
+
+            const parentCommentDoc = await parentCommentRef.get();
+            if (parentCommentDoc.exists) {
+                recipientId = parentCommentDoc.data()!.userId;
+            } else {
+                logger.warn(`Commentaire parent ${parentCommentId} introuvable. La notification ira à l'auteur du post.`);
+            }
+        }
+
+        if (recipientId === actorId) {
+            logger.log("L'utilisateur a commenté son propre contenu. Pas de notification.");
+            return;
+        }
+
         const bookDocPromise = db.collection("books").doc(bookId).get();
         const actorDocPromise = db.collection("users").doc(actorId).get();
         const [bookDoc, actorDoc] = await Promise.all([bookDocPromise, actorDocPromise]);
@@ -344,20 +356,20 @@ export const onNewCommentOnReading = functions.onDocumentCreated(
           actorId: actorId,
           actorUsername: actorData.username || "Quelqu'un",
           actorProfilePictureUrl: actorData.profilePictureUrl || null,
-          type: "COMMENT_ON_READING",
+          type: notificationType,
           entityId: bookId,
-          entityTitle: bookData.title || "votre lecture",
+          entityTitle: bookData.title || "un livre",
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
           isRead: false,
         };
 
         await db.collection("users").doc(recipientId).collection("notifications").add(notificationData);
-        logger.log(`Document de notification COMMENT_ON_READING créé pour ${recipientId}.`);
+        logger.log(`Document de notification ${notificationType} créé pour ${recipientId}.`);
 
-        const title = `Nouveau commentaire de ${notificationData.actorUsername}`;
+        const title = parentCommentId ? `Nouvelle réponse de ${notificationData.actorUsername}` : `Nouveau commentaire de ${notificationData.actorUsername}`;
         const body = `"${commentData.commentText}"`;
         await sendSocialPushNotification(recipientId, title, body, {
-          notificationType: "COMMENT_ON_READING",
+          notificationType: notificationType,
           actorId: actorId,
           entityId: bookId,
         });
@@ -367,3 +379,32 @@ export const onNewCommentOnReading = functions.onDocumentCreated(
     }
   }
 );
+
+/**
+ * AJOUT : Déclenché lorsqu'un commentaire est supprimé.
+ * Gère la mise à jour du compteur de réponses si nécessaire.
+ */
+export const onCommentDeleted = functions.onDocumentDeleted(
+    "books/{bookId}/comments/{commentId}",
+    async (event) => {
+      const commentSnapshot = event.data;
+      if (!commentSnapshot) return;
+
+      // CORRIGÉ: On utilise event.id qui est toujours disponible et on ne déstructure que ce dont on a besoin.
+      const { bookId } = event.params;
+      const commentData = commentSnapshot.data();
+      const parentCommentId = commentData.parentCommentId;
+
+      logger.log(`Début de onCommentDeleted: Commentaire ${event.id} supprimé.`);
+
+      if (parentCommentId) {
+        try {
+            const parentCommentRef = db.collection("books").doc(bookId).collection("comments").doc(parentCommentId);
+            await parentCommentRef.update({ replyCount: admin.firestore.FieldValue.increment(-1) });
+            logger.log(`replyCount décrémenté pour le commentaire parent ${parentCommentId}.`);
+        } catch (error) {
+            logger.error(`Erreur lors de la décrémentation de replyCount pour ${parentCommentId}:`, error);
+        }
+      }
+    }
+  );

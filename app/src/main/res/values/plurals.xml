@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- NOUVEAU FICHIER : res/values/plurals.xml -->
+<resources>
+    <!-- Chaîne pour le bouton "Voir les réponses" -->
+    <plurals name="view_replies_count">
+        <item quantity="one">%d réponse</item>
+        <item quantity="other">%d réponses</item>
+    </plurals>
+</resources>

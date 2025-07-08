@@ -37,7 +37,9 @@ data class PublicProfileUiState(
     val user: User? = null,
     val isFollowing: Boolean = false,
     val isOwnedProfile: Boolean = false,
-    val readingExperience: CurrentReadingExperience? = null
+    val readingExperience: CurrentReadingExperience? = null,
+    // AJOUT : État pour savoir à qui on répond.
+    val replyingToComment: Comment? = null
 )
 
 sealed class ProfileLoadState {
@@ -64,6 +66,9 @@ class PublicProfileViewModel @Inject constructor(
     private val targetUserId: String = savedStateHandle.get<String>("userId")!!
     val currentUserId: String? = firebaseAuth.currentUser?.uid
 
+    // AJOUT : StateFlow privé pour gérer l'état de la réponse.
+    private val _replyingToComment = MutableStateFlow<Comment?>(null)
+
     private val _uiState = MutableStateFlow(PublicProfileUiState())
     val uiState: StateFlow<PublicProfileUiState> = _uiState.asStateFlow()
 
@@ -72,88 +77,150 @@ class PublicProfileViewModel @Inject constructor(
 
     init {
         loadProfileData()
+        combineUiState()
     }
 
-    private fun loadProfileData() {
+    // AJOUT : Méthode pour combiner les différents états en un seul UiState.
+    private fun combineUiState() {
         viewModelScope.launch {
-            val userProfileFlow = userProfileRepository.getUserById(targetUserId)
-            val isFollowingFlow = if (currentUserId != null && currentUserId != targetUserId) {
-                socialRepository.isFollowing(currentUserId, targetUserId)
-            } else {
-                flowOf(Resource.Success(false))
-            }
+            // Renommé pour la clarté
+            val profileAndReadingFlow = createProfileAndReadingFlow()
 
-            val readingExperienceFlow: Flow<Resource<CurrentReadingExperience?>> =
-                readingRepository.getCurrentReading(targetUserId).flatMapLatest { readingResource ->
-                    val reading = (readingResource as? Resource.Success)?.data
-                    if (reading == null || reading.bookId.isBlank()) {
-                        return@flatMapLatest flowOf(Resource.Success(null))
-                    }
-
-                    bookRepository.getBookById(reading.bookId)
-                        .combine(socialRepository.getCommentsForBook(reading.bookId)) { bookRes, commentsRes ->
-                            Pair(bookRes, commentsRes)
-                        }.combine(socialRepository.getBookLikesCount(reading.bookId)) { pair, likesRes ->
-                            Triple(pair.first, pair.second, likesRes)
-                        }.flatMapLatest { (bookRes, commentsRes, likesRes) ->
-                            if (bookRes !is Resource.Success || bookRes.data == null) {
-                                return@flatMapLatest flowOf(
-                                    if (bookRes is Resource.Error) Resource.Error(bookRes.message ?: "Erreur livre") else Resource.Loading()
-                                )
-                            }
-
-                            // MODIFIÉ : Appel à la nouvelle méthode isReadingLikedByUser
-                            val isLikedFlow = currentUserId?.let {
-                                socialRepository.isReadingLikedByUser(targetUserId, reading.bookId, it)
-                            } ?: flowOf(Resource.Success(false))
-
-                            val isBookmarkedFlow = currentUserId?.let { socialRepository.isBookBookmarkedByUser(reading.bookId, it) } ?: flowOf(Resource.Success(false))
-                            val userRatingFlow = currentUserId?.let { socialRepository.getUserRatingForBook(reading.bookId, it) } ?: flowOf(Resource.Success(null))
-                            val isRecommendedFlow = currentUserId?.let { socialRepository.isBookRecommendedByUser(reading.bookId, it) } ?: flowOf(Resource.Success(false))
-
-                            combine(isLikedFlow, isBookmarkedFlow, userRatingFlow, isRecommendedFlow) { isLiked, isBookmarked, userRating, isRecommended ->
-                                Resource.Success(
-                                    CurrentReadingExperience(
-                                        reading = reading,
-                                        book = bookRes.data,
-                                        comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
-                                        likesCount = (likesRes as? Resource.Success)?.data ?: 0,
-                                        isLikedByCurrentUser = (isLiked as? Resource.Success)?.data ?: false,
-                                        isBookmarkedByCurrentUser = (isBookmarked as? Resource.Success)?.data ?: false,
-                                        currentUserRating = (userRating as? Resource.Success)?.data,
-                                        isRecommendedByCurrentUser = (isRecommended as? Resource.Success)?.data ?: false
-                                    )
-                                )
-                            }
-                        }
-                }
-
-            combine(userProfileFlow, isFollowingFlow, readingExperienceFlow) { user, isFollowing, readingExperience ->
-                if (user is Resource.Loading) return@combine PublicProfileUiState(profileLoadState = ProfileLoadState.Loading)
-                if (user is Resource.Error) return@combine PublicProfileUiState(profileLoadState = ProfileLoadState.Error(user.message ?: "Erreur utilisateur"))
-
-                PublicProfileUiState(
-                    profileLoadState = ProfileLoadState.Success,
-                    user = (user as Resource.Success).data,
-                    isFollowing = (isFollowing as? Resource.Success)?.data ?: false,
-                    isOwnedProfile = targetUserId == currentUserId,
-                    readingExperience = (readingExperience as? Resource.Success)?.data
-                )
+            combine(
+                profileAndReadingFlow,
+                _replyingToComment
+            ) { profileState, replyingTo ->
+                // Mettre à jour l'état de la réponse dans le UiState global
+                profileState.copy(replyingToComment = replyingTo)
             }.catch { e ->
-                Log.e(TAG, "Erreur dans le flow de combinaison du profil", e)
-                emit(PublicProfileUiState(profileLoadState = ProfileLoadState.Error("Erreur technique: ${e.localizedMessage}")))
+                Log.e(TAG, "Erreur dans le flow de combinaison final", e)
+                // Gérer les erreurs si nécessaire
             }.collect { newState ->
                 _uiState.value = newState
             }
         }
     }
 
+    private fun loadProfileData() {
+        // La logique de chargement reste la même, mais ne met plus à jour _uiState directement.
+        // Elle sera combinée dans combineUiState.
+    }
+
+    // AJOUT : la logique de chargement a été extraite pour être combinée plus tard.
+    private fun createProfileAndReadingFlow(): Flow<PublicProfileUiState> {
+        val userProfileFlow = userProfileRepository.getUserById(targetUserId)
+        val isFollowingFlow = if (currentUserId != null && currentUserId != targetUserId) {
+            socialRepository.isFollowing(currentUserId, targetUserId)
+        } else {
+            flowOf(Resource.Success(false))
+        }
+
+        val readingExperienceFlow: Flow<Resource<CurrentReadingExperience?>> =
+            readingRepository.getCurrentReading(targetUserId).flatMapLatest { readingResource ->
+                val reading = (readingResource as? Resource.Success)?.data
+                if (reading == null || reading.bookId.isBlank()) {
+                    return@flatMapLatest flowOf(Resource.Success(null))
+                }
+
+                bookRepository.getBookById(reading.bookId)
+                    .combine(socialRepository.getCommentsForBook(reading.bookId)) { bookRes, commentsRes ->
+                        Pair(bookRes, commentsRes)
+                    }.combine(socialRepository.getBookLikesCount(reading.bookId)) { pair, likesRes ->
+                        Triple(pair.first, pair.second, likesRes)
+                    }.flatMapLatest { (bookRes, commentsRes, likesRes) ->
+                        if (bookRes !is Resource.Success || bookRes.data == null) {
+                            return@flatMapLatest flowOf(
+                                if (bookRes is Resource.Error) Resource.Error(bookRes.message ?: "Erreur livre") else Resource.Loading()
+                            )
+                        }
+
+                        val isLikedFlow = currentUserId?.let {
+                            socialRepository.isReadingLikedByUser(targetUserId, reading.bookId, it)
+                        } ?: flowOf(Resource.Success(false))
+
+                        val isBookmarkedFlow = currentUserId?.let { socialRepository.isBookBookmarkedByUser(reading.bookId, it) } ?: flowOf(Resource.Success(false))
+                        val userRatingFlow = currentUserId?.let { socialRepository.getUserRatingForBook(reading.bookId, it) } ?: flowOf(Resource.Success(null))
+                        val isRecommendedFlow = currentUserId?.let { socialRepository.isBookRecommendedByUser(reading.bookId, it) } ?: flowOf(Resource.Success(false))
+
+                        combine(isLikedFlow, isBookmarkedFlow, userRatingFlow, isRecommendedFlow) { isLiked, isBookmarked, userRating, isRecommended ->
+                            Resource.Success(
+                                CurrentReadingExperience(
+                                    reading = reading,
+                                    book = bookRes.data,
+                                    comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
+                                    likesCount = (likesRes as? Resource.Success)?.data ?: 0,
+                                    isLikedByCurrentUser = (isLiked as? Resource.Success)?.data ?: false,
+                                    isBookmarkedByCurrentUser = (isBookmarked as? Resource.Success)?.data ?: false,
+                                    currentUserRating = (userRating as? Resource.Success)?.data,
+                                    isRecommendedByCurrentUser = (isRecommended as? Resource.Success)?.data ?: false
+                                )
+                            )
+                        }
+                    }
+            }
+
+        return combine(userProfileFlow, isFollowingFlow, readingExperienceFlow) { user, isFollowing, readingExperience ->
+            if (user is Resource.Loading) return@combine PublicProfileUiState(profileLoadState = ProfileLoadState.Loading)
+            if (user is Resource.Error) return@combine PublicProfileUiState(profileLoadState = ProfileLoadState.Error(user.message ?: "Erreur utilisateur"))
+
+            PublicProfileUiState(
+                profileLoadState = ProfileLoadState.Success,
+                user = (user as Resource.Success).data,
+                isFollowing = (isFollowing as? Resource.Success)?.data ?: false,
+                isOwnedProfile = targetUserId == currentUserId,
+                readingExperience = (readingExperience as? Resource.Success)?.data
+            )
+        }.catch { e ->
+            Log.e(TAG, "Erreur dans le flow de combinaison du profil", e)
+            emit(PublicProfileUiState(profileLoadState = ProfileLoadState.Error("Erreur technique: ${e.localizedMessage}")))
+        }
+    }
+
+    // AJOUT : Fonctions pour gérer le début et l'annulation d'une réponse.
+    fun startReplyingTo(comment: Comment) {
+        _replyingToComment.value = comment
+    }
+
+    fun cancelReply() {
+        _replyingToComment.value = null
+    }
+
+    // MODIFIÉ : La fonction gère maintenant le cas d'une réponse.
+    fun postCommentOnCurrentReading(commentText: String) {
+        val experience = uiState.value.readingExperience ?: return
+        val currentUser = firebaseAuth.currentUser ?: return
+        if (commentText.isBlank()) {
+            viewModelScope.launch { _userInteractionEvents.emit("Le commentaire ne peut pas être vide.") }
+            return
+        }
+
+        // Vérifier si nous sommes en train de répondre à un commentaire
+        val parentComment = _replyingToComment.value
+
+        val comment = Comment(
+            userId = currentUser.uid,
+            userName = currentUser.displayName ?: "Anonyme",
+            userPhotoUrl = currentUser.photoUrl?.toString(),
+            targetUserId = targetUserId,
+            bookId = experience.book.id,
+            commentText = commentText.trim(),
+            parentCommentId = parentComment?.commentId // AJOUT: On passe l'ID du parent
+        )
+
+        viewModelScope.launch {
+            val result = socialRepository.addCommentOnBook(experience.book.id, comment)
+            if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
+            }
+            // Réinitialiser l'état de réponse après l'envoi
+            cancelReply()
+        }
+    }
+
     fun toggleLikeOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         val likerId = currentUserId ?: return
-
         viewModelScope.launch {
-            // MODIFIÉ : Appel à la nouvelle méthode toggleLikeOnReading avec tous les paramètres requis.
             val result = socialRepository.toggleLikeOnReading(targetUserId, bookId, likerId)
             if (result is Resource.Error) {
                 _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
@@ -164,7 +231,6 @@ class PublicProfileViewModel @Inject constructor(
     fun toggleBookmarkOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
-
         viewModelScope.launch {
             val result = socialRepository.toggleBookmarkOnBook(bookId, currentUserId)
             if (result is Resource.Error) {
@@ -176,7 +242,6 @@ class PublicProfileViewModel @Inject constructor(
     fun rateCurrentReading(rating: Float) {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
-
         viewModelScope.launch {
             val result = socialRepository.rateBook(bookId, currentUserId, rating)
             if (result is Resource.Error) {
@@ -188,35 +253,10 @@ class PublicProfileViewModel @Inject constructor(
     fun toggleRecommendationOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
-
         viewModelScope.launch {
             val result = socialRepository.toggleRecommendationOnBook(bookId, currentUserId)
             if (result is Resource.Error) {
                 _userInteractionEvents.emit(result.message ?: "Erreur lors de la recommandation")
-            }
-        }
-    }
-
-    fun postCommentOnCurrentReading(commentText: String) {
-        val experience = uiState.value.readingExperience ?: return
-        val currentUser = firebaseAuth.currentUser ?: return
-        if (commentText.isBlank()) {
-            viewModelScope.launch { _userInteractionEvents.emit("Le commentaire ne peut pas être vide.") }
-            return
-        }
-
-        val comment = Comment(
-            userId = currentUser.uid,
-            userName = currentUser.displayName ?: "Anonyme",
-            userPhotoUrl = currentUser.photoUrl?.toString(),
-            targetUserId = targetUserId,
-            bookId = experience.book.id,
-            commentText = commentText.trim()
-        )
-        viewModelScope.launch {
-            val result = socialRepository.addCommentOnBook(experience.book.id, comment)
-            if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
             }
         }
     }

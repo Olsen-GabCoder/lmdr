@@ -16,7 +16,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.navArgs
-import androidx.transition.Transition
 import androidx.transition.TransitionInflater
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -65,7 +64,7 @@ class CompletedReadingDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        postponeEnterTransition() // On attend que Glide soit prêt
+        postponeEnterTransition()
 
         observeViewModel()
         setupClickListeners()
@@ -73,13 +72,17 @@ class CompletedReadingDetailFragment : Fragment() {
 
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
+            // CORRIGÉ : Ajout des implémentations vides pour les nouveaux listeners
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
                 targetProfileOwnerId = args.userId,
+                lifecycleOwner = viewLifecycleOwner,
+                // On passe des fonctions vides car la fonctionnalité n'est pas requise sur cet écran.
+                onReplyClickListener = {},
+                onViewRepliesClickListener = {},
                 onDeleteClickListener = { comment -> viewModel.deleteComment(comment.commentId) },
                 onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
-                getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) },
-                lifecycleOwner = viewLifecycleOwner
+                getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }
             )
             binding.rvComments.adapter = commentsAdapter
         }
@@ -88,18 +91,14 @@ class CompletedReadingDetailFragment : Fragment() {
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Observe l'état global de l'UI
                 launch {
                     viewModel.uiState.collectLatest { state ->
                         binding.progressBarDetails.isVisible = state.isLoading
-
                         state.book?.let { book ->
                             updateReadingDetailsUI(book, state.completionDate)
                         }
-
                         if (state.error != null) {
                             Snackbar.make(binding.root, state.error, Snackbar.LENGTH_LONG).show()
-                            // Optionnel: Cacher les vues principales en cas d'erreur fatale
                             binding.ivBookCover.isVisible = false
                             binding.tvBookTitle.isVisible = false
                             binding.tvBookAuthor.isVisible = false
@@ -107,20 +106,20 @@ class CompletedReadingDetailFragment : Fragment() {
                     }
                 }
 
-                // Observe les commentaires séparément
                 launch {
                     viewModel.comments.collect { resource ->
                         binding.progressBarComments.isVisible = resource is Resource.Loading
-                        binding.rvComments.isVisible = resource is Resource.Success
-                        binding.tvNoComments.isVisible = resource is Resource.Success && resource.data.isNullOrEmpty()
+                        val comments = (resource as? Resource.Success)?.data
+                        binding.rvComments.isVisible = !comments.isNullOrEmpty()
+                        binding.tvNoComments.isVisible = comments.isNullOrEmpty()
 
                         if (resource is Resource.Success) {
-                            commentsAdapter?.submitList(resource.data)
+                            // CORRIGÉ : Utilisation de la nouvelle méthode de soumission de l'adapter
+                            (commentsAdapter)?.submitCommentList(comments ?: emptyList())
                         }
                     }
                 }
 
-                // Observe le statut du like de l'utilisateur
                 launch {
                     viewModel.isReadingLikedByCurrentUser.collect { resource ->
                         if (resource is Resource.Success) {
@@ -132,7 +131,6 @@ class CompletedReadingDetailFragment : Fragment() {
                     }
                 }
 
-                // Observe le nombre total de likes
                 launch {
                     viewModel.readingLikesCount.collect { resource ->
                         if (resource is Resource.Success) {
@@ -143,7 +141,6 @@ class CompletedReadingDetailFragment : Fragment() {
                     }
                 }
 
-                // Initialise l'adapter avec l'ID de l'utilisateur courant
                 launch {
                     viewModel.currentUserId.collectLatest { uid ->
                         setupRecyclerView(uid)
