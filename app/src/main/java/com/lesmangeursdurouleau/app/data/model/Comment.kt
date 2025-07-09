@@ -17,7 +17,9 @@ data class Comment(
     val targetUserId: String = "",
     val bookId: String = "",
     val commentText: String = "",
-    val timestamp: Timestamp = Timestamp.now(),
+    // ** CORRECTION ** : Le timestamp est rendu nullable pour gérer les documents Firestore
+    // où ce champ pourrait être manquant ou en cours d'écriture par le serveur.
+    val timestamp: Timestamp? = null,
 
     // Champs pour les interactions
     val likesCount: Int = 0,

@@ -1,8 +1,7 @@
 # PRÊT À COLLER - Remplacez tout le contenu de votre fichier libs.versions.toml par ceci.
 [versions]
-# CORRIGÉ : Mise à jour de la version de l'Android Gradle Plugin
-agp = "8.10.1"
-kotlin = "1.9.24" # On garde cette version, elle est stable et compatible
+agp = "8.2.2"
+kotlin = "1.9.22"
 coreKtx = "1.12.0"
 appcompat = "1.6.1"
 material = "1.11.0"
@@ -30,7 +29,6 @@ espressoCore = "3.5.1"
 hilt = "2.51.1"
 playServicesFido = "20.1.0"
 leanback = "1.0.0"
-firebaseFunctionsKtx = "21.0.0"
 materialVersion = "1.12.0"
 
 [libraries]
@@ -51,7 +49,8 @@ firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" 
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx" }
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
-firebase-functions-ktx = { group = "com.google.firebase", name = "firebase-functions-ktx", version.ref = "firebaseFunctionsKtx"}
+# CORRECTION : La version explicite est supprimée de la déclaration de la librairie. C'était la seule modification nécessaire.
+firebase-functions-ktx = { group = "com.google.firebase", name = "firebase-functions-ktx" }
 
 # Navigation
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigation" }
@@ -75,6 +74,7 @@ androidx-leanback = { group = "androidx.leanback", name = "leanback", version.re
 google-material = { group = "com.google.android.material", name = "material", version.ref = "materialVersion" }
 
 [plugins]
+# CORRECTION : Mise à jour des versions des plugins pour une meilleure compatibilité et stabilité.
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 googleGmsServices = { id = "com.google.gms.google-services", version.ref = "googleGmsServicesPlugin" }

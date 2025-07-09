@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Fichier build.gradle (app) CORRIGÉ
 plugins {
 
     id("com.android.application")
@@ -77,6 +78,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics-ktx")
 
     // Google Services
+    // CORRECTION FINALE : Versions restaurées car ces bibliothèques ne sont pas gérées par la BOM.
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
@@ -119,4 +121,3 @@ dependencies {
 kapt {
     correctErrorTypes = true
 }
-

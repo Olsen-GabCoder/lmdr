@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -60,31 +61,27 @@ class MainActivity : AppCompatActivity() {
         handleNotificationIntent(intent)
     }
 
-    // NOUVELLES FONCTIONS DE GESTION DU CYCLE DE VIE
     override fun onResume() {
         super.onResume()
-        // L'utilisateur est considéré comme "en ligne" lorsque l'application est au premier plan.
         updateUserStatus(true)
     }
 
     override fun onPause() {
         super.onPause()
-        // L'utilisateur est considéré comme "hors ligne" lorsque l'application quitte le premier plan.
         updateUserStatus(false)
     }
 
     private fun updateUserStatus(isOnline: Boolean) {
         firebaseAuth.currentUser?.uid?.let { userId ->
-            // Lancer la coroutine sur le thread IO pour ne pas bloquer le thread principal.
             lifecycleScope.launch(Dispatchers.IO) {
                 userProfileRepository.updateUserPresence(userId, isOnline)
             }
         }
     }
-    // FIN DES NOUVELLES FONCTIONS
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Il est crucial de gérer également l'intent ici pour les cas où l'activité est déjà ouverte.
         handleNotificationIntent(intent)
     }
 
@@ -126,15 +123,60 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // MODIFICATION (Chantier 3) : Logique de deep linking entièrement réécrite
     private fun handleNotificationIntent(intent: Intent?) {
         intent?.extras?.let { extras ->
-            val monthlyReadingId = extras.getString(MyFirebaseMessagingService.MONTHLY_READING_ID_KEY)
             val notificationType = extras.getString(MyFirebaseMessagingService.NOTIFICATION_TYPE_KEY)
+            Log.d("MainActivity", "Handling notification intent. Type: $notificationType")
 
-            Log.d("MainActivity", "Notification Intent received: monthlyReadingId=$monthlyReadingId, notificationType=$notificationType")
-            navController.navigate(R.id.navigation_readings)
+            when (notificationType) {
+                MyFirebaseMessagingService.TYPE_NEW_FOLLOWER,
+                MyFirebaseMessagingService.TYPE_LIKE_ON_READING,
+                MyFirebaseMessagingService.TYPE_COMMENT_ON_READING,
+                MyFirebaseMessagingService.TYPE_REPLY_TO_COMMENT,
+                MyFirebaseMessagingService.TYPE_LIKE_ON_COMMENT -> {
 
-            intent.replaceExtras(Bundle())
+                    val destinationUserId = if (notificationType == MyFirebaseMessagingService.TYPE_NEW_FOLLOWER) {
+                        extras.getString(MyFirebaseMessagingService.ACTOR_ID_KEY)
+                    } else {
+                        extras.getString(MyFirebaseMessagingService.TARGET_USER_ID_KEY)
+                    }
+
+                    if (!destinationUserId.isNullOrBlank()) {
+                        val commentId = extras.getString(MyFirebaseMessagingService.COMMENT_ID_KEY)
+                        val args = bundleOf(
+                            "userId" to destinationUserId,
+                            "scrollToCommentId" to commentId
+                        )
+                        navController.navigate(R.id.publicProfileFragmentDestination, args)
+                    } else {
+                        Log.w("MainActivity", "Social notification received without a valid destination user ID.")
+                    }
+                }
+
+                MyFirebaseMessagingService.TYPE_NEW_PRIVATE_MESSAGE,
+                MyFirebaseMessagingService.TYPE_TIER_UPGRADE -> {
+                    // Pour les messages et récompenses, on navigue vers la liste des conversations
+                    Log.d("MainActivity", "Navigating to conversations list.")
+                    navController.navigate(R.id.conversationsListFragmentDestination)
+                }
+
+                MyFirebaseMessagingService.TYPE_NEW_MONTHLY_READING,
+                MyFirebaseMessagingService.TYPE_PHASE_REMINDER,
+                MyFirebaseMessagingService.TYPE_PHASE_STATUS_CHANGE,
+                MyFirebaseMessagingService.TYPE_MEETING_LINK_UPDATE -> {
+                    // Comportement existant pour les lectures
+                    Log.d("MainActivity", "Navigating to readings screen.")
+                    navController.navigate(R.id.navigation_readings)
+                }
+
+                else -> {
+                    Log.w("MainActivity", "Notification intent with unhandled type: $notificationType")
+                }
+            }
+
+            // Important: Consommer l'intent pour éviter une re-navigation lors des changements de configuration.
+            setIntent(Intent())
         }
     }
 }

@@ -53,21 +53,25 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val CHANNEL_NAME_REWARDS = "Récompenses et Affinité"
         const val CHANNEL_DESC_REWARDS = "Notifications pour les nouveaux paliers d'affinité."
 
-        // NOUVEAU CANAL POUR LES NOTIFICATIONS SOCIALES
         const val CHANNEL_ID_SOCIAL = "social_interactions_channel"
         const val CHANNEL_NAME_SOCIAL = "Interactions Sociales"
         const val CHANNEL_DESC_SOCIAL = "Notifications pour les 'J'aime', commentaires et nouveaux complices."
 
-        // --- Clés de Données Communes ---
+        // --- Clés de Données ---
         const val NOTIFICATION_TYPE_KEY = "notificationType"
         const val TITLE_KEY = "title"
         const val BODY_KEY = "body"
-        const val ENTITY_ID_KEY = "entityId" // Clé générique pour bookId, commentId, etc.
-        const val ACTOR_ID_KEY = "actorId"   // Clé pour l'ID de l'utilisateur qui a fait l'action
 
-        // --- Clés Spécifiques (existantes) ---
+        // -- Clés de navigation --
+        const val ENTITY_ID_KEY = "entityId"
+        const val ACTOR_ID_KEY = "actorId"
         const val MONTHLY_READING_ID_KEY = "monthlyReadingId"
         const val CONVERSATION_ID_KEY = "conversationId"
+        // NOUVELLES CLÉS POUR LE DEEP LINKING (Chantier 3)
+        const val TARGET_USER_ID_KEY = "targetUserId"
+        const val COMMENT_ID_KEY = "commentId"
+
+        // --- Clés Spécifiques (existantes) ---
         const val NEW_TIER_NAME_KEY = "newTierName"
         const val PARTNER_NAME_KEY = "partnerName"
 
@@ -83,6 +87,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         const val TYPE_NEW_FOLLOWER = "NEW_FOLLOWER"
         const val TYPE_LIKE_ON_READING = "LIKE_ON_READING"
         const val TYPE_COMMENT_ON_READING = "COMMENT_ON_READING"
+        const val TYPE_REPLY_TO_COMMENT = "REPLY_TO_COMMENT"
+        const val TYPE_LIKE_ON_COMMENT = "LIKE_ON_COMMENT"
     }
 
     override fun onNewToken(token: String) {
@@ -111,57 +117,53 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         Log.d(TAG, "Message reçu de : ${remoteMessage.from}")
 
-        if (remoteMessage.data.isNotEmpty()) {
-            Log.d(TAG, "Payload de données du message : ${remoteMessage.data}")
+        val data = remoteMessage.data
+        if (data.isNotEmpty()) {
+            Log.d(TAG, "Payload de données du message : $data")
 
-            val notificationType = remoteMessage.data[NOTIFICATION_TYPE_KEY] ?: ""
-            val title = remoteMessage.data[TITLE_KEY] ?: remoteMessage.notification?.title ?: getString(R.string.app_name)
-            val body = remoteMessage.data[BODY_KEY] ?: remoteMessage.notification?.body ?: ""
+            val title = remoteMessage.notification?.title ?: getString(R.string.app_name)
+            val body = remoteMessage.notification?.body ?: ""
 
-            when (notificationType) {
+            when (val notificationType = data[NOTIFICATION_TYPE_KEY]) {
                 TYPE_NEW_MONTHLY_READING,
                 TYPE_PHASE_REMINDER,
                 TYPE_PHASE_STATUS_CHANGE,
                 TYPE_MEETING_LINK_UPDATE -> {
-                    val monthlyReadingId = remoteMessage.data[MONTHLY_READING_ID_KEY]
-                    sendGeneralNotification(title, body, monthlyReadingId, notificationType)
+                    sendGeneralNotification(title, body, data[MONTHLY_READING_ID_KEY], notificationType)
                 }
 
                 TYPE_NEW_PRIVATE_MESSAGE -> {
-                    val conversationId = remoteMessage.data[CONVERSATION_ID_KEY]
-                    sendPrivateMessageNotification(title, body, conversationId)
+                    sendPrivateMessageNotification(title, body, data[CONVERSATION_ID_KEY])
                 }
 
                 TYPE_TIER_UPGRADE -> {
-                    val conversationId = remoteMessage.data[CONVERSATION_ID_KEY]
-                    val newTierName = remoteMessage.data[NEW_TIER_NAME_KEY]
-
                     val intent = Intent(ACTION_TIER_UPGRADE).apply {
-                        putExtra(CONVERSATION_ID_KEY, conversationId)
-                        putExtra(NEW_TIER_NAME_KEY, newTierName)
+                        putExtra(CONVERSATION_ID_KEY, data[CONVERSATION_ID_KEY])
+                        putExtra(NEW_TIER_NAME_KEY, data[NEW_TIER_NAME_KEY])
                         putExtra(BODY_KEY, body)
                     }
                     LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-                    sendRewardNotification(title, body, conversationId)
+                    sendRewardNotification(title, body, data[CONVERSATION_ID_KEY])
                 }
 
-                // GESTION DES NOUVELLES NOTIFICATIONS SOCIALES
                 TYPE_NEW_FOLLOWER,
                 TYPE_LIKE_ON_READING,
-                TYPE_COMMENT_ON_READING -> {
-                    val entityId = remoteMessage.data[ENTITY_ID_KEY]
-                    val actorId = remoteMessage.data[ACTOR_ID_KEY]
-                    sendSocialNotification(title, body, notificationType, entityId, actorId)
+                TYPE_COMMENT_ON_READING,
+                TYPE_REPLY_TO_COMMENT,
+                TYPE_LIKE_ON_COMMENT -> {
+                    sendSocialNotification(
+                        title = title,
+                        messageBody = body,
+                        notificationType = notificationType,
+                        actorId = data[ACTOR_ID_KEY],
+                        targetUserId = data[TARGET_USER_ID_KEY],
+                        commentId = data[COMMENT_ID_KEY]
+                    )
                 }
 
                 else -> {
                     sendGeneralNotification(title, body, null, null)
                 }
-            }
-        } else {
-            remoteMessage.notification?.let {
-                Log.d(TAG, "Message de type 'notification' simple reçu : ${it.body}")
-                sendGeneralNotification(it.title ?: getString(R.string.app_name), it.body ?: "", null, null)
             }
         }
     }
@@ -169,8 +171,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     private fun sendGeneralNotification(title: String, messageBody: String, monthlyReadingId: String?, notificationType: String?) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            putExtra(MONTHLY_READING_ID_KEY, monthlyReadingId)
             putExtra(NOTIFICATION_TYPE_KEY, notificationType)
+            putExtra(MONTHLY_READING_ID_KEY, monthlyReadingId)
         }
         val pendingIntent = createPendingIntent(intent, monthlyReadingId.hashCode())
         val notificationBuilder = createNotificationBuilder(CHANNEL_ID_GENERAL, title, messageBody, pendingIntent)
@@ -199,19 +201,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         notify(conversationId.hashCode(), notificationBuilder)
     }
 
-    // NOUVELLE FONCTION POUR LES NOTIFICATIONS SOCIALES
-    private fun sendSocialNotification(title: String, messageBody: String, notificationType: String, entityId: String?, actorId: String?) {
+    private fun sendSocialNotification(title: String, messageBody: String, notificationType: String?, actorId: String?, targetUserId: String?, commentId: String?) {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(NOTIFICATION_TYPE_KEY, notificationType)
-            putExtra(ENTITY_ID_KEY, entityId)
             putExtra(ACTOR_ID_KEY, actorId)
+            putExtra(TARGET_USER_ID_KEY, targetUserId)
+            putExtra(COMMENT_ID_KEY, commentId)
         }
-        // Utiliser une combinaison pour un requestCode unique
-        val requestCode = (notificationType.hashCode() + (entityId?.hashCode() ?: 0) + (actorId?.hashCode() ?: 0))
+        val requestCode = (notificationType.hashCode() + (targetUserId?.hashCode() ?: 0) + (commentId?.hashCode() ?: 0))
         val pendingIntent = createPendingIntent(intent, requestCode)
         val notificationBuilder = createNotificationBuilder(CHANNEL_ID_SOCIAL, title, messageBody, pendingIntent)
-        // Utiliser un ID de notification basé sur le temps pour qu'elles s'empilent
         notify((System.currentTimeMillis() / 1000).toInt(), notificationBuilder)
     }
 
@@ -248,13 +248,13 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val generalChannel = NotificationChannel(CHANNEL_ID_GENERAL, CHANNEL_NAME_GENERAL, NotificationManager.IMPORTANCE_HIGH).apply { description = CHANNEL_DESC_GENERAL }
             val rewardsChannel = NotificationChannel(CHANNEL_ID_REWARDS, CHANNEL_NAME_REWARDS, NotificationManager.IMPORTANCE_HIGH).apply { description = CHANNEL_DESC_REWARDS }
             val privateMessagesChannel = NotificationChannel(CHANNEL_ID_PRIVATE_MESSAGES, CHANNEL_NAME_PRIVATE_MESSAGES, NotificationManager.IMPORTANCE_HIGH).apply { description = CHANNEL_DESC_PRIVATE_MESSAGES }
-            // DÉCLARATION DU NOUVEAU CANAL
             val socialChannel = NotificationChannel(CHANNEL_ID_SOCIAL, CHANNEL_NAME_SOCIAL, NotificationManager.IMPORTANCE_DEFAULT).apply { description = CHANNEL_DESC_SOCIAL }
 
 
             notificationManager.createNotificationChannel(generalChannel)
             notificationManager.createNotificationChannel(rewardsChannel)
             notificationManager.createNotificationChannel(privateMessagesChannel)
+            // LIGNE CORRIGÉE
             notificationManager.createNotificationChannel(socialChannel)
         }
     }

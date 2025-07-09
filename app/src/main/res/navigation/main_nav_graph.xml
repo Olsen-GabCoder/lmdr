@@ -132,6 +132,12 @@
             app:argType="string"
             app:nullable="true"
             android:defaultValue="Profil Membre" />
+        <!-- AJOUT (Chantier 2) : Argument optionnel pour scroller à un commentaire spécifique -->
+        <argument
+            android:name="scrollToCommentId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
         <action
             android:id="@+id/action_publicProfileFragmentDestination_to_membersFragmentDestination_followers"
             app:destination="@id/membersFragmentDestination">

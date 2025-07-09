@@ -79,7 +79,7 @@ class CommentsAdapter(
             // Logique de base (inchangée)
             binding.tvCommentAuthorUsername.text = comment.userName.takeIf { it.isNotBlank() } ?: "Utilisateur Anonyme"
             binding.tvCommentText.text = comment.commentText
-            binding.tvCommentTimestamp.text = formatTimestamp(comment.timestamp.toDate())
+            binding.tvCommentTimestamp.text = comment.timestamp?.let { formatTimestamp(it.toDate()) }
 
             Glide.with(binding.root.context)
                 .load(comment.userPhotoUrl)

@@ -114,7 +114,20 @@ class SocialRepositoryImpl @Inject constructor(
 
     override suspend fun addCommentOnBook(bookId: String, comment: Comment): Resource<Unit> {
         return try {
-            booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).add(comment).await()
+            val commentData = mutableMapOf<String, Any?>(
+                "userId" to comment.userId,
+                "userName" to comment.userName,
+                "userPhotoUrl" to comment.userPhotoUrl,
+                "targetUserId" to comment.targetUserId,
+                "bookId" to comment.bookId,
+                "commentText" to comment.commentText,
+                "timestamp" to FieldValue.serverTimestamp()
+            )
+            if (comment.parentCommentId != null) {
+                commentData["parentCommentId"] = comment.parentCommentId
+            }
+
+            booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).add(commentData).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "addCommentOnBook: Erreur: ${e.message}", e)
@@ -124,15 +137,24 @@ class SocialRepositoryImpl @Inject constructor(
 
     override fun getCommentsForBook(bookId: String): Flow<Resource<List<Comment>>> = callbackFlow {
         trySend(Resource.Loading())
+        // ** CORRECTION ** : La clause orderBy est déplacée pour être gérée manuellement
+        // après la désérialisation, pour éviter les crashs sur les documents sans champ timestamp.
         val listener = booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_COMMENTS)
-            .orderBy("timestamp", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     trySend(Resource.Error(error.localizedMessage ?: "Erreur réseau"))
                     close(error); return@addSnapshotListener
                 }
                 if (snapshot != null) {
-                    val comments = snapshot.documents.mapNotNull { it.toObject(Comment::class.java)?.copy(commentId = it.id) }
+                    val comments = snapshot.documents.mapNotNull {
+                        // Utilisation d'un bloc try-catch pour isoler les documents corrompus et éviter un crash total.
+                        try {
+                            it.toObject(Comment::class.java)?.copy(commentId = it.id)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Impossible de désérialiser le commentaire ${it.id}. Erreur: ${e.message}")
+                            null // Ignorer le commentaire corrompu
+                        }
+                    }.sortedByDescending { it.timestamp } // Tri en mémoire, après désérialisation
                     trySend(Resource.Success(comments))
                 }
             }
@@ -347,14 +369,12 @@ class SocialRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    // MODIFIÉ : La gestion du compteur a été retirée, car elle est maintenant gérée par la Cloud Function.
     override suspend fun toggleLikeOnComment(bookId: String, commentId: String, currentUserId: String): Resource<Unit> {
         return try {
             val likeRef = booksCollection.document(bookId)
                 .collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).document(commentId)
                 .collection(FirebaseConstants.SUBCOLLECTION_LIKES).document(currentUserId)
 
-            // Simplification : plus besoin de transaction pour le compteur.
             val likeDoc = likeRef.get().await()
 
             if (likeDoc.exists()) {
