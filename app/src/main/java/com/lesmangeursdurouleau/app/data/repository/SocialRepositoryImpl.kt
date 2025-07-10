@@ -188,6 +188,7 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
+    // MODIFICATION : Implémentation complète de la fonction de signalement.
     override suspend fun reportComment(bookId: String, commentId: String, reportingUserId: String, reason: String): Resource<Unit> {
         if (bookId.isBlank() || commentId.isBlank() || reportingUserId.isBlank()) {
             return Resource.Error("Informations manquantes pour le signalement.")

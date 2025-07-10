@@ -280,6 +280,23 @@ class PublicProfileViewModel @Inject constructor(
         }
     }
 
+    // AJOUT : Nouvelle fonction pour gérer le signalement d'un commentaire.
+    fun reportComment(comment: Comment) {
+        val reportingUserId = currentUserId ?: return
+        // Par défaut, nous utilisons une raison générique.
+        val reason = "Signalement depuis le profil public."
+
+        viewModelScope.launch {
+            val result = socialRepository.reportComment(comment.bookId, comment.commentId, reportingUserId, reason)
+            val message = if (result is Resource.Success) {
+                "Commentaire signalé. Merci de contribuer à la sécurité de la communauté."
+            } else {
+                (result as Resource.Error).message ?: "Une erreur est survenue lors du signalement."
+            }
+            _userInteractionEvents.emit(message)
+        }
+    }
+
     fun getCommentLikeStatus(commentId: String): Flow<Resource<Boolean>> {
         val experience = uiState.value.readingExperience
         if(experience == null || currentUserId == null) return flowOf(Resource.Error("Info manquante"))

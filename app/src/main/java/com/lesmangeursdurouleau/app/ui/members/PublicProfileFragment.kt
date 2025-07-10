@@ -75,7 +75,6 @@ class PublicProfileFragment : Fragment() {
     }
 
     private fun setupRecyclerViews() {
-        // MODIFIÉ : Le listener `onViewRepliesClickListener` a été retiré, sa logique étant désormais interne à l'adapter.
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
             lifecycleOwner = viewLifecycleOwner,
@@ -137,7 +136,8 @@ class PublicProfileFragment : Fragment() {
                     true
                 }
                 R.id.action_report_comment -> {
-                    showToast("Signaler le commentaire : Bientôt disponible !")
+                    // MODIFIÉ : Appelle le dialogue de confirmation au lieu d'afficher un Toast.
+                    showReportConfirmationDialog(comment)
                     true
                 }
                 R.id.action_hide_comment -> {
@@ -176,11 +176,22 @@ class PublicProfileFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_comment_dialog_title)
             .setMessage(R.string.delete_comment_dialog_message)
-            .setNegativeButton(R.string.action_cancel) { dialog, _ ->
-                dialog.dismiss()
-            }
+            .setNegativeButton(R.string.action_cancel, null)
             .setPositiveButton(R.string.action_delete) { dialog, _ ->
                 viewModel.deleteComment(comment)
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    // AJOUT : Nouvelle fonction pour afficher la boîte de dialogue de confirmation de signalement.
+    private fun showReportConfirmationDialog(comment: Comment) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.report_comment_dialog_title)
+            .setMessage(R.string.report_comment_dialog_message)
+            .setNegativeButton(R.string.action_cancel, null)
+            .setPositiveButton(R.string.action_report) { dialog, _ ->
+                viewModel.reportComment(comment)
                 dialog.dismiss()
             }
             .show()
