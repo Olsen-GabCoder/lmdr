@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier socialInteractions.ts - VERSION CORRIGÉE (Linter)
+// PRÊT À COLLER - Fichier socialInteractions.ts complet et MODIFIÉ
 import * as functions from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { logger } from "firebase-functions";
@@ -399,20 +399,23 @@ export const onCommentDeleted = functions.onDocumentDeleted(
       const commentSnapshot = event.data;
       if (!commentSnapshot) return;
 
-      const { bookId } = event.params;
+      const { bookId, commentId } = event.params;
       const commentData = commentSnapshot.data();
       const parentCommentId = commentData.parentCommentId;
 
-      logger.log(`Début de onCommentDeleted: Commentaire ${event.id} supprimé.`);
+      logger.log(`Début de onCommentDeleted: Commentaire ${commentId} supprimé.`);
 
-      if (parentCommentId) {
+      // Si le commentaire supprimé était une réponse, décrémenter le compteur du parent.
+      if (parentCommentId && typeof parentCommentId === 'string') {
         try {
             const parentCommentRef = db.collection("books").doc(bookId).collection("comments").doc(parentCommentId);
+            // Utilise un increment de -1 pour une décrémentation atomique et sûre.
             await parentCommentRef.update({ replyCount: admin.firestore.FieldValue.increment(-1) });
             logger.log(`replyCount décrémenté pour le commentaire parent ${parentCommentId}.`);
         } catch (error) {
-            logger.error(`Erreur lors de la décrémentation de replyCount pour ${parentCommentId}:`, error);
+            // Log l'erreur mais ne la propage pas pour ne pas bloquer d'autres processus.
+            logger.error(`Erreur lors de la décrémentation de replyCount pour le parent ${parentCommentId}:`, error);
         }
       }
     }
-  );
+);

@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.navArgs
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.transition.TransitionInflater
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -32,7 +33,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.concurrent.TimeUnit
 
 @AndroidEntryPoint
 class CompletedReadingDetailFragment : Fragment() {
@@ -72,19 +72,19 @@ class CompletedReadingDetailFragment : Fragment() {
 
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
-            // CORRIGÉ : Ajout des implémentations vides pour les nouveaux listeners
+            // CORRIGÉ : Utilisation du nouveau constructeur de l'adapter.
+            // On fournit des implémentations vides pour les actions non requises sur cet écran.
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
-                targetProfileOwnerId = args.userId,
                 lifecycleOwner = viewLifecycleOwner,
-                // On passe des fonctions vides car la fonctionnalité n'est pas requise sur cet écran.
                 onReplyClickListener = {},
                 onViewRepliesClickListener = {},
-                onDeleteClickListener = { comment -> viewModel.deleteComment(comment.commentId) },
+                onCommentOptionsClickListener = { _, _ -> /* Pas d'options de menu sur cet écran */ },
                 onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
                 getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }
             )
             binding.rvComments.adapter = commentsAdapter
+            binding.rvComments.layoutManager = LinearLayoutManager(context)
         }
     }
 
@@ -111,11 +111,11 @@ class CompletedReadingDetailFragment : Fragment() {
                         binding.progressBarComments.isVisible = resource is Resource.Loading
                         val comments = (resource as? Resource.Success)?.data
                         binding.rvComments.isVisible = !comments.isNullOrEmpty()
-                        binding.tvNoComments.isVisible = comments.isNullOrEmpty()
+                        binding.tvNoComments.isVisible = comments.isNullOrEmpty() && resource !is Resource.Loading
 
                         if (resource is Resource.Success) {
                             // CORRIGÉ : Utilisation de la nouvelle méthode de soumission de l'adapter
-                            (commentsAdapter)?.submitCommentList(comments ?: emptyList())
+                            commentsAdapter?.submitCommentList(comments ?: emptyList())
                         }
                     }
                 }
@@ -155,10 +155,15 @@ class CompletedReadingDetailFragment : Fragment() {
         Glide.with(this)
             .load(book.coverImageUrl)
             .placeholder(R.drawable.ic_book_placeholder)
-            .error(R.drawable.ic_book_placeholder_error)
+            .error(R.drawable.ic_book_placeholder)
             .dontAnimate()
             .listener(object : RequestListener<Drawable> {
-                override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
+                override fun onLoadFailed(
+                    e: GlideException?,
+                    model: Any?,
+                    target: Target<Drawable>,
+                    isFirstResource: Boolean
+                ): Boolean {
                     startPostponedEnterTransition()
                     return false
                 }

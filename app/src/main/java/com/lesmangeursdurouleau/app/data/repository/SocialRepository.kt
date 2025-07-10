@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier SocialRepository.kt complet et CORRIGÉ
+// PRÊT À COLLER - Fichier SocialRepository.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.data.repository
 
 import com.lesmangeursdurouleau.app.data.model.Comment
@@ -22,17 +22,16 @@ interface SocialRepository {
     suspend fun addCommentOnBook(bookId: String, comment: Comment): Resource<Unit>
     fun getCommentsForBook(bookId: String): Flow<Resource<List<Comment>>>
     suspend fun deleteCommentOnBook(bookId: String, commentId: String): Resource<Unit>
+    suspend fun updateCommentOnBook(bookId: String, commentId: String, newText: String): Resource<Unit>
+    suspend fun reportComment(bookId: String, commentId: String, reportingUserId: String, reason: String): Resource<Unit>
 
     // --- SECTION: INTERACTIONS SUR LA LECTURE ACTIVE (Social & Performant) ---
     suspend fun toggleLikeOnReading(targetUserId: String, bookId: String, likerId: String): Resource<Unit>
     fun isReadingLikedByUser(targetUserId: String, bookId: String, likerId: String): Flow<Resource<Boolean>>
 
     // --- SECTION: INTERACTIONS SUR UN LIVRE (Général) ---
-    // CORRECTION : Méthodes réintroduites pour gérer le "like" d'un livre en général.
     suspend fun toggleLikeOnBook(bookId: String, currentUserId: String): Resource<Unit>
     fun isBookLikedByUser(bookId: String, currentUserId: String): Flow<Resource<Boolean>>
-
-    // Compteur global, utilisé par les deux contextes.
     fun getBookLikesCount(bookId: String): Flow<Resource<Int>>
 
     // --- SECTION: INTERACTIONS SUR LES LIVRES (FAVORIS) ---

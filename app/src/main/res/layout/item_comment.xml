@@ -6,25 +6,30 @@
     android:id="@+id/comment_container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingVertical="8dp"
-    android:paddingEnd="12dp"
-    android:paddingStart="0dp">
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:paddingEnd="8dp"
+    android:paddingStart="0dp"
+    android:longClickable="true"
+    android:background="?attr/selectableItemBackground">
 
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_start_indent"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        app:layout_constraintGuide_percent="0.0" /> <com.google.android.material.imageview.ShapeableImageView
-    android:id="@+id/iv_comment_author_picture"
-    android:layout_width="40dp"
-    android:layout_height="40dp"
-    android:scaleType="centerCrop"
-    app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
-    app:layout_constraintStart_toStartOf="@id/guideline_start_indent"
-    app:layout_constraintTop_toTopOf="parent"
-    tools:src="@tools:sample/avatars"
-    android:contentDescription="@string/user_avatar_description" />
+        app:layout_constraintGuide_begin="12dp" />
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/iv_comment_author_picture"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:scaleType="centerCrop"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
+        app:layout_constraintStart_toStartOf="@id/guideline_start_indent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:src="@tools:sample/avatars"
+        android:contentDescription="@string/user_avatar_description" />
 
     <TextView
         android:id="@+id/tv_comment_author_username"
@@ -52,7 +57,7 @@
         android:autoLink="web|email"
         android:linksClickable="true"
         app:layout_constraintStart_toStartOf="@id/tv_comment_author_username"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toEndOf="@id/btn_comment_options"
         app:layout_constraintTop_toBottomOf="@id/tv_comment_author_username"
         tools:text="Ceci est un exemple de commentaire sur la lecture en cours de l'utilisateur. Le texte peut être assez long pour voir comment il s'enroule sur plusieurs lignes." />
 
@@ -62,25 +67,24 @@
         android:layout_height="wrap_content"
         android:textAppearance="?attr/textAppearanceCaption"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:layout_marginEnd="4dp"
-        app:layout_constraintEnd_toStartOf="@id/btn_delete_comment"
+        android:layout_marginEnd="8dp"
+        app:layout_constraintEnd_toStartOf="@id/btn_comment_options"
         app:layout_constraintTop_toTopOf="@id/tv_comment_author_username"
         app:layout_constraintBottom_toBottomOf="@id/tv_comment_author_username"
         tools:text="2h" />
 
-    <ImageView
-        android:id="@+id/btn_delete_comment"
-        android:layout_width="20dp"
-        android:layout_height="20dp"
+    <!-- AJOUT : Bouton d'options (kebab menu) pour déclencher le PopupMenu. -->
+    <ImageButton
+        android:id="@+id/btn_comment_options"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/delete_comment_button_description"
-        android:src="@drawable/ic_delete_outline"
+        android:contentDescription="@string/comment_options_menu_description"
+        android:src="@drawable/ic_more_vert"
         app:tint="?attr/colorOnSurfaceVariant"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/tv_comment_author_username"
-        app:layout_constraintBottom_toBottomOf="@id/tv_comment_author_username"
-        android:visibility="gone"
-        tools:visibility="visible" />
+        app:layout_constraintBottom_toBottomOf="@id/tv_comment_author_username" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_like_comment"

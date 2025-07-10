@@ -26,6 +26,7 @@ class SocialRepositoryImpl @Inject constructor(
         private const val SUBCOLLECTION_FAVORITED_BY = "favoritedBy"
         private const val SUBCOLLECTION_RATINGS = "ratings"
         private const val SUBCOLLECTION_RECOMMENDED_BY = "recommendedBy"
+        private const val SUBCOLLECTION_REPORTS = "reports"
     }
 
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
@@ -137,8 +138,6 @@ class SocialRepositoryImpl @Inject constructor(
 
     override fun getCommentsForBook(bookId: String): Flow<Resource<List<Comment>>> = callbackFlow {
         trySend(Resource.Loading())
-        // ** CORRECTION ** : La clause orderBy est déplacée pour être gérée manuellement
-        // après la désérialisation, pour éviter les crashs sur les documents sans champ timestamp.
         val listener = booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_COMMENTS)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -147,14 +146,13 @@ class SocialRepositoryImpl @Inject constructor(
                 }
                 if (snapshot != null) {
                     val comments = snapshot.documents.mapNotNull {
-                        // Utilisation d'un bloc try-catch pour isoler les documents corrompus et éviter un crash total.
                         try {
                             it.toObject(Comment::class.java)?.copy(commentId = it.id)
                         } catch (e: Exception) {
                             Log.e(TAG, "Impossible de désérialiser le commentaire ${it.id}. Erreur: ${e.message}")
-                            null // Ignorer le commentaire corrompu
+                            null
                         }
-                    }.sortedByDescending { it.timestamp } // Tri en mémoire, après désérialisation
+                    }.sortedByDescending { it.timestamp }
                     trySend(Resource.Success(comments))
                 }
             }
@@ -168,6 +166,47 @@ class SocialRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "deleteCommentOnBook: Erreur: ${e.message}", e)
             Resource.Error("Erreur de suppression: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun updateCommentOnBook(bookId: String, commentId: String, newText: String): Resource<Unit> {
+        if (bookId.isBlank() || commentId.isBlank() || newText.isBlank()) {
+            return Resource.Error("Informations manquantes pour la mise à jour du commentaire.")
+        }
+        return try {
+            val commentRef = booksCollection.document(bookId).collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).document(commentId)
+            val updates = mapOf(
+                "commentText" to newText,
+                "isEdited" to true,
+                "lastEditTimestamp" to FieldValue.serverTimestamp()
+            )
+            commentRef.update(updates).await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "updateCommentOnBook: Erreur: ${e.message}", e)
+            Resource.Error("Erreur de mise à jour du commentaire: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun reportComment(bookId: String, commentId: String, reportingUserId: String, reason: String): Resource<Unit> {
+        if (bookId.isBlank() || commentId.isBlank() || reportingUserId.isBlank()) {
+            return Resource.Error("Informations manquantes pour le signalement.")
+        }
+        return try {
+            val reportRef = booksCollection.document(bookId)
+                .collection(FirebaseConstants.SUBCOLLECTION_COMMENTS).document(commentId)
+                .collection(SUBCOLLECTION_REPORTS).document(reportingUserId)
+
+            val reportData = mapOf(
+                "reportingUserId" to reportingUserId,
+                "reason" to reason,
+                "timestamp" to FieldValue.serverTimestamp()
+            )
+            reportRef.set(reportData).await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "reportComment: Erreur: ${e.message}", e)
+            Resource.Error("Erreur lors du signalement: ${e.localizedMessage}")
         }
     }
 

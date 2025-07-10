@@ -26,22 +26,18 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-// AJOUT : Wrapper pour gérer les threads de commentaires avec DiffUtil
-data class CommentThread(val parent: Comment, val replies: List<Comment>)
-
 class CommentsAdapter(
+    // MODIFIÉ : Simplification du constructeur
     private val currentUserId: String?,
-    private val targetProfileOwnerId: String?,
     private val lifecycleOwner: LifecycleOwner,
-    // AJOUT : Nouveaux listeners pour les interactions de réponse
     private val onReplyClickListener: (parentComment: Comment) -> Unit,
     private val onViewRepliesClickListener: (parentComment: Comment) -> Unit,
-    private val onDeleteClickListener: (comment: Comment) -> Unit,
     private val onLikeClickListener: (comment: Comment) -> Unit,
+    // AJOUT : Nouveau listener unique pour toutes les options contextuelles
+    private val onCommentOptionsClickListener: (comment: Comment, anchorView: View) -> Unit,
     private val getCommentLikeStatus: (commentId: String) -> Flow<Resource<Boolean>>
 ) : ListAdapter<Comment, CommentsAdapter.CommentViewHolder>(CommentDiffCallback()) {
 
-    // AJOUT : Logique pour construire la liste affichable (avec indentation)
     private var allComments: List<Comment> = emptyList()
 
     fun submitCommentList(comments: List<Comment>) {
@@ -76,7 +72,6 @@ class CommentsAdapter(
         private var likeStatusJob: Job? = null
 
         fun bind(comment: Comment) {
-            // Logique de base (inchangée)
             binding.tvCommentAuthorUsername.text = comment.userName.takeIf { it.isNotBlank() } ?: "Utilisateur Anonyme"
             binding.tvCommentText.text = comment.commentText
             binding.tvCommentTimestamp.text = comment.timestamp?.let { formatTimestamp(it.toDate()) }
@@ -88,10 +83,10 @@ class CommentsAdapter(
                 .circleCrop()
                 .into(binding.ivCommentAuthorPicture)
 
-            // Gestion du bouton Supprimer (inchangé)
-            val canDelete = currentUserId != null && (comment.userId == currentUserId || currentUserId == targetProfileOwnerId)
-            binding.btnDeleteComment.visibility = if (canDelete) View.VISIBLE else View.GONE
-            binding.btnDeleteComment.setOnClickListener { if (canDelete) onDeleteClickListener(comment) }
+            // AJOUT : Le listener pour le nouveau bouton d'options
+            binding.btnCommentOptions.setOnClickListener {
+                onCommentOptionsClickListener(comment, it)
+            }
 
             // Gestion du bouton Like (inchangé)
             binding.btnLikeComment.setOnClickListener { onLikeClickListener(comment) }
@@ -105,18 +100,16 @@ class CommentsAdapter(
                 }
             }
 
-            // AJOUT : Nouvelle logique pour les réponses
+            // Logique pour les réponses (inchangée)
             val isReply = comment.parentCommentId != null
-
-            // 1. Gérer l'indentation visuelle
             val constraintSet = ConstraintSet()
             constraintSet.clone(binding.root)
-            val indentMargin = if (isReply) 48 else 12 // 48dp pour les réponses, 12dp pour les parents
-            constraintSet.setGuidelineBegin(R.id.guideline_start_indent, indentMargin)
+            val indentMarginDp = if (isReply) 48 else 12
+            // Conversion de dp en pixels
+            val indentMarginPx = (indentMarginDp * binding.root.context.resources.displayMetrics.density).toInt()
+            constraintSet.setGuidelineBegin(R.id.guideline_start_indent, indentMarginPx)
             constraintSet.applyTo(binding.root)
 
-            // 2. Gérer la visibilité et les clics des boutons de réponse
-            // On ne peut répondre qu'à un commentaire de premier niveau.
             if (!isReply) {
                 binding.btnReplyToComment.visibility = View.VISIBLE
                 binding.btnReplyToComment.setOnClickListener { onReplyClickListener(comment) }

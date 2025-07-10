@@ -38,7 +38,6 @@ data class PublicProfileUiState(
     val isFollowing: Boolean = false,
     val isOwnedProfile: Boolean = false,
     val readingExperience: CurrentReadingExperience? = null,
-    // AJOUT : État pour savoir à qui on répond.
     val replyingToComment: Comment? = null
 )
 
@@ -66,7 +65,6 @@ class PublicProfileViewModel @Inject constructor(
     private val targetUserId: String = savedStateHandle.get<String>("userId")!!
     val currentUserId: String? = firebaseAuth.currentUser?.uid
 
-    // AJOUT : StateFlow privé pour gérer l'état de la réponse.
     private val _replyingToComment = MutableStateFlow<Comment?>(null)
 
     private val _uiState = MutableStateFlow(PublicProfileUiState())
@@ -80,21 +78,17 @@ class PublicProfileViewModel @Inject constructor(
         combineUiState()
     }
 
-    // AJOUT : Méthode pour combiner les différents états en un seul UiState.
     private fun combineUiState() {
         viewModelScope.launch {
-            // Renommé pour la clarté
             val profileAndReadingFlow = createProfileAndReadingFlow()
 
             combine(
                 profileAndReadingFlow,
                 _replyingToComment
             ) { profileState, replyingTo ->
-                // Mettre à jour l'état de la réponse dans le UiState global
                 profileState.copy(replyingToComment = replyingTo)
             }.catch { e ->
                 Log.e(TAG, "Erreur dans le flow de combinaison final", e)
-                // Gérer les erreurs si nécessaire
             }.collect { newState ->
                 _uiState.value = newState
             }
@@ -102,11 +96,9 @@ class PublicProfileViewModel @Inject constructor(
     }
 
     private fun loadProfileData() {
-        // La logique de chargement reste la même, mais ne met plus à jour _uiState directement.
-        // Elle sera combinée dans combineUiState.
+        // La logique de chargement reste la même et sera combinée dans combineUiState.
     }
 
-    // AJOUT : la logique de chargement a été extraite pour être combinée plus tard.
     private fun createProfileAndReadingFlow(): Flow<PublicProfileUiState> {
         val userProfileFlow = userProfileRepository.getUserById(targetUserId)
         val isFollowingFlow = if (currentUserId != null && currentUserId != targetUserId) {
@@ -176,7 +168,6 @@ class PublicProfileViewModel @Inject constructor(
         }
     }
 
-    // AJOUT : Fonctions pour gérer le début et l'annulation d'une réponse.
     fun startReplyingTo(comment: Comment) {
         _replyingToComment.value = comment
     }
@@ -185,7 +176,6 @@ class PublicProfileViewModel @Inject constructor(
         _replyingToComment.value = null
     }
 
-    // MODIFIÉ : La fonction gère maintenant le cas d'une réponse.
     fun postCommentOnCurrentReading(commentText: String) {
         val experience = uiState.value.readingExperience ?: return
         val currentUser = firebaseAuth.currentUser ?: return
@@ -194,9 +184,7 @@ class PublicProfileViewModel @Inject constructor(
             return
         }
 
-        // Vérifier si nous sommes en train de répondre à un commentaire
         val parentComment = _replyingToComment.value
-
         val comment = Comment(
             userId = currentUser.uid,
             userName = currentUser.displayName ?: "Anonyme",
@@ -204,7 +192,7 @@ class PublicProfileViewModel @Inject constructor(
             targetUserId = targetUserId,
             bookId = experience.book.id,
             commentText = commentText.trim(),
-            parentCommentId = parentComment?.commentId // AJOUT: On passe l'ID du parent
+            parentCommentId = parentComment?.commentId
         )
 
         viewModelScope.launch {
@@ -212,8 +200,22 @@ class PublicProfileViewModel @Inject constructor(
             if (result is Resource.Error) {
                 _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
             }
-            // Réinitialiser l'état de réponse après l'envoi
             cancelReply()
+        }
+    }
+
+    fun updateComment(comment: Comment, newText: String) {
+        if (newText.isBlank()) {
+            viewModelScope.launch { _userInteractionEvents.emit("Le commentaire ne peut pas être vide.") }
+            return
+        }
+        viewModelScope.launch {
+            val result = socialRepository.updateCommentOnBook(comment.bookId, comment.commentId, newText.trim())
+            if (result is Resource.Success) {
+                _userInteractionEvents.emit("Commentaire modifié avec succès.")
+            } else if (result is Resource.Error) {
+                _userInteractionEvents.emit(result.message ?: "Erreur lors de la modification.")
+            }
         }
     }
 

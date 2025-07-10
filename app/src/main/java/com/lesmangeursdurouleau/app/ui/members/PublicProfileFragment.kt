@@ -2,6 +2,9 @@
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.util.TypedValue
@@ -9,8 +12,11 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.view.menu.MenuBuilder
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -23,8 +29,10 @@ import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.color.MaterialColors
 import com.lesmangeursdurouleau.app.R
+import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.databinding.FragmentPublicProfileBinding
 import dagger.hilt.android.AndroidEntryPoint
@@ -55,7 +63,6 @@ class PublicProfileFragment : Fragment() {
         setupRecyclerViews()
         setupResultListener()
         observeUiState()
-        // MODIFIÉ : Séparation des listeners pour la clarté
         setupMainClickListeners()
         setupCommentSectionListeners()
     }
@@ -68,23 +75,21 @@ class PublicProfileFragment : Fragment() {
     }
 
     private fun setupRecyclerViews() {
-        // MODIFIÉ : Instanciation de l'adapter avec les nouveaux listeners
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
-            targetProfileOwnerId = args.userId,
             lifecycleOwner = viewLifecycleOwner,
             onReplyClickListener = { parentComment ->
                 viewModel.startReplyingTo(parentComment)
-                // Faire apparaître le clavier et focus sur le champ de texte
                 binding.etCommentInput.requestFocus()
-                val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                val imm = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.showSoftInput(binding.etCommentInput, InputMethodManager.SHOW_IMPLICIT)
             },
             onViewRepliesClickListener = { parentComment ->
-                // Logique pour voir/cacher les réponses à implémenter si nécessaire
-                Toast.makeText(context, "Voir les réponses pour ${parentComment.commentId}", Toast.LENGTH_SHORT).show()
+                showToast("Voir les réponses pour ${parentComment.commentId} : Bientôt disponible !")
             },
-            onDeleteClickListener = { comment -> viewModel.deleteComment(comment) },
+            onCommentOptionsClickListener = { comment, anchorView ->
+                showCommentOptionsMenu(comment, anchorView)
+            },
             onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment) },
             getCommentLikeStatus = { commentId -> viewModel.getCommentLikeStatus(commentId) }
         )
@@ -93,6 +98,107 @@ class PublicProfileFragment : Fragment() {
             adapter = commentsAdapter
             isNestedScrollingEnabled = false
         }
+    }
+
+    @SuppressLint("RestrictedApi")
+    private fun showCommentOptionsMenu(comment: Comment, anchorView: View) {
+        val popup = PopupMenu(requireContext(), anchorView)
+        popup.inflate(R.menu.comment_options_menu)
+
+        if (popup.menu is MenuBuilder) {
+            val menuBuilder = popup.menu as MenuBuilder
+            menuBuilder.setOptionalIconsVisible(true)
+        }
+
+        val isAuthor = viewModel.currentUserId == comment.userId
+
+        popup.menu.findItem(R.id.action_edit_comment).isVisible = isAuthor
+        popup.menu.findItem(R.id.action_delete_comment).isVisible = isAuthor
+        popup.menu.findItem(R.id.action_report_comment).isVisible = !isAuthor
+        popup.menu.findItem(R.id.action_hide_comment).isVisible = !isAuthor
+
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_edit_comment -> {
+                    // MODIFIÉ : Affiche la boîte de dialogue de modification au lieu d'un Toast.
+                    showEditCommentDialog(comment)
+                    true
+                }
+                R.id.action_delete_comment -> {
+                    showDeleteConfirmationDialog(comment)
+                    true
+                }
+                R.id.action_reply_to_comment -> {
+                    viewModel.startReplyingTo(comment)
+                    binding.etCommentInput.requestFocus()
+                    val imm = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.showSoftInput(binding.etCommentInput, InputMethodManager.SHOW_IMPLICIT)
+                    true
+                }
+                R.id.action_copy_comment_text -> {
+                    copyCommentTextToClipboard(comment.commentText)
+                    true
+                }
+                R.id.action_report_comment -> {
+                    showToast("Signaler le commentaire : Bientôt disponible !")
+                    true
+                }
+                R.id.action_hide_comment -> {
+                    showToast("Masquer le commentaire : Bientôt disponible !")
+                    true
+                }
+                R.id.action_share_comment -> {
+                    showToast("Partager le commentaire : Bientôt disponible !")
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    // AJOUT : Nouvelle fonction pour afficher la boîte de dialogue de modification.
+    private fun showEditCommentDialog(comment: Comment) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_comment, null)
+        val editText = dialogView.findViewById<EditText>(R.id.et_edit_comment)
+        editText.setText(comment.commentText)
+
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.edit_comment_dialog_title)
+            .setView(dialogView)
+            .setNegativeButton(R.string.action_cancel, null)
+            .setPositiveButton(R.string.action_edit) { _, _ ->
+                val newText = editText.text.toString()
+                if (newText.isNotBlank() && newText != comment.commentText) {
+                    viewModel.updateComment(comment, newText)
+                }
+            }
+            .show()
+    }
+
+    private fun showDeleteConfirmationDialog(comment: Comment) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.delete_comment_dialog_title)
+            .setMessage(R.string.delete_comment_dialog_message)
+            .setNegativeButton(R.string.action_cancel) { dialog, _ ->
+                dialog.dismiss()
+            }
+            .setPositiveButton(R.string.action_delete) { dialog, _ ->
+                viewModel.deleteComment(comment)
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun copyCommentTextToClipboard(text: String) {
+        val clipboard = context?.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        if (clipboard == null) {
+            showToast(getString(R.string.error_clipboard_not_available))
+            return
+        }
+        val clip = ClipData.newPlainText("comment_text", text)
+        clipboard.setPrimaryClip(clip)
+        showToast(getString(R.string.comment_copied_to_clipboard))
     }
 
     private fun observeUiState() {
@@ -162,11 +268,9 @@ class PublicProfileFragment : Fragment() {
 
             updateSocialActionButtons(experience)
 
-            // MODIFIÉ : Appel à la nouvelle méthode de soumission de l'adapter.
             commentsAdapter.submitCommentList(experience.comments)
         }
 
-        // AJOUT : Gérer l'UI en fonction de l'état de la réponse.
         val replyingTo = state.replyingToComment
         if (replyingTo != null) {
             binding.tilCommentInput.hint = getString(R.string.reply_to_user_hint, replyingTo.userName)
@@ -266,13 +370,12 @@ class PublicProfileFragment : Fragment() {
         }
     }
 
-    // AJOUT : Listeners spécifiques à la section des commentaires.
     private fun setupCommentSectionListeners() {
         binding.btnSendComment.setOnClickListener {
             val commentText = binding.etCommentInput.text.toString()
             viewModel.postCommentOnCurrentReading(commentText)
             binding.etCommentInput.text?.clear()
-            val imm = context?.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            val imm = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.hideSoftInputFromWindow(view?.windowToken, 0)
         }
 
