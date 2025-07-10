@@ -73,7 +73,6 @@
         app:layout_constraintBottom_toBottomOf="@id/tv_comment_author_username"
         tools:text="2h" />
 
-    <!-- AJOUT : Bouton d'options (kebab menu) pour déclencher le PopupMenu. -->
     <ImageButton
         android:id="@+id/btn_comment_options"
         android:layout_width="32dp"
@@ -134,7 +133,7 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_view_replies"
-        style="@style/Widget.Material3.Button.TextButton"
+        style="@style/Widget.Material3.Button.TextButton.Icon"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
@@ -142,6 +141,8 @@
         android:minHeight="0dp"
         android:textAppearance="?attr/textAppearanceBodySmall"
         android:textStyle="bold"
+        app:icon="@drawable/ic_arrow_down"
+        app:iconGravity="textStart"
         app:layout_constraintStart_toEndOf="@id/btn_reply_to_comment"
         app:layout_constraintTop_toTopOf="@id/btn_like_comment"
         app:layout_constraintBottom_toBottomOf="@id/btn_like_comment"

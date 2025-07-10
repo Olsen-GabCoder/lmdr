@@ -339,6 +339,7 @@
     <string name="reply_to_user_hint">Répondre à %1$s...</string>
     <string name="indicator_reply">Réponse</string>
     <string name="edit_comment_dialog_title">Mettez à jour votre commentaire</string>
+    <string name="action_hide_replies">Masquer les réponses</string>
 
     <string name="no_following_found">Aucun abonnement trouvé.</string>
     <string name="mutual_follow_badge_description">Indicateur de suivi réciproque</string>

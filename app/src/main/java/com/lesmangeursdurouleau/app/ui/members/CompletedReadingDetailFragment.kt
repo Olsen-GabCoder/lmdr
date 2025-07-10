@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier 100% complet et corrigé
+// PRÊT À COLLER - Fichier 100% complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.content.Context
@@ -73,12 +73,11 @@ class CompletedReadingDetailFragment : Fragment() {
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
             // CORRIGÉ : Utilisation du nouveau constructeur de l'adapter.
-            // On fournit des implémentations vides pour les actions non requises sur cet écran.
+            // Le listener `onViewRepliesClickListener` a été retiré pour correspondre à la nouvelle signature.
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
                 lifecycleOwner = viewLifecycleOwner,
                 onReplyClickListener = {},
-                onViewRepliesClickListener = {},
                 onCommentOptionsClickListener = { _, _ -> /* Pas d'options de menu sur cet écran */ },
                 onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
                 getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }
@@ -114,7 +113,6 @@ class CompletedReadingDetailFragment : Fragment() {
                         binding.tvNoComments.isVisible = comments.isNullOrEmpty() && resource !is Resource.Loading
 
                         if (resource is Resource.Success) {
-                            // CORRIGÉ : Utilisation de la nouvelle méthode de soumission de l'adapter
                             commentsAdapter?.submitCommentList(comments ?: emptyList())
                         }
                     }

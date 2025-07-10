@@ -75,6 +75,7 @@ class PublicProfileFragment : Fragment() {
     }
 
     private fun setupRecyclerViews() {
+        // MODIFIÉ : Le listener `onViewRepliesClickListener` a été retiré, sa logique étant désormais interne à l'adapter.
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
             lifecycleOwner = viewLifecycleOwner,
@@ -83,9 +84,6 @@ class PublicProfileFragment : Fragment() {
                 binding.etCommentInput.requestFocus()
                 val imm = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
                 imm?.showSoftInput(binding.etCommentInput, InputMethodManager.SHOW_IMPLICIT)
-            },
-            onViewRepliesClickListener = { parentComment ->
-                showToast("Voir les réponses pour ${parentComment.commentId} : Bientôt disponible !")
             },
             onCommentOptionsClickListener = { comment, anchorView ->
                 showCommentOptionsMenu(comment, anchorView)
@@ -120,7 +118,6 @@ class PublicProfileFragment : Fragment() {
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_edit_comment -> {
-                    // MODIFIÉ : Affiche la boîte de dialogue de modification au lieu d'un Toast.
                     showEditCommentDialog(comment)
                     true
                 }
@@ -157,7 +154,6 @@ class PublicProfileFragment : Fragment() {
         popup.show()
     }
 
-    // AJOUT : Nouvelle fonction pour afficher la boîte de dialogue de modification.
     private fun showEditCommentDialog(comment: Comment) {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_comment, null)
         val editText = dialogView.findViewById<EditText>(R.id.et_edit_comment)

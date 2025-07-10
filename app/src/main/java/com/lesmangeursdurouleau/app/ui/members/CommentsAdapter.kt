@@ -5,6 +5,7 @@ import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AnimationUtils
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
@@ -27,36 +28,49 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 class CommentsAdapter(
-    // MODIFIÉ : Simplification du constructeur
     private val currentUserId: String?,
     private val lifecycleOwner: LifecycleOwner,
     private val onReplyClickListener: (parentComment: Comment) -> Unit,
-    private val onViewRepliesClickListener: (parentComment: Comment) -> Unit,
-    private val onLikeClickListener: (comment: Comment) -> Unit,
-    // AJOUT : Nouveau listener unique pour toutes les options contextuelles
     private val onCommentOptionsClickListener: (comment: Comment, anchorView: View) -> Unit,
+    private val onLikeClickListener: (comment: Comment) -> Unit,
     private val getCommentLikeStatus: (commentId: String) -> Flow<Resource<Boolean>>
 ) : ListAdapter<Comment, CommentsAdapter.CommentViewHolder>(CommentDiffCallback()) {
 
+    private val expandedCommentIds = mutableSetOf<String>()
     private var allComments: List<Comment> = emptyList()
+    // AJOUT : Map pour gérer l'état optimiste des likes (UI instantanée).
+    private val likedCommentsOptimisticState = mutableMapOf<String, Boolean>()
+
 
     fun submitCommentList(comments: List<Comment>) {
         allComments = comments
-        val threadedList = buildThreadedList(comments)
-        submitList(threadedList)
+        // AJOUT : Nettoyer l'état optimiste à chaque soumission d'une nouvelle liste.
+        likedCommentsOptimisticState.clear()
+        updateDisplayedList()
     }
 
-    private fun buildThreadedList(comments: List<Comment>): List<Comment> {
-        val commentMap = comments.groupBy { it.parentCommentId }
+    private fun updateDisplayedList() {
+        val commentMap = allComments.groupBy { it.parentCommentId }
         val topLevelComments = (commentMap[null] ?: emptyList()).sortedByDescending { it.timestamp }
-        val threadedList = mutableListOf<Comment>()
+        val displayedList = mutableListOf<Comment>()
 
         topLevelComments.forEach { parent ->
-            threadedList.add(parent)
-            val replies = (commentMap[parent.commentId] ?: emptyList()).sortedBy { it.timestamp }
-            threadedList.addAll(replies)
+            displayedList.add(parent)
+            if (expandedCommentIds.contains(parent.commentId)) {
+                val replies = (commentMap[parent.commentId] ?: emptyList()).sortedBy { it.timestamp }
+                displayedList.addAll(replies)
+            }
         }
-        return threadedList
+        submitList(displayedList)
+    }
+
+    fun toggleRepliesVisibility(commentId: String) {
+        if (expandedCommentIds.contains(commentId)) {
+            expandedCommentIds.remove(commentId)
+        } else {
+            expandedCommentIds.add(commentId)
+        }
+        updateDisplayedList()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
@@ -83,29 +97,45 @@ class CommentsAdapter(
                 .circleCrop()
                 .into(binding.ivCommentAuthorPicture)
 
-            // AJOUT : Le listener pour le nouveau bouton d'options
             binding.btnCommentOptions.setOnClickListener {
                 onCommentOptionsClickListener(comment, it)
             }
 
-            // Gestion du bouton Like (inchangé)
-            binding.btnLikeComment.setOnClickListener { onLikeClickListener(comment) }
+            // MODIFICATION : La logique de clic est déplacée ici pour l'UI Optimiste.
+            binding.btnLikeComment.setOnClickListener {
+                val currentState = likedCommentsOptimisticState[comment.commentId]
+                    ?: (getCommentLikeStatus(comment.commentId) as? Resource.Success<Boolean>)?.data ?: false
+                val newState = !currentState
+
+                // 1. Mettre à jour l'état optimiste
+                likedCommentsOptimisticState[comment.commentId] = newState
+
+                // 2. Mettre à jour l'UI immédiatement
+                updateLikeButtonState(newState, comment.likesCount, true)
+                it.startAnimation(AnimationUtils.loadAnimation(it.context, R.anim.like_button_animation))
+
+                // 3. Lancer l'opération backend
+                onLikeClickListener(comment)
+            }
+
+            // Initialise le compteur de likes
             binding.btnLikeComment.text = comment.likesCount.toString()
 
+            // L'observation du Flow continue de fonctionner comme source de vérité et correcteur.
             likeStatusJob?.cancel()
             likeStatusJob = lifecycleOwner.lifecycleScope.launch {
                 getCommentLikeStatus(comment.commentId).collectLatest { resource ->
                     val isLiked = (resource as? Resource.Success)?.data ?: false
-                    updateLikeButtonState(isLiked)
+                    // Utilise l'état optimiste s'il existe, sinon l'état réel.
+                    val displayState = likedCommentsOptimisticState[comment.commentId] ?: isLiked
+                    updateLikeButtonState(displayState, comment.likesCount)
                 }
             }
 
-            // Logique pour les réponses (inchangée)
             val isReply = comment.parentCommentId != null
             val constraintSet = ConstraintSet()
             constraintSet.clone(binding.root)
             val indentMarginDp = if (isReply) 48 else 12
-            // Conversion de dp en pixels
             val indentMarginPx = (indentMarginDp * binding.root.context.resources.displayMetrics.density).toInt()
             constraintSet.setGuidelineBegin(R.id.guideline_start_indent, indentMarginPx)
             constraintSet.applyTo(binding.root)
@@ -116,8 +146,17 @@ class CommentsAdapter(
 
                 if (comment.replyCount > 0) {
                     binding.btnViewReplies.visibility = View.VISIBLE
-                    binding.btnViewReplies.text = binding.root.context.resources.getQuantityString(R.plurals.view_replies_count, comment.replyCount, comment.replyCount)
-                    binding.btnViewReplies.setOnClickListener { onViewRepliesClickListener(comment) }
+                    val isExpanded = expandedCommentIds.contains(comment.commentId)
+                    if (isExpanded) {
+                        binding.btnViewReplies.text = binding.root.context.getString(R.string.action_hide_replies)
+                        binding.btnViewReplies.setIconResource(R.drawable.ic_arrow_up)
+                    } else {
+                        binding.btnViewReplies.text = binding.root.context.resources.getQuantityString(R.plurals.view_replies_count, comment.replyCount, comment.replyCount)
+                        binding.btnViewReplies.setIconResource(R.drawable.ic_arrow_down)
+                    }
+                    binding.btnViewReplies.setOnClickListener {
+                        toggleRepliesVisibility(comment.commentId)
+                    }
                 } else {
                     binding.btnViewReplies.visibility = View.GONE
                 }
@@ -127,7 +166,8 @@ class CommentsAdapter(
             }
         }
 
-        private fun updateLikeButtonState(isLiked: Boolean) {
+        // MODIFICATION : La fonction accepte l'état, le compte et un flag pour l'UI optimiste.
+        private fun updateLikeButtonState(isLiked: Boolean, currentLikesCount: Int, isOptimisticUpdate: Boolean = false) {
             val iconRes = if (isLiked) R.drawable.ic_heart_filled else R.drawable.ic_heart_outline
             binding.btnLikeComment.setIconResource(iconRes)
 
@@ -139,6 +179,18 @@ class CommentsAdapter(
             }
             binding.btnLikeComment.iconTint = ColorStateList.valueOf(resolvedColor)
             binding.btnLikeComment.setTextColor(resolvedColor)
+
+            // Logique de mise à jour du compteur pour l'UI optimiste
+            if (isOptimisticUpdate) {
+                val currentCount = binding.btnLikeComment.text.toString().toIntOrNull() ?: currentLikesCount
+                binding.btnLikeComment.text = if(isLiked) {
+                    (currentCount + 1).toString()
+                } else {
+                    (currentCount - 1).coerceAtLeast(0).toString()
+                }
+            } else {
+                binding.btnLikeComment.text = currentLikesCount.toString()
+            }
         }
     }
 
