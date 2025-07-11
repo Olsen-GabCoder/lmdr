@@ -22,16 +22,16 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// AJOUT : Nouvelle classe de données pour l'UI, encapsulant un commentaire et son état de visibilité.
 data class UiComment(
     val comment: Comment,
-    val isHidden: Boolean
+    val isHidden: Boolean,
+    // AJOUT : Champ pour marquer un commentaire comme mis en évidence.
+    val isHighlighted: Boolean = false
 )
 
 data class CurrentReadingExperience(
     val reading: UserBookReading,
     val book: Book,
-    // MODIFICATION : La liste contient maintenant des UiComment au lieu de Comment.
     val comments: List<UiComment> = emptyList(),
     val likesCount: Int = 0,
     val isLikedByCurrentUser: Boolean = false,
@@ -48,13 +48,19 @@ data class PublicProfileUiState(
     val readingExperience: CurrentReadingExperience? = null,
     val replyingToComment: Comment? = null,
     val mentionSuggestions: List<User> = emptyList(),
-    val isSearchingMentions: Boolean = false
+    val isSearchingMentions: Boolean = false,
+    val highlightedCommentId: String? = null
 )
 
 sealed class ProfileLoadState {
     object Loading : ProfileLoadState()
     object Success : ProfileLoadState()
     data class Error(val message: String) : ProfileLoadState()
+}
+
+sealed class Event {
+    data class ShowToast(val message: String) : Event()
+    data class ShareContent(val text: String) : Event()
 }
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -66,29 +72,36 @@ class PublicProfileViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val localUserPreferencesRepository: LocalUserPreferencesRepository,
     private val firebaseAuth: FirebaseAuth,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "PublicProfileViewModel"
         private const val MENTION_SEARCH_LIMIT = 5L
+        // MODIFICATION : L'URI de base utilise maintenant un schéma personnalisé 'lmr' pour le développement.
+        private const val DEEP_LINK_BASE_URI = "lmr://lesmangeursdurouleau.com"
     }
 
     private val targetUserId: String = savedStateHandle.get<String>("userId")!!
+    private val highlightedCommentId: String? = savedStateHandle.get<String>("highlightedCommentId")
     val currentUserId: String? = firebaseAuth.currentUser?.uid
 
     private val _replyingToComment = MutableStateFlow<Comment?>(null)
     private val _mentionQuery = MutableStateFlow("")
 
-    private val _uiState = MutableStateFlow(PublicProfileUiState())
+    private val _uiState = MutableStateFlow(PublicProfileUiState(highlightedCommentId = highlightedCommentId))
     val uiState: StateFlow<PublicProfileUiState> = _uiState.asStateFlow()
 
-    private val _userInteractionEvents = MutableSharedFlow<String>()
-    val userInteractionEvents: SharedFlow<String> = _userInteractionEvents.asSharedFlow()
+    private val _events = MutableSharedFlow<Event>()
+    val events: SharedFlow<Event> = _events.asSharedFlow()
 
     init {
         combineUiState()
         observeMentionSearch()
+    }
+
+    fun onHighlightConsumed() {
+        _uiState.update { it.copy(highlightedCommentId = null) }
     }
 
     private fun combineUiState() {
@@ -103,10 +116,13 @@ class PublicProfileViewModel @Inject constructor(
             }.catch { e ->
                 Log.e(TAG, "Erreur dans le flow de combinaison final", e)
             }.collect { newState ->
-                _uiState.value = newState.copy(
-                    mentionSuggestions = _uiState.value.mentionSuggestions,
-                    isSearchingMentions = _uiState.value.isSearchingMentions
-                )
+                _uiState.update { currentState ->
+                    newState.copy(
+                        mentionSuggestions = currentState.mentionSuggestions,
+                        isSearchingMentions = currentState.isSearchingMentions,
+                        highlightedCommentId = currentState.highlightedCommentId
+                    )
+                }
             }
         }
     }
@@ -136,9 +152,7 @@ class PublicProfileViewModel @Inject constructor(
                             Log.e(TAG, "Erreur de recherche de mention: ${result.message}")
                             _uiState.update { it.copy(isSearchingMentions = false) }
                         }
-                        is Resource.Loading -> {
-                            // Géré par le isSearchingMentions = true
-                        }
+                        is Resource.Loading -> { /* Géré par isSearchingMentions = true */ }
                     }
                 }
         }
@@ -162,25 +176,23 @@ class PublicProfileViewModel @Inject constructor(
                 val commentsFromFirestore = socialRepository.getCommentsForBook(reading.bookId)
                 val hiddenCommentIds = localUserPreferencesRepository.getHiddenCommentIds()
 
-                // MODIFICATION : La logique de combinaison transforme maintenant les Comment en UiComment
-                // au lieu de les filtrer. Le nom du flow a été changé pour refléter cela.
-                val uiCommentsFlow = combine(commentsFromFirestore, hiddenCommentIds) { commentsResource, hiddenIds ->
+                // MODIFICATION : Le flow des commentaires prend maintenant en compte l'ID à mettre en évidence.
+                val uiCommentsFlow = combine(commentsFromFirestore, hiddenCommentIds, _uiState.map { it.highlightedCommentId }.distinctUntilChanged()) { commentsResource, hiddenIds, highlightedId ->
                     when (commentsResource) {
                         is Resource.Success -> {
                             val uiComments = commentsResource.data?.map { comment ->
                                 UiComment(
                                     comment = comment,
-                                    isHidden = comment.commentId in hiddenIds
+                                    isHidden = comment.commentId in hiddenIds,
+                                    isHighlighted = comment.commentId == highlightedId
                                 )
                             } ?: emptyList()
                             Resource.Success(uiComments)
                         }
-                        // Gérer explicitement les autres états pour garantir la sécurité de type.
                         is Resource.Error -> Resource.Error(commentsResource.message ?: "Erreur de chargement des commentaires")
                         is Resource.Loading -> Resource.Loading()
                     }
                 }
-
 
                 bookRepository.getBookById(reading.bookId)
                     .combine(uiCommentsFlow) { bookRes, commentsRes ->
@@ -207,7 +219,6 @@ class PublicProfileViewModel @Inject constructor(
                                 CurrentReadingExperience(
                                     reading = reading,
                                     book = bookRes.data,
-                                    // Le type de `commentsRes` est maintenant Resource<List<UiComment>>, ce qui est cohérent.
                                     comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
                                     likesCount = (likesRes as? Resource.Success)?.data ?: 0,
                                     isLikedByCurrentUser = (isLiked as? Resource.Success)?.data ?: false,
@@ -237,174 +248,96 @@ class PublicProfileViewModel @Inject constructor(
         }
     }
 
+    fun shareComment(comment: Comment) {
+        viewModelScope.launch {
+            if (targetUserId.isBlank() || comment.commentId.isBlank()) {
+                _events.emit(Event.ShowToast("Impossible de partager ce commentaire."))
+                return@launch
+            }
+            val deepLink = "$DEEP_LINK_BASE_URI/comment?targetUserId=$targetUserId&commentId=${comment.commentId}"
+            val shareText = "Regarde ce commentaire sur Les Mangeurs du Rouleau :\n$deepLink"
+            _events.emit(Event.ShareContent(shareText))
+        }
+    }
+
     fun hideComment(commentId: String) {
         viewModelScope.launch {
             localUserPreferencesRepository.hideComment(commentId)
-            _userInteractionEvents.emit("Commentaire masqué.")
+            _events.emit(Event.ShowToast("Commentaire masqué."))
         }
     }
 
-    // AJOUT : Nouvelle fonction publique pour démasquer un commentaire.
     fun unhideComment(commentId: String) {
         viewModelScope.launch {
             localUserPreferencesRepository.unhideComment(commentId)
-            _userInteractionEvents.emit("Commentaire affiché.")
+            _events.emit(Event.ShowToast("Commentaire affiché."))
         }
     }
 
-    fun searchForMention(query: String) {
-        _mentionQuery.value = query
-    }
-
-    fun clearMentionSuggestions() {
-        _mentionQuery.value = ""
-        _uiState.update { it.copy(mentionSuggestions = emptyList()) }
-    }
-
-    fun startReplyingTo(comment: Comment) {
-        _replyingToComment.value = comment
-    }
-
-    fun cancelReply() {
-        _replyingToComment.value = null
-    }
-
+    fun searchForMention(query: String) { _mentionQuery.value = query }
+    fun clearMentionSuggestions() { _mentionQuery.value = ""
+        _uiState.update { it.copy(mentionSuggestions = emptyList()) } }
+    fun startReplyingTo(comment: Comment) { _replyingToComment.value = comment }
+    fun cancelReply() { _replyingToComment.value = null }
     fun postCommentOnCurrentReading(commentText: String) {
         val experience = uiState.value.readingExperience ?: return
         val currentUser = firebaseAuth.currentUser ?: return
-        if (commentText.isBlank()) {
-            viewModelScope.launch { _userInteractionEvents.emit("Le commentaire ne peut pas être vide.") }
-            return
-        }
-
+        if (commentText.isBlank()) { viewModelScope.launch { _events.emit(Event.ShowToast("Le commentaire ne peut pas être vide.")) }
+            return }
         val parentComment = _replyingToComment.value
-        val comment = Comment(
-            userId = currentUser.uid,
-            userName = currentUser.displayName ?: "Anonyme",
-            userPhotoUrl = currentUser.photoUrl?.toString(),
-            targetUserId = targetUserId,
-            bookId = experience.book.id,
-            commentText = commentText.trim(),
-            parentCommentId = parentComment?.commentId
-        )
-
-        viewModelScope.launch {
-            val result = socialRepository.addCommentOnBook(experience.book.id, comment)
-            if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
-            }
-            cancelReply()
-        }
-    }
-
+        val comment = Comment(userId = currentUser.uid, userName = currentUser.displayName ?: "Anonyme", userPhotoUrl = currentUser.photoUrl?.toString(), targetUserId = targetUserId, bookId = experience.book.id, commentText = commentText.trim(), parentCommentId = parentComment?.commentId)
+        viewModelScope.launch { val result = socialRepository.addCommentOnBook(experience.book.id, comment)
+            if (result is Resource.Error) { _events.emit(Event.ShowToast(result.message ?: "Erreur inconnue")) }
+            cancelReply() } }
     fun updateComment(comment: Comment, newText: String) {
-        if (newText.isBlank()) {
-            viewModelScope.launch { _userInteractionEvents.emit("Le commentaire ne peut pas être vide.") }
-            return
-        }
-        viewModelScope.launch {
-            val result = socialRepository.updateCommentOnBook(comment.bookId, comment.commentId, newText.trim())
-            if (result is Resource.Success) {
-                _userInteractionEvents.emit("Commentaire modifié avec succès.")
-            } else if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur lors de la modification.")
-            }
-        }
-    }
-
+        if (newText.isBlank()) { viewModelScope.launch { _events.emit(Event.ShowToast("Le commentaire ne peut pas être vide.")) }
+            return }
+        viewModelScope.launch { val result = socialRepository.updateCommentOnBook(comment.bookId, comment.commentId, newText.trim())
+            if (result is Resource.Success) { _events.emit(Event.ShowToast("Commentaire modifié avec succès."))
+            } else if (result is Resource.Error) { _events.emit(Event.ShowToast(result.message ?: "Erreur lors de la modification.")) } } }
     fun toggleLikeOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         val likerId = currentUserId ?: return
-        viewModelScope.launch {
-            val result = socialRepository.toggleLikeOnReading(targetUserId, bookId, likerId)
-            if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
-            }
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.toggleLikeOnReading(targetUserId, bookId, likerId)
+            if (result is Resource.Error) { _events.emit(Event.ShowToast(result.message ?: "Erreur inconnue")) } } }
     fun toggleBookmarkOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
-        viewModelScope.launch {
-            val result = socialRepository.toggleBookmarkOnBook(bookId, currentUserId)
-            if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur inconnue")
-            }
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.toggleBookmarkOnBook(bookId, currentUserId)
+            if (result is Resource.Error) { _events.emit(Event.ShowToast(result.message ?: "Erreur inconnue")) } } }
     fun rateCurrentReading(rating: Float) {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
-        viewModelScope.launch {
-            val result = socialRepository.rateBook(bookId, currentUserId, rating)
-            if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur lors de la notation")
-            }
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.rateBook(bookId, currentUserId, rating)
+            if (result is Resource.Error) { _events.emit(Event.ShowToast(result.message ?: "Erreur lors de la notation")) } } }
     fun toggleRecommendationOnCurrentReading() {
         val bookId = uiState.value.readingExperience?.book?.id ?: return
         if (currentUserId.isNullOrBlank()) return
-        viewModelScope.launch {
-            val result = socialRepository.toggleRecommendationOnBook(bookId, currentUserId)
-            if (result is Resource.Error) {
-                _userInteractionEvents.emit(result.message ?: "Erreur lors de la recommandation")
-            }
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.toggleRecommendationOnBook(bookId, currentUserId)
+            if (result is Resource.Error) { _events.emit(Event.ShowToast(result.message ?: "Erreur lors de la recommandation")) } } }
     fun deleteComment(comment: Comment) {
         val experience = uiState.value.readingExperience ?: return
-        viewModelScope.launch {
-            val result = socialRepository.deleteCommentOnBook(experience.book.id, comment.commentId)
-            if(result is Resource.Error) _userInteractionEvents.emit(result.message ?: "Erreur suppression")
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.deleteCommentOnBook(experience.book.id, comment.commentId)
+            if(result is Resource.Error) _events.emit(Event.ShowToast(result.message ?: "Erreur suppression")) } }
     fun toggleLikeOnComment(comment: Comment) {
         val experience = uiState.value.readingExperience ?: return
         val uid = currentUserId ?: return
-        viewModelScope.launch {
-            val result = socialRepository.toggleLikeOnComment(experience.book.id, comment.commentId, uid)
-            if(result is Resource.Error) _userInteractionEvents.emit(result.message ?: "Erreur like")
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.toggleLikeOnComment(experience.book.id, comment.commentId, uid)
+            if(result is Resource.Error) _events.emit(Event.ShowToast(result.message ?: "Erreur like")) } }
     fun reportComment(comment: Comment) {
         val reportingUserId = currentUserId ?: return
         val reason = "Signalement depuis le profil public."
-
-        viewModelScope.launch {
-            val result = socialRepository.reportComment(comment.bookId, comment.commentId, reportingUserId, reason)
-            val message = if (result is Resource.Success) {
-                "Commentaire signalé. Merci de contribuer à la sécurité de la communauté."
-            } else {
-                (result as Resource.Error).message ?: "Une erreur est survenue lors du signalement."
-            }
-            _userInteractionEvents.emit(message)
-        }
-    }
-
+        viewModelScope.launch { val result = socialRepository.reportComment(comment.bookId, comment.commentId, reportingUserId, reason)
+            val message = if (result is Resource.Success) { "Commentaire signalé. Merci de contribuer à la sécurité de la communauté."
+            } else { (result as Resource.Error).message ?: "Une erreur est survenue lors du signalement." }
+            _events.emit(Event.ShowToast(message)) } }
     fun getCommentLikeStatus(commentId: String): Flow<Resource<Boolean>> {
         val experience = uiState.value.readingExperience
         if(experience == null || currentUserId == null) return flowOf(Resource.Error("Info manquante"))
-        return socialRepository.isCommentLikedByCurrentUser(experience.book.id, commentId, currentUserId)
-    }
-
+        return socialRepository.isCommentLikedByCurrentUser(experience.book.id, commentId, currentUserId) }
     fun toggleFollowStatus() {
         if (currentUserId.isNullOrBlank() || currentUserId == targetUserId) return
-        viewModelScope.launch {
-            val result = if (uiState.value.isFollowing) {
-                socialRepository.unfollowUser(currentUserId, targetUserId)
-            } else {
-                socialRepository.followUser(currentUserId, targetUserId)
-            }
-            if (result is Resource.Error) {
-                Log.e(TAG, "Erreur lors du toggleFollow: ${result.message}")
-            }
-        }
-    }
+        viewModelScope.launch { val result = if (uiState.value.isFollowing) { socialRepository.unfollowUser(currentUserId, targetUserId)
+        } else { socialRepository.followUser(currentUserId, targetUserId) }
+            if (result is Resource.Error) { Log.e(TAG, "Erreur lors du toggleFollow: ${result.message}") } } }
 }

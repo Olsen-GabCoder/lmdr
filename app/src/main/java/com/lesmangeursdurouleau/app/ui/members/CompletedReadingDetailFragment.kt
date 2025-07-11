@@ -84,7 +84,6 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
 
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
-            // MODIFICATION : Le constructeur est maintenant complet et correct.
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
                 lifecycleOwner = viewLifecycleOwner,
@@ -104,7 +103,6 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
         }
     }
 
-    // AJOUT : Ajout du menu d'options pour les commentaires pour permettre le masquage.
     @SuppressLint("RestrictedApi")
     private fun showCommentOptionsMenu(comment: Comment, anchorView: View, currentUserId: String?) {
         val popup = PopupMenu(requireContext(), anchorView)
@@ -115,13 +113,12 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
         }
 
         val isAuthor = currentUserId == comment.userId
-        // Sur cet écran, les commentaires ne sont ni modifiables, ni supprimables, ni signalables.
         popup.menu.findItem(R.id.action_edit_comment).isVisible = false
         popup.menu.findItem(R.id.action_delete_comment).isVisible = false
         popup.menu.findItem(R.id.action_report_comment).isVisible = false
         popup.menu.findItem(R.id.action_reply_to_comment).isVisible = false
         popup.menu.findItem(R.id.action_share_comment).isVisible = false
-        popup.menu.findItem(R.id.action_copy_comment_text).isVisible = true // Copier est toujours utile.
+        popup.menu.findItem(R.id.action_copy_comment_text).isVisible = true
         popup.menu.findItem(R.id.action_hide_comment).isVisible = !isAuthor
 
         popup.setOnMenuItemClickListener { item ->
@@ -162,14 +159,14 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
                 }
 
                 launch {
-                    // MODIFICATION : Le flow `comments` est maintenant de type Resource<List<UiComment>>.
                     viewModel.comments.collect { resource ->
                         binding.progressBarComments.isVisible = resource is Resource.Loading
                         if (resource is Resource.Success) {
                             val uiComments = resource.data
                             binding.rvComments.isVisible = !uiComments.isNullOrEmpty()
                             binding.tvNoComments.isVisible = uiComments.isNullOrEmpty() && resource !is Resource.Loading
-                            commentsAdapter?.submitCommentList(uiComments ?: emptyList())
+                            // MODIFICATION : Appel à la méthode correcte `setComments`.
+                            commentsAdapter?.setComments(uiComments ?: emptyList())
                         }
                     }
                 }

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.Editable
@@ -28,6 +29,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -64,7 +66,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerViews()
         setupResultListener()
-        observeUiState()
+        observeViewModel()
         setupMainClickListeners()
         setupCommentSectionListeners()
         setupMentionListener()
@@ -100,7 +102,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                 showCommentOptionsMenu(comment, anchorView)
             },
             onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment) },
-            // AJOUT : Le nouveau callback est fourni ici. Il connecte l'action de l'UI au ViewModel.
             onUnhideClickListener = { commentId ->
                 viewModel.unhideComment(commentId)
             },
@@ -209,7 +210,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                     true
                 }
                 R.id.action_share_comment -> {
-                    showToast("Partager le commentaire : Bientôt disponible !")
+                    viewModel.shareComment(comment)
                     true
                 }
                 else -> false
@@ -271,7 +272,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         showToast(getString(R.string.comment_copied_to_clipboard))
     }
 
-    private fun observeUiState() {
+    private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
@@ -280,12 +281,26 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                     }
                 }
                 launch {
-                    viewModel.userInteractionEvents.collectLatest { message ->
-                        showToast(message)
+                    viewModel.events.collectLatest { event ->
+                        when (event) {
+                            is Event.ShowToast -> showToast(event.message)
+                            is Event.ShareContent -> shareContent(event.text)
+                        }
                     }
                 }
             }
         }
+    }
+
+    private fun shareContent(text: String) {
+        val sendIntent: Intent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, text)
+            type = "text/plain"
+        }
+
+        val shareIntent = Intent.createChooser(sendIntent, null)
+        startActivity(shareIntent)
     }
 
     @SuppressLint("SetTextI18n")
@@ -338,7 +353,19 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
 
             updateSocialActionButtons(experience)
 
-            commentsAdapter.submitCommentList(experience.comments)
+            // MODIFICATION : Appel à la nouvelle méthode de l'adapter.
+            commentsAdapter.setComments(experience.comments)
+
+            // AJOUT : Logique pour gérer la mise en évidence et le défilement.
+            state.highlightedCommentId?.let { commentId ->
+                commentsAdapter.highlightedCommentId = commentId
+                val index = experience.comments.indexOfFirst { it.comment.commentId == commentId }
+                if (index != -1) {
+                    (binding.rvComments.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 200)
+                }
+                // On notifie le ViewModel que l'action est consommée.
+                viewModel.onHighlightConsumed()
+            }
         }
 
         binding.progressBarMentions.isVisible = state.isSearchingMentions

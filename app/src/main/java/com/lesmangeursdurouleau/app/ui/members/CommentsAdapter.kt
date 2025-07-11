@@ -1,6 +1,9 @@
 package com.lesmangeursdurouleau.app.ui.members
 
+import android.animation.ArgbEvaluator
+import android.animation.ValueAnimator
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
 import android.text.Spannable
 import android.text.SpannableString
@@ -51,6 +54,9 @@ class CommentsAdapter(
     private val getCommentLikeStatus: (commentId: String) -> Flow<Resource<Boolean>>
 ) : ListAdapter<UiComment, RecyclerView.ViewHolder>(UiCommentDiffCallback()) {
 
+    // AJOUT : Champ pour stocker l'ID du commentaire à mettre en évidence.
+    var highlightedCommentId: String? = null
+
     private companion object {
         const val VIEW_TYPE_NORMAL = 1
         const val VIEW_TYPE_HIDDEN = 2
@@ -60,7 +66,8 @@ class CommentsAdapter(
     private var allUiComments: List<UiComment> = emptyList()
     private val likedCommentsOptimisticState = mutableMapOf<String, Boolean>()
 
-    fun submitCommentList(comments: List<UiComment>) {
+    // MODIFICATION : Le nom est changé pour la clarté, car il ne fait pas que soumettre la liste.
+    fun setComments(comments: List<UiComment>) {
         allUiComments = comments
         likedCommentsOptimisticState.clear()
         updateDisplayedList()
@@ -117,16 +124,12 @@ class CommentsAdapter(
         val uiComment = getItem(position)
         when (holder) {
             is CommentViewHolder -> holder.bind(uiComment.comment)
-            // MODIFICATION : Le contexte d'authentification est passé au bind du HiddenCommentViewHolder.
             is HiddenCommentViewHolder -> holder.bind(uiComment, currentUserId)
         }
     }
 
-    // MODIFICATION : Le ViewHolder pour le commentaire masqué est maintenant conscient du contexte utilisateur.
     inner class HiddenCommentViewHolder(private val binding: ItemCommentHiddenBinding) : RecyclerView.ViewHolder(binding.root) {
-        // MODIFICATION : La méthode bind reçoit l'ID de l'utilisateur courant.
         fun bind(uiComment: UiComment, currentUserId: String?) {
-            // RÈGLE MÉTIER : Le bouton "Afficher" n'est visible et fonctionnel que pour un utilisateur connecté.
             val isUserAuthenticated = currentUserId != null
             if (isUserAuthenticated) {
                 binding.unhideCommentButton.visibility = View.VISIBLE
@@ -135,7 +138,7 @@ class CommentsAdapter(
                 }
             } else {
                 binding.unhideCommentButton.visibility = View.GONE
-                binding.unhideCommentButton.setOnClickListener(null) // Bonne pratique de retirer le listener.
+                binding.unhideCommentButton.setOnClickListener(null)
             }
         }
     }
@@ -146,6 +149,16 @@ class CommentsAdapter(
         private val hashtagPattern = Pattern.compile("#(\\w+)")
 
         fun bind(comment: Comment) {
+            // AJOUT : Logique de mise en évidence.
+            if (comment.commentId == highlightedCommentId) {
+                highlightAndFade()
+                // On consomme l'ID pour que le highlight ne se reproduise pas lors du scroll.
+                highlightedCommentId = null
+            } else {
+                // On s'assure que le fond est normal pour les items non-highlightés.
+                binding.root.setBackgroundColor(Color.TRANSPARENT)
+            }
+
             binding.tvCommentAuthorUsername.text = comment.userName.takeIf { it.isNotBlank() } ?: "Utilisateur Anonyme"
             renderCommentText(comment.commentText)
             binding.tvCommentTimestamp.text = comment.timestamp?.let { formatTimestamp(it.toDate()) }
@@ -214,6 +227,20 @@ class CommentsAdapter(
                 binding.btnReplyToComment.visibility = View.GONE
                 binding.btnViewReplies.visibility = View.GONE
             }
+        }
+
+        // AJOUT : Méthode privée pour gérer l'animation de mise en évidence.
+        private fun highlightAndFade() {
+            val colorFrom = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimaryContainer)
+            val colorTo = Color.TRANSPARENT
+
+            val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
+            colorAnimation.duration = 1500 // Durée en ms
+            colorAnimation.startDelay = 500 // Délai avant que le fade out ne commence
+            colorAnimation.addUpdateListener { animator ->
+                binding.root.setBackgroundColor(animator.animatedValue as Int)
+            }
+            colorAnimation.start()
         }
 
         private fun updateLikeButtonState(isLiked: Boolean, currentLikesCount: Int, isOptimisticUpdate: Boolean = false) {

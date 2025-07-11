@@ -132,9 +132,9 @@
             app:argType="string"
             app:nullable="true"
             android:defaultValue="Profil Membre" />
-        <!-- AJOUT (Chantier 2) : Argument optionnel pour scroller à un commentaire spécifique -->
+        <!-- MODIFICATION: Argument renommé pour plus de clarté (highlight vs scroll) et conformité avec la nouvelle logique -->
         <argument
-            android:name="scrollToCommentId"
+            android:name="highlightedCommentId"
             app:argType="string"
             app:nullable="true"
             android:defaultValue="@null" />
@@ -168,6 +168,13 @@
         <action
             android:id="@+id/action_publicProfileFragmentDestination_to_privateChatFragmentDestination"
             app:destination="@id/privateChatFragmentDestination" />
+
+        <!-- AJOUT: Déclaration du deep link pour cette destination. -->
+        <deepLink
+            android:id="@+id/deepLinkToComment"
+            app:uri="https://lesmangeursdurouleau.com/comment?targetUserId={userId}&amp;highlightedCommentId={highlightedCommentId}" />
+
+
     </fragment>
 
     <!-- Discussion générale -->
