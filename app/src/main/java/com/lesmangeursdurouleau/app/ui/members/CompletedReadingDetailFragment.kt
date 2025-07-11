@@ -1,6 +1,6 @@
-// PRÊT À COLLER - Fichier 100% complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -9,6 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
+import androidx.appcompat.view.menu.MenuBuilder
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -27,6 +29,7 @@ import com.bumptech.glide.request.target.Target
 import com.google.android.material.snackbar.Snackbar
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Book
+import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.databinding.FragmentCompletedReadingDetailBinding
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
@@ -36,7 +39,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @AndroidEntryPoint
-// MODIFICATION : Le fragment implémente l'interface pour la cohérence et la conformité.
 class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener {
 
     private var _binding: FragmentCompletedReadingDetailBinding? = null
@@ -72,32 +74,73 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
         setupClickListeners()
     }
 
-    // AJOUT : Implémentation des méthodes du listener pour la cohérence fonctionnelle.
     override fun onMentionClicked(username: String) {
         Toast.makeText(context, "Clic sur la mention : @$username", Toast.LENGTH_SHORT).show()
-        // TODO: Implémenter la navigation vers le profil de l'utilisateur 'username'
     }
 
     override fun onHashtagClicked(hashtag: String) {
         Toast.makeText(context, "Clic sur le hashtag : #$hashtag", Toast.LENGTH_SHORT).show()
-        // TODO: Implémenter la navigation vers un écran de recherche pour ce hashtag
     }
 
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
-            // MODIFICATION : Mise à jour du constructeur de l'adapter pour résoudre l'erreur de compilation.
+            // MODIFICATION : Le constructeur est maintenant complet et correct.
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
                 lifecycleOwner = viewLifecycleOwner,
-                interactionListener = this, // Le fragment est maintenant le listener.
-                onReplyClickListener = { /* La réponse n'est pas gérée sur cet écran */ },
-                onCommentOptionsClickListener = { _, _ -> /* Pas d'options de menu sur cet écran */ },
+                interactionListener = this,
+                onReplyClickListener = { comment ->
+                    Toast.makeText(context, "Répondre à ${comment.userName}", Toast.LENGTH_SHORT).show()
+                },
+                onCommentOptionsClickListener = { comment, anchorView ->
+                    showCommentOptionsMenu(comment, anchorView, currentUserId)
+                },
                 onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
+                onUnhideClickListener = { commentId -> viewModel.unhideComment(commentId) },
                 getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }
             )
             binding.rvComments.adapter = commentsAdapter
             binding.rvComments.layoutManager = LinearLayoutManager(context)
         }
+    }
+
+    // AJOUT : Ajout du menu d'options pour les commentaires pour permettre le masquage.
+    @SuppressLint("RestrictedApi")
+    private fun showCommentOptionsMenu(comment: Comment, anchorView: View, currentUserId: String?) {
+        val popup = PopupMenu(requireContext(), anchorView)
+        popup.inflate(R.menu.comment_options_menu)
+
+        if (popup.menu is MenuBuilder) {
+            (popup.menu as MenuBuilder).setOptionalIconsVisible(true)
+        }
+
+        val isAuthor = currentUserId == comment.userId
+        // Sur cet écran, les commentaires ne sont ni modifiables, ni supprimables, ni signalables.
+        popup.menu.findItem(R.id.action_edit_comment).isVisible = false
+        popup.menu.findItem(R.id.action_delete_comment).isVisible = false
+        popup.menu.findItem(R.id.action_report_comment).isVisible = false
+        popup.menu.findItem(R.id.action_reply_to_comment).isVisible = false
+        popup.menu.findItem(R.id.action_share_comment).isVisible = false
+        popup.menu.findItem(R.id.action_copy_comment_text).isVisible = true // Copier est toujours utile.
+        popup.menu.findItem(R.id.action_hide_comment).isVisible = !isAuthor
+
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.action_hide_comment -> {
+                    viewModel.hideComment(comment.commentId)
+                    true
+                }
+                R.id.action_copy_comment_text -> {
+                    val clipboard = context?.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("comment text", comment.commentText)
+                    clipboard?.setPrimaryClip(clip)
+                    Toast.makeText(context, "Texte du commentaire copié.", Toast.LENGTH_SHORT).show()
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
     }
 
     private fun observeViewModel() {
@@ -119,14 +162,14 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
                 }
 
                 launch {
+                    // MODIFICATION : Le flow `comments` est maintenant de type Resource<List<UiComment>>.
                     viewModel.comments.collect { resource ->
                         binding.progressBarComments.isVisible = resource is Resource.Loading
-                        val comments = (resource as? Resource.Success)?.data
-                        binding.rvComments.isVisible = !comments.isNullOrEmpty()
-                        binding.tvNoComments.isVisible = comments.isNullOrEmpty() && resource !is Resource.Loading
-
                         if (resource is Resource.Success) {
-                            commentsAdapter?.submitCommentList(comments ?: emptyList())
+                            val uiComments = resource.data
+                            binding.rvComments.isVisible = !uiComments.isNullOrEmpty()
+                            binding.tvNoComments.isVisible = uiComments.isNullOrEmpty() && resource !is Resource.Loading
+                            commentsAdapter?.submitCommentList(uiComments ?: emptyList())
                         }
                     }
                 }

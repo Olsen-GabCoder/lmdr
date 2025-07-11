@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Fichier PublicProfileFragment.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.annotation.SuppressLint
@@ -51,7 +50,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     private val args: PublicProfileFragmentArgs by navArgs()
 
     private lateinit var commentsAdapter: CommentsAdapter
-    // AJOUT : Adapter pour les suggestions de mentions.
     private lateinit var mentionSuggestionsAdapter: MentionSuggestionsAdapter
 
     override fun onCreateView(
@@ -69,7 +67,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         observeUiState()
         setupMainClickListeners()
         setupCommentSectionListeners()
-        // AJOUT : Configuration du listener pour la saisie des mentions.
         setupMentionListener()
     }
 
@@ -103,6 +100,10 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                 showCommentOptionsMenu(comment, anchorView)
             },
             onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment) },
+            // AJOUT : Le nouveau callback est fourni ici. Il connecte l'action de l'UI au ViewModel.
+            onUnhideClickListener = { commentId ->
+                viewModel.unhideComment(commentId)
+            },
             getCommentLikeStatus = { commentId -> viewModel.getCommentLikeStatus(commentId) }
         )
         binding.rvComments.apply {
@@ -111,7 +112,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
             isNestedScrollingEnabled = false
         }
 
-        // AJOUT : Configuration du RecyclerView pour les suggestions.
         mentionSuggestionsAdapter = MentionSuggestionsAdapter { user ->
             replaceMention(user)
         }
@@ -121,7 +121,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         }
     }
 
-    // AJOUT : Logique de détection et de recherche des mentions.
     private fun setupMentionListener() {
         binding.etCommentInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -130,10 +129,8 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                 val text = s.toString()
                 val cursorPosition = binding.etCommentInput.selectionStart
 
-                // Trouve le début du mot (@...) où se trouve le curseur
                 var wordStart = text.lastIndexOf('@', cursorPosition - 1)
 
-                // Si on a trouvé un '@' et qu'il n'y a pas d'espace entre le '@' et le curseur
                 if (wordStart != -1 && !text.substring(wordStart, cursorPosition).contains(' ')) {
                     val query = text.substring(wordStart + 1, cursorPosition)
                     viewModel.searchForMention(query)
@@ -144,7 +141,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         })
     }
 
-    // AJOUT : Logique de remplacement du texte après sélection d'une suggestion.
     private fun replaceMention(user: User) {
         val editText = binding.etCommentInput
         val text = editText.text.toString()
@@ -155,12 +151,12 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
 
         val newText = buildString {
             append(text.substring(0, wordStart))
-            append("@${user.username} ") // Ajoute un espace après la mention
+            append("@${user.username} ")
             append(text.substring(cursorPosition))
         }
 
         editText.setText(newText)
-        editText.setSelection(wordStart + user.username.length + 2) // Positionne le curseur après la mention
+        editText.setSelection(wordStart + user.username.length + 2)
 
         viewModel.clearMentionSuggestions()
     }
@@ -209,7 +205,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                     true
                 }
                 R.id.action_hide_comment -> {
-                    showToast("Masquer le commentaire : Bientôt disponible !")
+                    viewModel.hideComment(comment.commentId)
                     true
                 }
                 R.id.action_share_comment -> {
@@ -345,7 +341,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
             commentsAdapter.submitCommentList(experience.comments)
         }
 
-        // AJOUT : Gestion de l'UI pour les suggestions de mentions.
         binding.progressBarMentions.isVisible = state.isSearchingMentions
         val hasSuggestions = state.mentionSuggestions.isNotEmpty()
         binding.cardMentionSuggestions.isVisible = hasSuggestions && !state.isSearchingMentions
@@ -473,7 +468,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     override fun onDestroyView() {
         super.onDestroyView()
         binding.rvComments.adapter = null
-        binding.rvMentionSuggestions.adapter = null // Nettoyage de l'adapter des suggestions
+        binding.rvMentionSuggestions.adapter = null
         _binding = null
     }
 }

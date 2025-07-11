@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Fichier CommentsAdapter.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.content.res.ColorStateList
@@ -25,6 +24,7 @@ import com.google.android.material.color.MaterialColors
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.databinding.ItemCommentBinding
+import com.lesmangeursdurouleau.app.databinding.ItemCommentHiddenBinding
 import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -35,7 +35,6 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
-// AJOUT : Interface pour découpler les actions de l'adapter.
 interface OnCommentInteractionListener {
     fun onMentionClicked(username: String)
     fun onHashtagClicked(hashtag: String)
@@ -44,34 +43,38 @@ interface OnCommentInteractionListener {
 class CommentsAdapter(
     private val currentUserId: String?,
     private val lifecycleOwner: LifecycleOwner,
-    // AJOUT : Le listener pour les interactions de texte est maintenant requis.
     private val interactionListener: OnCommentInteractionListener,
     private val onReplyClickListener: (parentComment: Comment) -> Unit,
     private val onCommentOptionsClickListener: (comment: Comment, anchorView: View) -> Unit,
     private val onLikeClickListener: (comment: Comment) -> Unit,
+    private val onUnhideClickListener: (commentId: String) -> Unit,
     private val getCommentLikeStatus: (commentId: String) -> Flow<Resource<Boolean>>
-) : ListAdapter<Comment, CommentsAdapter.CommentViewHolder>(CommentDiffCallback()) {
+) : ListAdapter<UiComment, RecyclerView.ViewHolder>(UiCommentDiffCallback()) {
+
+    private companion object {
+        const val VIEW_TYPE_NORMAL = 1
+        const val VIEW_TYPE_HIDDEN = 2
+    }
 
     private val expandedCommentIds = mutableSetOf<String>()
-    private var allComments: List<Comment> = emptyList()
+    private var allUiComments: List<UiComment> = emptyList()
     private val likedCommentsOptimisticState = mutableMapOf<String, Boolean>()
 
-
-    fun submitCommentList(comments: List<Comment>) {
-        allComments = comments
+    fun submitCommentList(comments: List<UiComment>) {
+        allUiComments = comments
         likedCommentsOptimisticState.clear()
         updateDisplayedList()
     }
 
     private fun updateDisplayedList() {
-        val commentMap = allComments.groupBy { it.parentCommentId }
-        val topLevelComments = (commentMap[null] ?: emptyList()).sortedByDescending { it.timestamp }
-        val displayedList = mutableListOf<Comment>()
+        val commentMap = allUiComments.groupBy { it.comment.parentCommentId }
+        val topLevelComments = (commentMap[null] ?: emptyList()).sortedByDescending { it.comment.timestamp }
+        val displayedList = mutableListOf<UiComment>()
 
-        topLevelComments.forEach { parent ->
-            displayedList.add(parent)
-            if (expandedCommentIds.contains(parent.commentId)) {
-                val replies = (commentMap[parent.commentId] ?: emptyList()).sortedBy { it.timestamp }
+        topLevelComments.forEach { parentUiComment ->
+            displayedList.add(parentUiComment)
+            if (expandedCommentIds.contains(parentUiComment.comment.commentId)) {
+                val replies = (commentMap[parentUiComment.comment.commentId] ?: emptyList()).sortedBy { it.comment.timestamp }
                 displayedList.addAll(replies)
             }
         }
@@ -87,28 +90,64 @@ class CommentsAdapter(
         updateDisplayedList()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CommentViewHolder {
-        val binding = ItemCommentBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return CommentViewHolder(binding)
+    override fun getItemViewType(position: Int): Int {
+        return if (getItem(position).isHidden) {
+            VIEW_TYPE_HIDDEN
+        } else {
+            VIEW_TYPE_NORMAL
+        }
     }
 
-    override fun onBindViewHolder(holder: CommentViewHolder, position: Int) {
-        holder.bind(getItem(position))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return when (viewType) {
+            VIEW_TYPE_NORMAL -> {
+                val binding = ItemCommentBinding.inflate(inflater, parent, false)
+                CommentViewHolder(binding)
+            }
+            VIEW_TYPE_HIDDEN -> {
+                val binding = ItemCommentHiddenBinding.inflate(inflater, parent, false)
+                HiddenCommentViewHolder(binding)
+            }
+            else -> throw IllegalArgumentException("Invalid view type")
+        }
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        val uiComment = getItem(position)
+        when (holder) {
+            is CommentViewHolder -> holder.bind(uiComment.comment)
+            // MODIFICATION : Le contexte d'authentification est passé au bind du HiddenCommentViewHolder.
+            is HiddenCommentViewHolder -> holder.bind(uiComment, currentUserId)
+        }
+    }
+
+    // MODIFICATION : Le ViewHolder pour le commentaire masqué est maintenant conscient du contexte utilisateur.
+    inner class HiddenCommentViewHolder(private val binding: ItemCommentHiddenBinding) : RecyclerView.ViewHolder(binding.root) {
+        // MODIFICATION : La méthode bind reçoit l'ID de l'utilisateur courant.
+        fun bind(uiComment: UiComment, currentUserId: String?) {
+            // RÈGLE MÉTIER : Le bouton "Afficher" n'est visible et fonctionnel que pour un utilisateur connecté.
+            val isUserAuthenticated = currentUserId != null
+            if (isUserAuthenticated) {
+                binding.unhideCommentButton.visibility = View.VISIBLE
+                binding.unhideCommentButton.setOnClickListener {
+                    onUnhideClickListener(uiComment.comment.commentId)
+                }
+            } else {
+                binding.unhideCommentButton.visibility = View.GONE
+                binding.unhideCommentButton.setOnClickListener(null) // Bonne pratique de retirer le listener.
+            }
+        }
     }
 
     inner class CommentViewHolder(private val binding: ItemCommentBinding) : RecyclerView.ViewHolder(binding.root) {
         private var likeStatusJob: Job? = null
-
-        // AJOUT : Définition des patterns Regex pour la réutilisation.
         private val mentionPattern = Pattern.compile("@(\\w+)")
         private val hashtagPattern = Pattern.compile("#(\\w+)")
 
         fun bind(comment: Comment) {
             binding.tvCommentAuthorUsername.text = comment.userName.takeIf { it.isNotBlank() } ?: "Utilisateur Anonyme"
-
-            // MODIFICATION : Utilisation d'une fonction pour parser et afficher le texte du commentaire.
             renderCommentText(comment.commentText)
-
             binding.tvCommentTimestamp.text = comment.timestamp?.let { formatTimestamp(it.toDate()) }
 
             Glide.with(binding.root.context)
@@ -202,15 +241,13 @@ class CommentsAdapter(
             }
         }
 
-        // AJOUT : Fonction pour parser le texte, appliquer les spans et rendre le texte cliquable.
         private fun renderCommentText(text: String) {
             val spannableString = SpannableString(text)
             val primaryColor = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimary)
 
-            // Traitement des mentions
             val mentionMatcher = mentionPattern.matcher(text)
             while (mentionMatcher.find()) {
-                val mention = mentionMatcher.group(1) // Capture le texte SANS le '@'
+                val mention = mentionMatcher.group(1)
                 if (mention != null) {
                     val clickableSpan = object : ClickableSpan() {
                         override fun onClick(widget: View) {
@@ -223,10 +260,9 @@ class CommentsAdapter(
                 }
             }
 
-            // Traitement des hashtags
             val hashtagMatcher = hashtagPattern.matcher(text)
             while (hashtagMatcher.find()) {
-                val hashtag = hashtagMatcher.group(1) // Capture le texte SANS le '#'
+                val hashtag = hashtagMatcher.group(1)
                 if (hashtag != null) {
                     val clickableSpan = object : ClickableSpan() {
                         override fun onClick(widget: View) {
@@ -240,7 +276,7 @@ class CommentsAdapter(
             }
 
             binding.tvCommentText.text = spannableString
-            binding.tvCommentText.movementMethod = LinkMovementMethod.getInstance() // Essentiel pour que les clics fonctionnent
+            binding.tvCommentText.movementMethod = LinkMovementMethod.getInstance()
         }
     }
 
@@ -255,8 +291,13 @@ class CommentsAdapter(
         }
     }
 
-    private class CommentDiffCallback : DiffUtil.ItemCallback<Comment>() {
-        override fun areItemsTheSame(oldItem: Comment, newItem: Comment): Boolean = oldItem.commentId == newItem.commentId
-        override fun areContentsTheSame(oldItem: Comment, newItem: Comment): Boolean = oldItem == newItem
+    private class UiCommentDiffCallback : DiffUtil.ItemCallback<UiComment>() {
+        override fun areItemsTheSame(oldItem: UiComment, newItem: UiComment): Boolean {
+            return oldItem.comment.commentId == newItem.comment.commentId
+        }
+
+        override fun areContentsTheSame(oldItem: UiComment, newItem: UiComment): Boolean {
+            return oldItem == newItem
+        }
     }
 }

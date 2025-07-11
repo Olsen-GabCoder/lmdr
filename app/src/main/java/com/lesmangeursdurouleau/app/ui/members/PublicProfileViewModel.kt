@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Fichier PublicProfileViewModel.kt complet et MODIFIÉ
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.util.Log
@@ -11,6 +10,7 @@ import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.data.model.UserBookReading
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
+import com.lesmangeursdurouleau.app.data.repository.LocalUserPreferencesRepository
 import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
 import com.lesmangeursdurouleau.app.data.repository.SocialRepository
 import com.lesmangeursdurouleau.app.data.repository.UserProfileRepository
@@ -22,10 +22,17 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+// AJOUT : Nouvelle classe de données pour l'UI, encapsulant un commentaire et son état de visibilité.
+data class UiComment(
+    val comment: Comment,
+    val isHidden: Boolean
+)
+
 data class CurrentReadingExperience(
     val reading: UserBookReading,
     val book: Book,
-    val comments: List<Comment> = emptyList(),
+    // MODIFICATION : La liste contient maintenant des UiComment au lieu de Comment.
+    val comments: List<UiComment> = emptyList(),
     val likesCount: Int = 0,
     val isLikedByCurrentUser: Boolean = false,
     val isBookmarkedByCurrentUser: Boolean = false,
@@ -40,7 +47,6 @@ data class PublicProfileUiState(
     val isOwnedProfile: Boolean = false,
     val readingExperience: CurrentReadingExperience? = null,
     val replyingToComment: Comment? = null,
-    // AJOUT : Champs pour la suggestion de mentions.
     val mentionSuggestions: List<User> = emptyList(),
     val isSearchingMentions: Boolean = false
 )
@@ -58,6 +64,7 @@ class PublicProfileViewModel @Inject constructor(
     private val socialRepository: SocialRepository,
     private val readingRepository: ReadingRepository,
     private val bookRepository: BookRepository,
+    private val localUserPreferencesRepository: LocalUserPreferencesRepository,
     private val firebaseAuth: FirebaseAuth,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -71,7 +78,6 @@ class PublicProfileViewModel @Inject constructor(
     val currentUserId: String? = firebaseAuth.currentUser?.uid
 
     private val _replyingToComment = MutableStateFlow<Comment?>(null)
-    // AJOUT : Flow pour recevoir les requêtes de recherche de mention depuis l'UI.
     private val _mentionQuery = MutableStateFlow("")
 
     private val _uiState = MutableStateFlow(PublicProfileUiState())
@@ -82,7 +88,6 @@ class PublicProfileViewModel @Inject constructor(
 
     init {
         combineUiState()
-        // AJOUT : Lancement du collecteur pour la recherche de mentions.
         observeMentionSearch()
     }
 
@@ -94,13 +99,10 @@ class PublicProfileViewModel @Inject constructor(
                 profileAndReadingFlow,
                 _replyingToComment
             ) { profileState, replyingTo ->
-                // L'état des mentions est géré séparément et fusionné dans _uiState
-                // par le collecteur de observeMentionSearch.
                 profileState.copy(replyingToComment = replyingTo)
             }.catch { e ->
                 Log.e(TAG, "Erreur dans le flow de combinaison final", e)
             }.collect { newState ->
-                // On fusionne l'état principal avec l'état actuel des mentions.
                 _uiState.value = newState.copy(
                     mentionSuggestions = _uiState.value.mentionSuggestions,
                     isSearchingMentions = _uiState.value.isSearchingMentions
@@ -109,12 +111,11 @@ class PublicProfileViewModel @Inject constructor(
         }
     }
 
-    // AJOUT : Logique de recherche de mentions avec debounce.
     private fun observeMentionSearch() {
         viewModelScope.launch {
             _mentionQuery
-                .debounce(300) // Attend 300ms d'inactivité avant de traiter.
-                .distinctUntilChanged() // Ne lance la recherche que si le texte a changé.
+                .debounce(300)
+                .distinctUntilChanged()
                 .collectLatest { query ->
                     if (query.isBlank()) {
                         _uiState.update { it.copy(mentionSuggestions = emptyList(), isSearchingMentions = false) }
@@ -132,7 +133,6 @@ class PublicProfileViewModel @Inject constructor(
                             }
                         }
                         is Resource.Error -> {
-                            // On peut choisir d'afficher une erreur ou simplement de la logger.
                             Log.e(TAG, "Erreur de recherche de mention: ${result.message}")
                             _uiState.update { it.copy(isSearchingMentions = false) }
                         }
@@ -159,8 +159,31 @@ class PublicProfileViewModel @Inject constructor(
                     return@flatMapLatest flowOf(Resource.Success(null))
                 }
 
+                val commentsFromFirestore = socialRepository.getCommentsForBook(reading.bookId)
+                val hiddenCommentIds = localUserPreferencesRepository.getHiddenCommentIds()
+
+                // MODIFICATION : La logique de combinaison transforme maintenant les Comment en UiComment
+                // au lieu de les filtrer. Le nom du flow a été changé pour refléter cela.
+                val uiCommentsFlow = combine(commentsFromFirestore, hiddenCommentIds) { commentsResource, hiddenIds ->
+                    when (commentsResource) {
+                        is Resource.Success -> {
+                            val uiComments = commentsResource.data?.map { comment ->
+                                UiComment(
+                                    comment = comment,
+                                    isHidden = comment.commentId in hiddenIds
+                                )
+                            } ?: emptyList()
+                            Resource.Success(uiComments)
+                        }
+                        // Gérer explicitement les autres états pour garantir la sécurité de type.
+                        is Resource.Error -> Resource.Error(commentsResource.message ?: "Erreur de chargement des commentaires")
+                        is Resource.Loading -> Resource.Loading()
+                    }
+                }
+
+
                 bookRepository.getBookById(reading.bookId)
-                    .combine(socialRepository.getCommentsForBook(reading.bookId)) { bookRes, commentsRes ->
+                    .combine(uiCommentsFlow) { bookRes, commentsRes ->
                         Pair(bookRes, commentsRes)
                     }.combine(socialRepository.getBookLikesCount(reading.bookId)) { pair, likesRes ->
                         Triple(pair.first, pair.second, likesRes)
@@ -184,6 +207,7 @@ class PublicProfileViewModel @Inject constructor(
                                 CurrentReadingExperience(
                                     reading = reading,
                                     book = bookRes.data,
+                                    // Le type de `commentsRes` est maintenant Resource<List<UiComment>>, ce qui est cohérent.
                                     comments = (commentsRes as? Resource.Success)?.data ?: emptyList(),
                                     likesCount = (likesRes as? Resource.Success)?.data ?: 0,
                                     isLikedByCurrentUser = (isLiked as? Resource.Success)?.data ?: false,
@@ -213,12 +237,25 @@ class PublicProfileViewModel @Inject constructor(
         }
     }
 
-    // AJOUT : Fonction publique pour que le Fragment puisse lancer une recherche.
+    fun hideComment(commentId: String) {
+        viewModelScope.launch {
+            localUserPreferencesRepository.hideComment(commentId)
+            _userInteractionEvents.emit("Commentaire masqué.")
+        }
+    }
+
+    // AJOUT : Nouvelle fonction publique pour démasquer un commentaire.
+    fun unhideComment(commentId: String) {
+        viewModelScope.launch {
+            localUserPreferencesRepository.unhideComment(commentId)
+            _userInteractionEvents.emit("Commentaire affiché.")
+        }
+    }
+
     fun searchForMention(query: String) {
         _mentionQuery.value = query
     }
 
-    // AJOUT : Fonction pour effacer les suggestions.
     fun clearMentionSuggestions() {
         _mentionQuery.value = ""
         _uiState.update { it.copy(mentionSuggestions = emptyList()) }

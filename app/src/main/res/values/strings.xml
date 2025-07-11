@@ -9,6 +9,9 @@
     <string name="unknown_error">Une erreur inconnue est survenue.</string>
     <string name="cancel">Annuler</string>
     <string name="na">N/A</string>
+    <string name="comment_hidden_placeholder">Ce commentaire est masqué.</string>
+    <string name="action_unhide">Afficher</string>
+
     dition -->
     <string name="completed_on_date">Terminé le %1$s</string>
     <!-- Strings pour le nouveau design du Profil Public -->

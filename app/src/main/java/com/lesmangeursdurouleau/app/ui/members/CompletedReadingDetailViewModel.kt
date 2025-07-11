@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Fichier 100% complet et corrigé
 package com.lesmangeursdurouleau.app.ui.members
 
 import androidx.lifecycle.SavedStateHandle
@@ -9,6 +8,8 @@ import com.google.firebase.Timestamp
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
+// AJOUT : Import de la dépendance pour la persistance locale.
+import com.lesmangeursdurouleau.app.data.repository.LocalUserPreferencesRepository
 import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
 import com.lesmangeursdurouleau.app.data.repository.SocialRepository
 import com.lesmangeursdurouleau.app.utils.Resource
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// La data class pour l'UI, combinant les informations nécessaires.
 data class CompletedReadingDetailUiState(
     val isLoading: Boolean = true,
     val book: Book? = null,
@@ -32,6 +32,8 @@ class CompletedReadingDetailViewModel @Inject constructor(
     private val readingRepository: ReadingRepository,
     private val socialRepository: SocialRepository,
     private val bookRepository: BookRepository,
+    // AJOUT : Injection du repository pour les préférences locales (commentaires masqués).
+    private val localUserPreferencesRepository: LocalUserPreferencesRepository,
     private val firebaseAuth: FirebaseAuth,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -41,7 +43,6 @@ class CompletedReadingDetailViewModel @Inject constructor(
 
     val currentUserId: StateFlow<String?> = MutableStateFlow(firebaseAuth.currentUser?.uid).asStateFlow()
 
-    // StateFlow pour l'état complet de l'UI
     val uiState: StateFlow<CompletedReadingDetailUiState> =
         readingRepository.getCompletedReadingDetail(targetUserId, bookId)
             .flatMapLatest { readingResource ->
@@ -72,15 +73,31 @@ class CompletedReadingDetailViewModel @Inject constructor(
                 initialValue = CompletedReadingDetailUiState(isLoading = true)
             )
 
-    val comments: StateFlow<Resource<List<Comment>>> = socialRepository.getCommentsForBook(bookId)
-        .stateIn(
+    // MODIFICATION : Le flow `comments` expose maintenant des `UiComment` au lieu de `Comment`.
+    val comments: StateFlow<Resource<List<UiComment>>> =
+        combine(
+            socialRepository.getCommentsForBook(bookId),
+            localUserPreferencesRepository.getHiddenCommentIds()
+        ) { commentsResource, hiddenIds ->
+            when (commentsResource) {
+                is Resource.Success -> {
+                    val uiComments = commentsResource.data?.map { comment ->
+                        UiComment(
+                            comment = comment,
+                            isHidden = comment.commentId in hiddenIds
+                        )
+                    } ?: emptyList()
+                    Resource.Success(uiComments)
+                }
+                is Resource.Error -> Resource.Error(commentsResource.message ?: "Erreur de chargement des commentaires")
+                is Resource.Loading -> Resource.Loading()
+            }
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = Resource.Loading()
         )
 
-    // CORRIGÉ : L'appel est maintenant fait à 'isBookLikedByUser', qui est la méthode correcte
-    // pour aimer un livre de manière générale, et non une lecture active spécifique.
     val isReadingLikedByCurrentUser: StateFlow<Resource<Boolean>> = currentUserId.flatMapLatest { id ->
         if (id == null) flowOf(Resource.Success(false))
         else socialRepository.isBookLikedByUser(bookId, id)
@@ -90,7 +107,6 @@ class CompletedReadingDetailViewModel @Inject constructor(
         initialValue = Resource.Loading()
     )
 
-    // NOTE : Cette méthode est correcte car elle récupère le compteur global du livre.
     val readingLikesCount: StateFlow<Resource<Int>> = socialRepository.getBookLikesCount(bookId)
         .stateIn(
             scope = viewModelScope,
@@ -98,13 +114,9 @@ class CompletedReadingDetailViewModel @Inject constructor(
             initialValue = Resource.Loading()
         )
 
-    // NOTE : Cette méthode est correcte car elle aime le livre de manière globale.
     fun toggleLikeOnReading() {
         val uid = currentUserId.value ?: return
         viewModelScope.launch {
-            // Note pour la maintenance future : si on voulait créer une notification sociale
-            // de type "X a aimé le livre que Y a lu", cette méthode devrait être changée pour
-            // appeler une Cloud Function. Pour l'instant, elle n'a pas d'effet social.
             socialRepository.toggleLikeOnBook(bookId, uid)
         }
     }
@@ -113,6 +125,20 @@ class CompletedReadingDetailViewModel @Inject constructor(
         val uid = currentUserId.value ?: return
         viewModelScope.launch {
             socialRepository.toggleLikeOnComment(bookId, commentId, uid)
+        }
+    }
+
+    // AJOUT : Fonction publique pour masquer un commentaire.
+    fun hideComment(commentId: String) {
+        viewModelScope.launch {
+            localUserPreferencesRepository.hideComment(commentId)
+        }
+    }
+
+    // AJOUT : Fonction publique pour démasquer un commentaire.
+    fun unhideComment(commentId: String) {
+        viewModelScope.launch {
+            localUserPreferencesRepository.unhideComment(commentId)
         }
     }
 

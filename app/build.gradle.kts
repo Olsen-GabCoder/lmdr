@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier build.gradle (app) CORRIGÉ
+// PRÊT À COLLER - Fichier build.gradle (app) CORRIGÉ avec Room via le catalogue de versions
 plugins {
 
     id("com.android.application")
@@ -68,6 +68,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
+    // MODIFICATION : Ajout des dépendances Room via le catalogue
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    kapt(libs.androidx.room.compiler)
+
     // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
@@ -78,7 +83,6 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics-ktx")
 
     // Google Services
-    // CORRECTION FINALE : Versions restaurées car ces bibliothèques ne sont pas gérées par la BOM.
     implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
