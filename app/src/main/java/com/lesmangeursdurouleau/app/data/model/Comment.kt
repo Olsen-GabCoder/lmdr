@@ -24,7 +24,7 @@ data class Comment(
     // Champs pour les interactions
     val likesCount: Int = 0,
     val lastLikeTimestamp: Timestamp? = null,
-
+    val isEdited: Boolean = false,
     // AJOUT : Champs pour gérer les réponses aux commentaires (threading)
     /** L'ID du commentaire parent. Null si c'est un commentaire de premier niveau. */
     val parentCommentId: String? = null,

@@ -17,6 +17,7 @@ import com.lesmangeursdurouleau.app.data.repository.UserProfileRepository
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,7 +39,10 @@ data class PublicProfileUiState(
     val isFollowing: Boolean = false,
     val isOwnedProfile: Boolean = false,
     val readingExperience: CurrentReadingExperience? = null,
-    val replyingToComment: Comment? = null
+    val replyingToComment: Comment? = null,
+    // AJOUT : Champs pour la suggestion de mentions.
+    val mentionSuggestions: List<User> = emptyList(),
+    val isSearchingMentions: Boolean = false
 )
 
 sealed class ProfileLoadState {
@@ -47,7 +51,7 @@ sealed class ProfileLoadState {
     data class Error(val message: String) : ProfileLoadState()
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class PublicProfileViewModel @Inject constructor(
     private val userProfileRepository: UserProfileRepository,
@@ -60,12 +64,15 @@ class PublicProfileViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "PublicProfileViewModel"
+        private const val MENTION_SEARCH_LIMIT = 5L
     }
 
     private val targetUserId: String = savedStateHandle.get<String>("userId")!!
     val currentUserId: String? = firebaseAuth.currentUser?.uid
 
     private val _replyingToComment = MutableStateFlow<Comment?>(null)
+    // AJOUT : Flow pour recevoir les requêtes de recherche de mention depuis l'UI.
+    private val _mentionQuery = MutableStateFlow("")
 
     private val _uiState = MutableStateFlow(PublicProfileUiState())
     val uiState: StateFlow<PublicProfileUiState> = _uiState.asStateFlow()
@@ -74,8 +81,9 @@ class PublicProfileViewModel @Inject constructor(
     val userInteractionEvents: SharedFlow<String> = _userInteractionEvents.asSharedFlow()
 
     init {
-        loadProfileData()
         combineUiState()
+        // AJOUT : Lancement du collecteur pour la recherche de mentions.
+        observeMentionSearch()
     }
 
     private fun combineUiState() {
@@ -86,17 +94,54 @@ class PublicProfileViewModel @Inject constructor(
                 profileAndReadingFlow,
                 _replyingToComment
             ) { profileState, replyingTo ->
+                // L'état des mentions est géré séparément et fusionné dans _uiState
+                // par le collecteur de observeMentionSearch.
                 profileState.copy(replyingToComment = replyingTo)
             }.catch { e ->
                 Log.e(TAG, "Erreur dans le flow de combinaison final", e)
             }.collect { newState ->
-                _uiState.value = newState
+                // On fusionne l'état principal avec l'état actuel des mentions.
+                _uiState.value = newState.copy(
+                    mentionSuggestions = _uiState.value.mentionSuggestions,
+                    isSearchingMentions = _uiState.value.isSearchingMentions
+                )
             }
         }
     }
 
-    private fun loadProfileData() {
-        // La logique de chargement reste la même et sera combinée dans combineUiState.
+    // AJOUT : Logique de recherche de mentions avec debounce.
+    private fun observeMentionSearch() {
+        viewModelScope.launch {
+            _mentionQuery
+                .debounce(300) // Attend 300ms d'inactivité avant de traiter.
+                .distinctUntilChanged() // Ne lance la recherche que si le texte a changé.
+                .collectLatest { query ->
+                    if (query.isBlank()) {
+                        _uiState.update { it.copy(mentionSuggestions = emptyList(), isSearchingMentions = false) }
+                        return@collectLatest
+                    }
+
+                    _uiState.update { it.copy(isSearchingMentions = true) }
+                    when (val result = socialRepository.searchUsersByUsername(query, MENTION_SEARCH_LIMIT)) {
+                        is Resource.Success -> {
+                            _uiState.update {
+                                it.copy(
+                                    mentionSuggestions = result.data ?: emptyList(),
+                                    isSearchingMentions = false
+                                )
+                            }
+                        }
+                        is Resource.Error -> {
+                            // On peut choisir d'afficher une erreur ou simplement de la logger.
+                            Log.e(TAG, "Erreur de recherche de mention: ${result.message}")
+                            _uiState.update { it.copy(isSearchingMentions = false) }
+                        }
+                        is Resource.Loading -> {
+                            // Géré par le isSearchingMentions = true
+                        }
+                    }
+                }
+        }
     }
 
     private fun createProfileAndReadingFlow(): Flow<PublicProfileUiState> {
@@ -166,6 +211,17 @@ class PublicProfileViewModel @Inject constructor(
             Log.e(TAG, "Erreur dans le flow de combinaison du profil", e)
             emit(PublicProfileUiState(profileLoadState = ProfileLoadState.Error("Erreur technique: ${e.localizedMessage}")))
         }
+    }
+
+    // AJOUT : Fonction publique pour que le Fragment puisse lancer une recherche.
+    fun searchForMention(query: String) {
+        _mentionQuery.value = query
+    }
+
+    // AJOUT : Fonction pour effacer les suggestions.
+    fun clearMentionSuggestions() {
+        _mentionQuery.value = ""
+        _uiState.update { it.copy(mentionSuggestions = emptyList()) }
     }
 
     fun startReplyingTo(comment: Comment) {
@@ -280,10 +336,8 @@ class PublicProfileViewModel @Inject constructor(
         }
     }
 
-    // AJOUT : Nouvelle fonction pour gérer le signalement d'un commentaire.
     fun reportComment(comment: Comment) {
         val reportingUserId = currentUserId ?: return
-        // Par défaut, nous utilisons une raison générique.
         val reason = "Signalement depuis le profil public."
 
         viewModelScope.launch {

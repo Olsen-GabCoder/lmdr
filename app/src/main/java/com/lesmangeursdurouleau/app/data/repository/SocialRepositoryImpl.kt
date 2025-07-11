@@ -113,6 +113,28 @@ class SocialRepositoryImpl @Inject constructor(
     override fun getFollowingUsers(userId: String): Flow<Resource<List<User>>> = getSocialList(userId, "following")
     override fun getFollowersUsers(userId: String): Flow<Resource<List<User>>> = getSocialList(userId, "followers")
 
+    // AJOUT : Implémentation de la recherche d'utilisateurs.
+    override suspend fun searchUsersByUsername(query: String, limit: Long): Resource<List<User>> {
+        if (query.isBlank()) {
+            return Resource.Success(emptyList())
+        }
+        return try {
+            val snapshot = usersCollection
+                .orderBy("username")
+                .startAt(query)
+                .endAt(query + '\uf8ff') // Caractère Unicode qui marque la fin de la plage de recherche
+                .limit(limit)
+                .get()
+                .await()
+            val users = snapshot.documents.mapNotNull { it.toObject(User::class.java)?.copy(uid = it.id) }
+            Resource.Success(users)
+        } catch (e: Exception) {
+            Log.e(TAG, "searchUsersByUsername: Erreur: ${e.message}", e)
+            Resource.Error("Erreur lors de la recherche: ${e.localizedMessage}")
+        }
+    }
+
+
     override suspend fun addCommentOnBook(bookId: String, comment: Comment): Resource<Unit> {
         return try {
             val commentData = mutableMapOf<String, Any?>(
@@ -188,7 +210,6 @@ class SocialRepositoryImpl @Inject constructor(
         }
     }
 
-    // MODIFICATION : Implémentation complète de la fonction de signalement.
     override suspend fun reportComment(bookId: String, commentId: String, reportingUserId: String, reason: String): Resource<Unit> {
         if (bookId.isBlank() || commentId.isBlank() || reportingUserId.isBlank()) {
             return Resource.Error("Informations manquantes pour le signalement.")

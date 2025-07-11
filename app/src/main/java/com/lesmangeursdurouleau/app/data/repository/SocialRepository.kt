@@ -17,6 +17,9 @@ interface SocialRepository {
     fun isFollowing(currentUserId: String, targetUserId: String): Flow<Resource<Boolean>>
     fun getFollowingUsers(userId: String): Flow<Resource<List<User>>>
     fun getFollowersUsers(userId: String): Flow<Resource<List<User>>>
+    // AJOUT : Nouvelle méthode pour la recherche de mentions.
+    suspend fun searchUsersByUsername(query: String, limit: Long): Resource<List<User>>
+
 
     // --- SECTION: INTERACTIONS SUR LES LIVRES (COMMENTAIRES) ---
     suspend fun addCommentOnBook(bookId: String, comment: Comment): Resource<Unit>

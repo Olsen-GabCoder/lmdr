@@ -7,6 +7,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -40,7 +42,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-// MODIFICATION : Le fragment implémente la nouvelle interface
 class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
 
     private var _binding: FragmentPublicProfileBinding? = null
@@ -50,6 +51,8 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     private val args: PublicProfileFragmentArgs by navArgs()
 
     private lateinit var commentsAdapter: CommentsAdapter
+    // AJOUT : Adapter pour les suggestions de mentions.
+    private lateinit var mentionSuggestionsAdapter: MentionSuggestionsAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -66,17 +69,16 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         observeUiState()
         setupMainClickListeners()
         setupCommentSectionListeners()
+        // AJOUT : Configuration du listener pour la saisie des mentions.
+        setupMentionListener()
     }
 
-    // AJOUT : Implémentation des méthodes du listener.
     override fun onMentionClicked(username: String) {
         showToast("Clic sur la mention : @$username")
-        // TODO: Implémenter la navigation vers le profil de l'utilisateur 'username'
     }
 
     override fun onHashtagClicked(hashtag: String) {
         showToast("Clic sur le hashtag : #$hashtag")
-        // TODO: Implémenter la navigation vers un écran de recherche pour ce hashtag
     }
 
     private fun setupResultListener() {
@@ -87,11 +89,10 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     }
 
     private fun setupRecyclerViews() {
-        // MODIFICATION : L'instanciation de l'adapter inclut maintenant le listener.
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
             lifecycleOwner = viewLifecycleOwner,
-            interactionListener = this, // Le fragment est le listener
+            interactionListener = this,
             onReplyClickListener = { parentComment ->
                 viewModel.startReplyingTo(parentComment)
                 binding.etCommentInput.requestFocus()
@@ -109,7 +110,61 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
             adapter = commentsAdapter
             isNestedScrollingEnabled = false
         }
+
+        // AJOUT : Configuration du RecyclerView pour les suggestions.
+        mentionSuggestionsAdapter = MentionSuggestionsAdapter { user ->
+            replaceMention(user)
+        }
+        binding.rvMentionSuggestions.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = mentionSuggestionsAdapter
+        }
     }
+
+    // AJOUT : Logique de détection et de recherche des mentions.
+    private fun setupMentionListener() {
+        binding.etCommentInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val text = s.toString()
+                val cursorPosition = binding.etCommentInput.selectionStart
+
+                // Trouve le début du mot (@...) où se trouve le curseur
+                var wordStart = text.lastIndexOf('@', cursorPosition - 1)
+
+                // Si on a trouvé un '@' et qu'il n'y a pas d'espace entre le '@' et le curseur
+                if (wordStart != -1 && !text.substring(wordStart, cursorPosition).contains(' ')) {
+                    val query = text.substring(wordStart + 1, cursorPosition)
+                    viewModel.searchForMention(query)
+                } else {
+                    viewModel.clearMentionSuggestions()
+                }
+            }
+        })
+    }
+
+    // AJOUT : Logique de remplacement du texte après sélection d'une suggestion.
+    private fun replaceMention(user: User) {
+        val editText = binding.etCommentInput
+        val text = editText.text.toString()
+        val cursorPosition = editText.selectionStart
+
+        var wordStart = text.lastIndexOf('@', cursorPosition - 1)
+        if (wordStart == -1) return
+
+        val newText = buildString {
+            append(text.substring(0, wordStart))
+            append("@${user.username} ") // Ajoute un espace après la mention
+            append(text.substring(cursorPosition))
+        }
+
+        editText.setText(newText)
+        editText.setSelection(wordStart + user.username.length + 2) // Positionne le curseur après la mention
+
+        viewModel.clearMentionSuggestions()
+    }
+
 
     @SuppressLint("RestrictedApi")
     private fun showCommentOptionsMenu(comment: Comment, anchorView: View) {
@@ -290,6 +345,14 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
             commentsAdapter.submitCommentList(experience.comments)
         }
 
+        // AJOUT : Gestion de l'UI pour les suggestions de mentions.
+        binding.progressBarMentions.isVisible = state.isSearchingMentions
+        val hasSuggestions = state.mentionSuggestions.isNotEmpty()
+        binding.cardMentionSuggestions.isVisible = hasSuggestions && !state.isSearchingMentions
+        if(hasSuggestions) {
+            mentionSuggestionsAdapter.submitList(state.mentionSuggestions)
+        }
+
         val replyingTo = state.replyingToComment
         if (replyingTo != null) {
             binding.tilCommentInput.hint = getString(R.string.reply_to_user_hint, replyingTo.userName)
@@ -410,6 +473,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     override fun onDestroyView() {
         super.onDestroyView()
         binding.rvComments.adapter = null
+        binding.rvMentionSuggestions.adapter = null // Nettoyage de l'adapter des suggestions
         _binding = null
     }
 }
