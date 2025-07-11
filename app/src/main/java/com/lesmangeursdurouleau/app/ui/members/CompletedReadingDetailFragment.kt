@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
+import android.widget.Toast
 import androidx.core.view.ViewCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -35,7 +36,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @AndroidEntryPoint
-class CompletedReadingDetailFragment : Fragment() {
+// MODIFICATION : Le fragment implémente l'interface pour la cohérence et la conformité.
+class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener {
 
     private var _binding: FragmentCompletedReadingDetailBinding? = null
     private val binding get() = _binding!!
@@ -70,14 +72,25 @@ class CompletedReadingDetailFragment : Fragment() {
         setupClickListeners()
     }
 
+    // AJOUT : Implémentation des méthodes du listener pour la cohérence fonctionnelle.
+    override fun onMentionClicked(username: String) {
+        Toast.makeText(context, "Clic sur la mention : @$username", Toast.LENGTH_SHORT).show()
+        // TODO: Implémenter la navigation vers le profil de l'utilisateur 'username'
+    }
+
+    override fun onHashtagClicked(hashtag: String) {
+        Toast.makeText(context, "Clic sur le hashtag : #$hashtag", Toast.LENGTH_SHORT).show()
+        // TODO: Implémenter la navigation vers un écran de recherche pour ce hashtag
+    }
+
     private fun setupRecyclerView(currentUserId: String?) {
         if (commentsAdapter == null) {
-            // CORRIGÉ : Utilisation du nouveau constructeur de l'adapter.
-            // Le listener `onViewRepliesClickListener` a été retiré pour correspondre à la nouvelle signature.
+            // MODIFICATION : Mise à jour du constructeur de l'adapter pour résoudre l'erreur de compilation.
             commentsAdapter = CommentsAdapter(
                 currentUserId = currentUserId,
                 lifecycleOwner = viewLifecycleOwner,
-                onReplyClickListener = {},
+                interactionListener = this, // Le fragment est maintenant le listener.
+                onReplyClickListener = { /* La réponse n'est pas gérée sur cet écran */ },
                 onCommentOptionsClickListener = { _, _ -> /* Pas d'options de menu sur cet écran */ },
                 onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
                 getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }

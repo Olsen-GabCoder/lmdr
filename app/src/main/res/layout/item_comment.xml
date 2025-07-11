@@ -54,12 +54,11 @@
         android:layout_marginTop="2dp"
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant"
-        android:autoLink="web|email"
         android:linksClickable="true"
         app:layout_constraintStart_toStartOf="@id/tv_comment_author_username"
         app:layout_constraintEnd_toEndOf="@id/btn_comment_options"
         app:layout_constraintTop_toBottomOf="@id/tv_comment_author_username"
-        tools:text="Ceci est un exemple de commentaire sur la lecture en cours de l'utilisateur. Le texte peut être assez long pour voir comment il s'enroule sur plusieurs lignes." />
+        tools:text="Ceci est un exemple de commentaire sur la lecture en cours de @Utilisateur. Le texte peut être assez long pour voir comment il s'enroule sur plusieurs lignes avec un #tag_lecture." />
 
     <TextView
         android:id="@+id/tv_comment_timestamp"

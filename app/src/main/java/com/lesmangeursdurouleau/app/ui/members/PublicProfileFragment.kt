@@ -40,7 +40,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class PublicProfileFragment : Fragment() {
+// MODIFICATION : Le fragment implémente la nouvelle interface
+class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
 
     private var _binding: FragmentPublicProfileBinding? = null
     private val binding get() = _binding!!
@@ -67,6 +68,17 @@ class PublicProfileFragment : Fragment() {
         setupCommentSectionListeners()
     }
 
+    // AJOUT : Implémentation des méthodes du listener.
+    override fun onMentionClicked(username: String) {
+        showToast("Clic sur la mention : @$username")
+        // TODO: Implémenter la navigation vers le profil de l'utilisateur 'username'
+    }
+
+    override fun onHashtagClicked(hashtag: String) {
+        showToast("Clic sur le hashtag : #$hashtag")
+        // TODO: Implémenter la navigation vers un écran de recherche pour ce hashtag
+    }
+
     private fun setupResultListener() {
         childFragmentManager.setFragmentResultListener(RatingDialogFragment.REQUEST_KEY, this) { _, bundle ->
             val rating = bundle.getFloat(RatingDialogFragment.RESULT_KEY_RATING)
@@ -75,9 +87,11 @@ class PublicProfileFragment : Fragment() {
     }
 
     private fun setupRecyclerViews() {
+        // MODIFICATION : L'instanciation de l'adapter inclut maintenant le listener.
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
             lifecycleOwner = viewLifecycleOwner,
+            interactionListener = this, // Le fragment est le listener
             onReplyClickListener = { parentComment ->
                 viewModel.startReplyingTo(parentComment)
                 binding.etCommentInput.requestFocus()
@@ -136,7 +150,6 @@ class PublicProfileFragment : Fragment() {
                     true
                 }
                 R.id.action_report_comment -> {
-                    // MODIFIÉ : Appelle le dialogue de confirmation au lieu d'afficher un Toast.
                     showReportConfirmationDialog(comment)
                     true
                 }
@@ -184,7 +197,6 @@ class PublicProfileFragment : Fragment() {
             .show()
     }
 
-    // AJOUT : Nouvelle fonction pour afficher la boîte de dialogue de confirmation de signalement.
     private fun showReportConfirmationDialog(comment: Comment) {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.report_comment_dialog_title)
