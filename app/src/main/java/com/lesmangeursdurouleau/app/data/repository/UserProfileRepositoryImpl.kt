@@ -1,8 +1,12 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier UserProfileRepositoryImpl.kt par ceci.
+// Fichier complet : UserProfileRepositoryImpl.kt
+
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
 import androidx.core.net.toUri
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.DocumentSnapshot
@@ -10,6 +14,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.lesmangeursdurouleau.app.data.model.User
+import com.lesmangeursdurouleau.app.data.paging.UsersPagingSource
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
 import com.lesmangeursdurouleau.app.remote.FirebaseConstants
 import com.lesmangeursdurouleau.app.utils.Resource
@@ -27,13 +32,11 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "UserProfileRepository"
+        private const val USERS_PAGE_SIZE = 20
     }
 
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
-    // CORRIGÉ : La désérialisation est maintenant dans un bloc try-catch pour plus de robustesse.
-    // Si la désérialisation complète échoue (par ex. un nouveau champ est ajouté dans Firestore mais pas dans le modèle),
-    // on logue l'erreur et on retourne null au lieu de planter.
     private fun createUserFromSnapshot(document: DocumentSnapshot): User? {
         return try {
             document.toObject(User::class.java)?.copy(uid = document.id)
@@ -80,6 +83,9 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
     }
 
+    // JUSTIFICATION DE LA MODIFICATION : La méthode originale est dépréciée car elle n'est pas scalable et cause
+    // des problèmes de performance et de coût. Elle est remplacée par getAllUsersPaginated.
+    @Deprecated("Utiliser getAllUsersPaginated pour une approche performante et scalable.", ReplaceWith("getAllUsersPaginated()"))
     override fun getAllUsers(): Flow<Resource<List<User>>> = callbackFlow {
         trySend(Resource.Loading())
         val listener = usersCollection.addSnapshotListener { snapshot, error ->
@@ -95,6 +101,17 @@ class UserProfileRepositoryImpl @Inject constructor(
             }
         }
         awaitClose { listener.remove() }
+    }
+
+    // JUSTIFICATION DE L'AJOUT : Cette nouvelle fonction implémente la pagination.
+    // Elle utilise un Pager de Jetpack Paging 3, configuré avec une taille de page et
+    // notre nouvelle UsersPagingSource, pour créer un flux de données paginées (`PagingData`).
+    // C'est la solution architecturale correcte pour gérer de grandes listes de données.
+    override fun getAllUsersPaginated(): Flow<PagingData<User>> {
+        return Pager(
+            config = PagingConfig(pageSize = USERS_PAGE_SIZE, enablePlaceholders = false),
+            pagingSourceFactory = { UsersPagingSource(firestore) }
+        ).flow
     }
 
     override fun getUserById(userId: String): Flow<Resource<User>> = callbackFlow {

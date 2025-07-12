@@ -1,5 +1,8 @@
+// Fichier complet et corrigé : UserProfileRepository.kt
+
 package com.lesmangeursdurouleau.app.data.repository
 
+import androidx.paging.PagingData
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.flow.Flow
@@ -26,10 +29,20 @@ interface UserProfileRepository {
     suspend fun updateUserProfilePicture(userId: String, imageData: ByteArray): Resource<String>
 
     /**
-     * Récupère en temps réel la liste de tous les utilisateurs de l'application.
-     * @return Un Flow de Resource contenant la liste de tous les utilisateurs.
+     * JUSTIFICATION DE LA MODIFICATION : La méthode est dépréciée dans l'interface pour signaler
+     * à tous les futurs développeurs qu'elle n'est plus la méthode recommandée et qu'elle présente
+     * des risques de performance. Cela garantit la cohérence avec l'implémentation.
      */
+    @Deprecated("Non scalable. Utiliser getAllUsersPaginated() à la place.", ReplaceWith("getAllUsersPaginated()"))
     fun getAllUsers(): Flow<Resource<List<User>>>
+
+    /**
+     * JUSTIFICATION DE L'AJOUT : Cette déclaration est la correction directe de l'erreur de compilation.
+     * En ajoutant la signature de la méthode à l'interface, nous la rendons visible et utilisable par
+     * tous les composants qui dépendent de `UserProfileRepository`, comme notre `MembersViewModel`.
+     * @return Un Flow de PagingData contenant les utilisateurs paginés.
+     */
+    fun getAllUsersPaginated(): Flow<PagingData<User>>
 
     /**
      * Récupère en temps réel les informations d'un utilisateur spécifique par son ID.
@@ -46,7 +59,6 @@ interface UserProfileRepository {
      */
     suspend fun updateUserTypingStatus(userId: String, isTyping: Boolean): Resource<Unit>
 
-    // NOUVELLE FONCTION
     /**
      * Met à jour le statut de présence (en ligne/hors ligne) et l'horodatage de la dernière vue.
      * @param userId L'ID de l'utilisateur concerné.

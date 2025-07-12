@@ -31,6 +31,8 @@ hilt = "2.51.1"
 playServicesFido = "20.1.0"
 leanback = "1.0.0"
 materialVersion = "1.12.0"
+pagingCommonAndroid = "3.3.6"
+pagingRuntimeKtx = "3.3.6"
 
 [libraries]
 # AndroidX Core & UI
@@ -76,6 +78,8 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 play-services-fido = { group = "com.google.android.gms", name = "play-services-fido", version.ref = "playServicesFido" }
 androidx-leanback = { group = "androidx.leanback", name = "leanback", version.ref = "leanback" }
 google-material = { group = "com.google.android.material", name = "material", version.ref = "materialVersion" }
+androidx-paging-common-android = { group = "androidx.paging", name = "paging-common-android", version.ref = "pagingCommonAndroid" }
+androidx-paging-runtime-ktx = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "pagingRuntimeKtx" }
 
 [plugins]
 # CORRECTION : Mise à jour des versions des plugins pour une meilleure compatibilité et stabilité.

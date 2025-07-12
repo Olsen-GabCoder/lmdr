@@ -71,6 +71,8 @@ dependencies {
     // MODIFICATION : Ajout des dépendances Room via le catalogue
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.paging.common.android)
+    implementation(libs.androidx.paging.runtime.ktx)
     kapt(libs.androidx.room.compiler)
 
     // Firebase
