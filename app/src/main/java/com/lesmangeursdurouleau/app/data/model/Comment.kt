@@ -1,8 +1,11 @@
-// PRÊT À COLLER - Fichier Comment.kt complet et MODIFIÉ
+// Fichier complet : Comment.kt
+
 package com.lesmangeursdurouleau.app.data.model
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.ServerTimestamp
+import java.util.Date
 
 /**
  * Représente un commentaire sur la lecture terminée ou active d'un utilisateur.
@@ -14,20 +17,19 @@ data class Comment(
     val userId: String = "",
     val userName: String = "",
     val userPhotoUrl: String? = null,
-    val targetUserId: String = "",
     val bookId: String = "",
     val commentText: String = "",
-    // ** CORRECTION ** : Le timestamp est rendu nullable pour gérer les documents Firestore
-    // où ce champ pourrait être manquant ou en cours d'écriture par le serveur.
+    @ServerTimestamp
     val timestamp: Timestamp? = null,
-
-    // Champs pour les interactions
     val likesCount: Int = 0,
     val lastLikeTimestamp: Timestamp? = null,
     val isEdited: Boolean = false,
-    // AJOUT : Champs pour gérer les réponses aux commentaires (threading)
-    /** L'ID du commentaire parent. Null si c'est un commentaire de premier niveau. */
+    // JUSTIFICATION DE L'AJOUT : Ce champ est ajouté pour synchroniser le modèle de données client avec le schéma de la base Firestore,
+    // comme l'indiquent les avertissements du logcat. Son ajout résout la perte de données à la désérialisation.
+    // Il est nullable (`Timestamp?`) pour garantir la rétrocompatibilité avec les documents de commentaires plus anciens
+    // qui pourraient ne pas avoir ce champ.
+    @ServerTimestamp
+    val lastEditTimestamp: Timestamp? = null,
     val parentCommentId: String? = null,
-    /** Le nombre de réponses directes à ce commentaire. */
     val replyCount: Int = 0
 )

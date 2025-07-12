@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- NOUVEAU FICHIER : res/values/plurals.xml -->
 <resources>
     <!-- Chaîne pour le bouton "Voir les réponses" -->
     <plurals name="view_replies_count">
         <item quantity="one">%d réponse</item>
         <item quantity="other">%d réponses</item>
+    </plurals>
+
+    <!-- JUSTIFICATION DE L'AJOUT : Cette ressource plurielle est ajoutée car elle est requise par le PublicProfileFragment
+         pour afficher correctement le texte du bouton "Afficher les commentaires" en fonction du nombre.
+         Cela résout une dépendance manquante et assure une expérience utilisateur grammaticalement correcte. -->
+    <plurals name="show_comments_count">
+        <item quantity="one">Afficher %d commentaire</item>
+        <item quantity="other">Afficher les %d commentaires</item>
     </plurals>
 </resources>

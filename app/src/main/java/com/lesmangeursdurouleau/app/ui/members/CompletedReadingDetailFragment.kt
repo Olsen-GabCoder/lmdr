@@ -1,3 +1,5 @@
+// Fichier complet : CompletedReadingDetailFragment.kt
+
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.annotation.SuppressLint
@@ -69,7 +71,7 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         postponeEnterTransition()
-
+        setupRecyclerView()
         observeViewModel()
         setupClickListeners()
     }
@@ -82,29 +84,32 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
         Toast.makeText(context, "Clic sur le hashtag : #$hashtag", Toast.LENGTH_SHORT).show()
     }
 
-    private fun setupRecyclerView(currentUserId: String?) {
-        if (commentsAdapter == null) {
-            commentsAdapter = CommentsAdapter(
-                currentUserId = currentUserId,
-                lifecycleOwner = viewLifecycleOwner,
-                interactionListener = this,
-                onReplyClickListener = { comment ->
-                    Toast.makeText(context, "Répondre à ${comment.userName}", Toast.LENGTH_SHORT).show()
-                },
-                onCommentOptionsClickListener = { comment, anchorView ->
-                    showCommentOptionsMenu(comment, anchorView, currentUserId)
-                },
-                onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
-                onUnhideClickListener = { commentId -> viewModel.unhideComment(commentId) },
-                getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }
-            )
-            binding.rvComments.adapter = commentsAdapter
-            binding.rvComments.layoutManager = LinearLayoutManager(context)
-        }
+    private fun setupRecyclerView() {
+        // JUSTIFICATION DE LA MODIFICATION : Le paramètre `isOwnerOfReading` est ajouté pour corriger l'erreur de compilation.
+        // Sa valeur est déterminée en comparant l'ID de l'utilisateur courant (fourni par le ViewModel) à l'ID
+        // de l'utilisateur dont la lecture est consultée (fourni par les arguments de navigation).
+        // Ceci garantit que l'adapter reçoit le contexte de permission correct.
+        commentsAdapter = CommentsAdapter(
+            currentUserId = viewModel.currentUserId.value,
+            isOwnerOfReading = viewModel.currentUserId.value == args.userId,
+            lifecycleOwner = viewLifecycleOwner,
+            interactionListener = this,
+            onReplyClickListener = { comment ->
+                Toast.makeText(context, "Répondre n'est pas disponible ici.", Toast.LENGTH_SHORT).show()
+            },
+            onCommentOptionsClickListener = { comment, anchorView ->
+                showCommentOptionsMenu(comment, anchorView)
+            },
+            onLikeClickListener = { comment -> viewModel.toggleLikeOnComment(comment.commentId) },
+            onUnhideClickListener = { commentId -> viewModel.unhideComment(commentId) },
+            getCommentLikeStatus = { commentId -> viewModel.isCommentLikedByCurrentUser(commentId) }
+        )
+        binding.rvComments.adapter = commentsAdapter
+        binding.rvComments.layoutManager = LinearLayoutManager(context)
     }
 
     @SuppressLint("RestrictedApi")
-    private fun showCommentOptionsMenu(comment: Comment, anchorView: View, currentUserId: String?) {
+    private fun showCommentOptionsMenu(comment: Comment, anchorView: View) {
         val popup = PopupMenu(requireContext(), anchorView)
         popup.inflate(R.menu.comment_options_menu)
 
@@ -112,19 +117,30 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
             (popup.menu as MenuBuilder).setOptionalIconsVisible(true)
         }
 
-        val isAuthor = currentUserId == comment.userId
+        val isAuthor = viewModel.currentUserId.value == comment.userId
+        // JUSTIFICATION DE LA MODIFICATION : La variable `isOwnerOfReading` est ajoutée pour aligner ce fragment
+        // sur la logique de permission définie dans les spécifications.
+        val isOwnerOfReading = viewModel.currentUserId.value == args.userId
+
         popup.menu.findItem(R.id.action_edit_comment).isVisible = false
         popup.menu.findItem(R.id.action_delete_comment).isVisible = false
-        popup.menu.findItem(R.id.action_report_comment).isVisible = false
+        popup.menu.findItem(R.id.action_report_comment).isVisible = !isAuthor
         popup.menu.findItem(R.id.action_reply_to_comment).isVisible = false
         popup.menu.findItem(R.id.action_share_comment).isVisible = false
         popup.menu.findItem(R.id.action_copy_comment_text).isVisible = true
-        popup.menu.findItem(R.id.action_hide_comment).isVisible = !isAuthor
+        // JUSTIFICATION DE LA MODIFICATION : La visibilité de l'option "Masquer" est maintenant
+        // conditionnée par `isOwnerOfReading` et non plus par `!isAuthor`, corrigeant ainsi
+        // la non-conformité et respectant la spécification.
+        popup.menu.findItem(R.id.action_hide_comment).isVisible = isOwnerOfReading
 
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
                 R.id.action_hide_comment -> {
                     viewModel.hideComment(comment.commentId)
+                    true
+                }
+                R.id.action_report_comment -> {
+                    Toast.makeText(context, "Signalement bientôt disponible.", Toast.LENGTH_SHORT).show()
                     true
                 }
                 R.id.action_copy_comment_text -> {
@@ -164,9 +180,8 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
                         if (resource is Resource.Success) {
                             val uiComments = resource.data
                             binding.rvComments.isVisible = !uiComments.isNullOrEmpty()
-                            binding.tvNoComments.isVisible = uiComments.isNullOrEmpty() && resource !is Resource.Loading
-                            // MODIFICATION : Appel à la méthode correcte `setComments`.
-                            commentsAdapter?.setComments(uiComments ?: emptyList())
+                            binding.tvNoComments.isVisible = uiComments.isNullOrEmpty()
+                            commentsAdapter?.submitList(uiComments ?: emptyList())
                         }
                     }
                 }
@@ -194,7 +209,6 @@ class CompletedReadingDetailFragment : Fragment(), OnCommentInteractionListener 
 
                 launch {
                     viewModel.currentUserId.collectLatest { uid ->
-                        setupRecyclerView(uid)
                         binding.commentInputBar.isVisible = uid != null
                     }
                 }

@@ -11,8 +11,8 @@
     <string name="na">N/A</string>
     <string name="comment_hidden_placeholder">Ce commentaire est masqué.</string>
     <string name="action_unhide">Afficher</string>
+    <string name="action_show_comments">Afficher les commentaires</string>
 
-    dition -->
     <string name="completed_on_date">Terminé le %1$s</string>
     <!-- Strings pour le nouveau design du Profil Public -->
     <string name="profile_cover_image_description">Image de couverture du profil</string>

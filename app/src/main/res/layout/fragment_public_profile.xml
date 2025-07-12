@@ -396,8 +396,9 @@
                     app:tint="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
 
-            <!-- MODIFICATION ICI -->
+            <!-- MODIFICATIONS ICI -->
             <LinearLayout
+                android:id="@+id/comments_section_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
@@ -416,21 +417,65 @@
                     android:text="@string/comments_section_title"
                     android:textAppearance="?attr/textAppearanceTitleSmall"
                     android:textColor="?attr/colorOnSurface" />
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rv_comments"
+
+                <!-- AJOUT : FrameLayout pour gérer l'affichage conditionnel du contenu des commentaires -->
+                <FrameLayout
+                    android:id="@+id/comments_content_frame"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:nestedScrollingEnabled="false"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                    tools:itemCount="2"
-                    tools:listitem="@layout/item_comment" />
+                    android:minHeight="100dp">
 
-                <!-- AJOUT : Conteneur pour les suggestions de mentions -->
+                    <!-- AJOUT : Bouton pour charger les commentaires -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_show_comments"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:text="@string/action_show_comments"
+                        android:visibility="gone"
+                        tools:visibility="visible"/>
+
+                    <!-- AJOUT : Spinner pour le chargement initial -->
+                    <ProgressBar
+                        android:id="@+id/progress_bar_comments_initial"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        tools:visibility="visible"/>
+
+                    <!-- MODIFICATION : Le RecyclerView est maintenant `gone` par défaut -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rv_comments"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:nestedScrollingEnabled="false"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                        tools:itemCount="2"
+                        tools:listitem="@layout/item_comment"
+                        android:visibility="gone"
+                        tools:visibility="visible"/>
+
+                </FrameLayout>
+
+                <!-- AJOUT : Spinner pour la pagination (chargement des pages suivantes) -->
+                <ProgressBar
+                    android:id="@+id/progress_bar_comments_pagination"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="8dp"
+                    android:visibility="gone"
+                    tools:visibility="visible"/>
+
+
+                <!-- Le reste de la section (input, etc.) reste inchangé -->
                 <FrameLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content">
-
                     <com.google.android.material.card.MaterialCardView
                         android:id="@+id/card_mention_suggestions"
                         android:layout_width="match_parent"
@@ -440,7 +485,6 @@
                         app:cardBackgroundColor="?attr/colorSurfaceContainerHigh"
                         android:visibility="gone"
                         tools:visibility="visible">
-
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/rv_mention_suggestions"
                             android:layout_width="match_parent"
@@ -449,9 +493,7 @@
                             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                             tools:listitem="@layout/item_mention_suggestion"
                             tools:itemCount="3"/>
-
                     </com.google.android.material.card.MaterialCardView>
-
                     <ProgressBar
                         android:id="@+id/progress_bar_mentions"
                         android:layout_width="wrap_content"
@@ -460,15 +502,12 @@
                         style="?android:attr/progressBarStyleSmall"
                         android:visibility="gone"
                         tools:visibility="visible"/>
-
                 </FrameLayout>
-
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:id="@+id/comment_input_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp">
-
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/til_comment_input"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -483,13 +522,11 @@
                         app:layout_constraintStart_toStartOf="parent"
                         app:layout_constraintEnd_toStartOf="@id/btn_send_comment"
                         app:layout_constraintBottom_toBottomOf="parent">
-
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_comment_input"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content" />
                     </com.google.android.material.textfield.TextInputLayout>
-
                     <ImageButton
                         android:id="@+id/btn_cancel_reply"
                         android:layout_width="wrap_content"
@@ -505,8 +542,6 @@
                         app:layout_constraintBottom_toBottomOf="@id/til_comment_input"
                         app:layout_constraintEnd_toEndOf="@id/til_comment_input"
                         android:layout_marginEnd="56dp" />
-
-
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btn_send_comment"
                         style="@style/Widget.Material3.Button.IconButton"
@@ -585,6 +620,5 @@
             android:textColor="?attr/colorError"
             android:visibility="gone"
             tools:text="Erreur: Utilisateur non trouvé" />
-
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

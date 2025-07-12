@@ -9,22 +9,27 @@
     android:paddingBottom="8dp"
     android:gravity="center_vertical">
 
+    <!-- JUSTIFICATION DE LA MODIFICATION : Le texte est maintenant externalisé vers une ressource string (@string/comment_hidden_placeholder)
+         pour respecter les bonnes pratiques de développement Android, faciliter la traduction
+         et assurer la cohérence avec les spécifications. -->
     <TextView
         android:id="@+id/hidden_comment_label"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:text="Commentaire masqué"
+        android:text="@string/comment_hidden_placeholder"
         android:textSize="14sp"
         android:textStyle="italic"
         android:textColor="?android:attr/textColorSecondary" />
 
+    <!-- JUSTIFICATION DE LA MODIFICATION : Le texte du bouton est externalisé vers une ressource string (@string/action_unhide)
+         pour la localisation et la maintenance centralisée, conformément aux bonnes pratiques. -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/unhide_comment_button"
         style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:text="Afficher" />
+        android:text="@string/action_unhide" />
 
 </LinearLayout>

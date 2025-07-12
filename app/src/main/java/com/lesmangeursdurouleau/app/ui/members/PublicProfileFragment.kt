@@ -1,3 +1,5 @@
+// Fichier complet : PublicProfileFragment.kt
+
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.annotation.SuppressLint
@@ -21,6 +23,7 @@ import androidx.appcompat.view.menu.MenuBuilder
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -29,7 +32,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -88,8 +90,13 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     }
 
     private fun setupRecyclerViews() {
+        // JUSTIFICATION DE LA MODIFICATION : Le paramètre manquant `isOwnerOfReading` est maintenant fourni au constructeur.
+        // Sa valeur est récupérée depuis l'état actuel du ViewModel (`viewModel.uiState.value.isOwnedProfile`).
+        // Cette correction résout l'erreur de compilation et assure que l'adapter dispose de l'information
+        // critique pour gérer la logique de permission d'affichage des commentaires masqués.
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
+            isOwnerOfReading = viewModel.uiState.value.isOwnedProfile,
             lifecycleOwner = viewLifecycleOwner,
             interactionListener = this,
             onReplyClickListener = { parentComment ->
@@ -130,7 +137,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
                 val text = s.toString()
                 val cursorPosition = binding.etCommentInput.selectionStart
 
-                var wordStart = text.lastIndexOf('@', cursorPosition - 1)
+                val wordStart = text.lastIndexOf('@', cursorPosition - 1)
 
                 if (wordStart != -1 && !text.substring(wordStart, cursorPosition).contains(' ')) {
                     val query = text.substring(wordStart + 1, cursorPosition)
@@ -147,7 +154,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         val text = editText.text.toString()
         val cursorPosition = editText.selectionStart
 
-        var wordStart = text.lastIndexOf('@', cursorPosition - 1)
+        val wordStart = text.lastIndexOf('@', cursorPosition - 1)
         if (wordStart == -1) return
 
         val newText = buildString {
@@ -174,11 +181,12 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         }
 
         val isAuthor = viewModel.currentUserId == comment.userId
+        val isOwnerOfReading = viewModel.uiState.value.isOwnedProfile
 
         popup.menu.findItem(R.id.action_edit_comment).isVisible = isAuthor
         popup.menu.findItem(R.id.action_delete_comment).isVisible = isAuthor
-        popup.menu.findItem(R.id.action_report_comment).isVisible = !isAuthor
-        popup.menu.findItem(R.id.action_hide_comment).isVisible = !isAuthor
+        popup.menu.findItem(R.id.action_report_comment).isVisible = !isAuthor && !isOwnerOfReading
+        popup.menu.findItem(R.id.action_hide_comment).isVisible = isOwnerOfReading
 
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
@@ -333,38 +341,72 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
 
         val readingExperience = state.readingExperience
         binding.cardCurrentReading.isVisible = readingExperience != null
-        readingExperience?.let { experience ->
+        if (readingExperience != null) {
             binding.tvCurrentReadingPostHeader.text = getString(R.string.current_reading_post_header_template, state.user?.username ?: "")
-            binding.tvCurrentReadingBookTitle.text = experience.book.title
-            binding.tvCurrentReadingBookAuthor.text = experience.book.author
-            binding.ivCurrentReadingBookCover.contentDescription = getString(R.string.book_cover_of_title_description, experience.book.title)
-            Glide.with(this).load(experience.book.coverImageUrl).placeholder(R.drawable.ic_book_placeholder).into(binding.ivCurrentReadingBookCover)
+            binding.tvCurrentReadingBookTitle.text = readingExperience.book.title
+            binding.tvCurrentReadingBookAuthor.text = readingExperience.book.author
+            binding.ivCurrentReadingBookCover.contentDescription = getString(R.string.book_cover_of_title_description, readingExperience.book.title)
+            Glide.with(this).load(readingExperience.book.coverImageUrl).placeholder(R.drawable.ic_book_placeholder).into(binding.ivCurrentReadingBookCover)
 
-            val progress = if (experience.reading.totalPages > 0) (experience.reading.currentPage.toFloat() / experience.reading.totalPages * 100).toInt() else 0
+            val progress = if (readingExperience.reading.totalPages > 0) (readingExperience.reading.currentPage.toFloat() / readingExperience.reading.totalPages * 100).toInt() else 0
             binding.progressBarCurrentReading.progress = progress
             binding.tvCurrentReadingProgressText.text = "$progress%"
 
-            val quote = experience.reading.favoriteQuote
+            val quote = readingExperience.reading.favoriteQuote
             binding.llFavoriteQuoteSection.isVisible = !quote.isNullOrBlank()
             binding.tvFavoriteQuote.text = if (!quote.isNullOrBlank()) "“${quote}”" else ""
-            val note = experience.reading.personalReflection
+            val note = readingExperience.reading.personalReflection
             binding.llPersonalNoteSection.isVisible = !note.isNullOrBlank()
             binding.tvPersonalNote.text = note
 
-            updateSocialActionButtons(experience)
+            updateSocialActionButtons(readingExperience)
+        }
 
-            // MODIFICATION : Appel à la nouvelle méthode de l'adapter.
-            commentsAdapter.setComments(experience.comments)
+        when (val commentsState = state.commentsState) {
+            is CommentsState.NotLoadedYet -> {
+                binding.btnShowComments.isVisible = false
+                binding.progressBarCommentsInitial.isVisible = false
+                binding.rvComments.isVisible = false
+                binding.progressBarCommentsPagination.isVisible = false
+                commentsAdapter.clearAllComments()
+            }
+            is CommentsState.ReadyToLoad -> {
+                binding.btnShowComments.isVisible = commentsState.count > 0
+                binding.btnShowComments.text = resources.getQuantityString(R.plurals.show_comments_count, commentsState.count, commentsState.count)
+                binding.progressBarCommentsInitial.isVisible = false
+                binding.rvComments.isVisible = false
+                binding.progressBarCommentsPagination.isVisible = false
+                commentsAdapter.clearAllComments()
+            }
+            is CommentsState.LoadingInitial -> {
+                binding.btnShowComments.isVisible = false
+                binding.progressBarCommentsInitial.isVisible = true
+                binding.rvComments.isVisible = false
+                binding.progressBarCommentsPagination.isVisible = false
+                commentsAdapter.clearAllComments()
+            }
+            is CommentsState.Loaded -> {
+                binding.btnShowComments.isVisible = false
+                binding.progressBarCommentsInitial.isVisible = false
+                binding.rvComments.isVisible = true
+                binding.progressBarCommentsPagination.isVisible = false
+                commentsAdapter.submitNewComments(commentsState.parentComments, commentsState.repliesMap)
 
-            // AJOUT : Logique pour gérer la mise en évidence et le défilement.
-            state.highlightedCommentId?.let { commentId ->
-                commentsAdapter.highlightedCommentId = commentId
-                val index = experience.comments.indexOfFirst { it.comment.commentId == commentId }
-                if (index != -1) {
-                    (binding.rvComments.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 200)
+                state.highlightedCommentId?.let { commentId ->
+                    commentsAdapter.highlightedCommentId = commentId
+                    val index = commentsState.parentComments.indexOfFirst { it.comment.commentId == commentId }
+                    if (index != -1) {
+                        (binding.rvComments.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(index, 200)
+                    }
+                    viewModel.onHighlightConsumed()
                 }
-                // On notifie le ViewModel que l'action est consommée.
-                viewModel.onHighlightConsumed()
+            }
+            is CommentsState.Error -> {
+                binding.btnShowComments.isVisible = false
+                binding.progressBarCommentsInitial.isVisible = false
+                binding.rvComments.isVisible = false
+                binding.progressBarCommentsPagination.isVisible = false
+                showToast(commentsState.message)
             }
         }
 
@@ -485,6 +527,10 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
 
         binding.btnCancelReply.setOnClickListener {
             viewModel.cancelReply()
+        }
+
+        binding.btnShowComments.setOnClickListener {
+            viewModel.loadComments()
         }
     }
 

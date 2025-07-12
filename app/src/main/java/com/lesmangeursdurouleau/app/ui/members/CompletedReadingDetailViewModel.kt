@@ -1,14 +1,16 @@
+// Fichier complet : CompletedReadingDetailViewModel.kt
+
 package com.lesmangeursdurouleau.app.ui.members
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.Timestamp
+// JUSTIFICATION SUPPRESSION : DocumentSnapshot n'est plus nécessaire car la pagination manuelle est supprimée.
+// import com.google.firebase.firestore.DocumentSnapshot
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
-// AJOUT : Import de la dépendance pour la persistance locale.
 import com.lesmangeursdurouleau.app.data.repository.LocalUserPreferencesRepository
 import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
 import com.lesmangeursdurouleau.app.data.repository.SocialRepository
@@ -32,7 +34,6 @@ class CompletedReadingDetailViewModel @Inject constructor(
     private val readingRepository: ReadingRepository,
     private val socialRepository: SocialRepository,
     private val bookRepository: BookRepository,
-    // AJOUT : Injection du repository pour les préférences locales (commentaires masqués).
     private val localUserPreferencesRepository: LocalUserPreferencesRepository,
     private val firebaseAuth: FirebaseAuth,
     savedStateHandle: SavedStateHandle
@@ -40,6 +41,35 @@ class CompletedReadingDetailViewModel @Inject constructor(
 
     private val targetUserId: String = savedStateHandle.get<String>("userId")!!
     private val bookId: String = savedStateHandle.get<String>("bookId")!!
+
+    // JUSTIFICATION MODIFICATION : Suppression de `_comments` et `lastVisibleCommentDoc`.
+    // L'état est maintenant géré directement par un `StateFlow` réactif dérivé des flux sources.
+
+    // JUSTIFICATION AJOUT : `comments` est maintenant dérivé directement en combinant le stream temps réel
+    // et les préférences de masquage. Cela remplace l'approche de chargement manuel (`loadComments`)
+    // et restaure la réactivité instantanée de l'UI aux changements de likes ou de nouveaux commentaires.
+    val comments: StateFlow<Resource<List<UiComment>>> = combine(
+        socialRepository.getCommentsForReadingStream(targetUserId, bookId),
+        localUserPreferencesRepository.getHiddenCommentIds()
+    ) { commentsResource, hiddenIds ->
+        when (commentsResource) {
+            is Resource.Success -> {
+                val uiComments = commentsResource.data?.map { comment ->
+                    UiComment(
+                        comment = comment,
+                        isHidden = comment.commentId in hiddenIds
+                    )
+                } ?: emptyList()
+                Resource.Success(uiComments)
+            }
+            is Resource.Error -> Resource.Error(commentsResource.message ?: "Erreur de chargement des commentaires")
+            is Resource.Loading -> Resource.Loading()
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = Resource.Loading()
+    )
 
     val currentUserId: StateFlow<String?> = MutableStateFlow(firebaseAuth.currentUser?.uid).asStateFlow()
 
@@ -73,30 +103,9 @@ class CompletedReadingDetailViewModel @Inject constructor(
                 initialValue = CompletedReadingDetailUiState(isLoading = true)
             )
 
-    // MODIFICATION : Le flow `comments` expose maintenant des `UiComment` au lieu de `Comment`.
-    val comments: StateFlow<Resource<List<UiComment>>> =
-        combine(
-            socialRepository.getCommentsForBook(bookId),
-            localUserPreferencesRepository.getHiddenCommentIds()
-        ) { commentsResource, hiddenIds ->
-            when (commentsResource) {
-                is Resource.Success -> {
-                    val uiComments = commentsResource.data?.map { comment ->
-                        UiComment(
-                            comment = comment,
-                            isHidden = comment.commentId in hiddenIds
-                        )
-                    } ?: emptyList()
-                    Resource.Success(uiComments)
-                }
-                is Resource.Error -> Resource.Error(commentsResource.message ?: "Erreur de chargement des commentaires")
-                is Resource.Loading -> Resource.Loading()
-            }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = Resource.Loading()
-        )
+    // JUSTIFICATION SUPPRESSION : `init` n'a plus besoin d'appeler `loadComments()`.
+    // JUSTIFICATION SUPPRESSION : `loadComments()` est supprimée car elle utilisait une lecture ponctuelle.
+    // Elle est remplacée par le flux réactif défini dans `comments`.
 
     val isReadingLikedByCurrentUser: StateFlow<Resource<Boolean>> = currentUserId.flatMapLatest { id ->
         if (id == null) flowOf(Resource.Success(false))
@@ -124,27 +133,29 @@ class CompletedReadingDetailViewModel @Inject constructor(
     fun toggleLikeOnComment(commentId: String) {
         val uid = currentUserId.value ?: return
         viewModelScope.launch {
-            socialRepository.toggleLikeOnComment(bookId, commentId, uid)
+            socialRepository.toggleLikeOnCommentForReading(targetUserId, bookId, commentId, uid)
         }
     }
 
-    // AJOUT : Fonction publique pour masquer un commentaire.
     fun hideComment(commentId: String) {
         viewModelScope.launch {
             localUserPreferencesRepository.hideComment(commentId)
+            // JUSTIFICATION SUPPRESSION : `loadComments()` est supprimé. Le `combine` dans `comments`
+            // détectera le changement dans `getHiddenCommentIds()` et mettra à jour l'UI automatiquement.
         }
     }
 
-    // AJOUT : Fonction publique pour démasquer un commentaire.
     fun unhideComment(commentId: String) {
         viewModelScope.launch {
             localUserPreferencesRepository.unhideComment(commentId)
+            // JUSTIFICATION SUPPRESSION : `loadComments()` est supprimé pour la même raison.
         }
     }
 
     fun deleteComment(commentId: String) {
         viewModelScope.launch {
-            socialRepository.deleteCommentOnBook(bookId, commentId)
+            socialRepository.deleteCommentOnReading(targetUserId, bookId, commentId)
+            // L'écouteur temps réel (`getCommentsForReadingStream`) détectera la suppression et mettra à jour l'UI.
         }
     }
 
@@ -155,19 +166,18 @@ class CompletedReadingDetailViewModel @Inject constructor(
             userName = user.displayName ?: "Utilisateur inconnu",
             userPhotoUrl = user.photoUrl?.toString(),
             commentText = commentText.trim(),
-            timestamp = Timestamp.now(),
-            targetUserId = targetUserId,
             bookId = bookId
         )
         viewModelScope.launch {
-            socialRepository.addCommentOnBook(bookId, comment)
+            socialRepository.addCommentOnReading(targetUserId, bookId, comment)
+            // L'écouteur temps réel (`getCommentsForReadingStream`) détectera l'ajout et mettra à jour l'UI.
         }
     }
 
     fun isCommentLikedByCurrentUser(commentId: String): Flow<Resource<Boolean>> {
         return currentUserId.flatMapLatest { id ->
             if (id == null) flowOf(Resource.Success(false))
-            else socialRepository.isCommentLikedByCurrentUser(bookId, commentId, id)
+            else socialRepository.isCommentLikedByUserOnReading(targetUserId, bookId, commentId, id)
         }
     }
 }

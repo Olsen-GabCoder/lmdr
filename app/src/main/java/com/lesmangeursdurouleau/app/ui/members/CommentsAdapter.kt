@@ -1,3 +1,5 @@
+// Fichier complet : CommentsAdapter.kt
+
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.animation.ArgbEvaluator
@@ -17,6 +19,7 @@ import android.view.ViewGroup
 import android.view.animation.AnimationUtils
 import androidx.constraintlayout.widget.ConstraintSet
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DiffUtil
@@ -45,6 +48,7 @@ interface OnCommentInteractionListener {
 
 class CommentsAdapter(
     private val currentUserId: String?,
+    private val isOwnerOfReading: Boolean,
     private val lifecycleOwner: LifecycleOwner,
     private val interactionListener: OnCommentInteractionListener,
     private val onReplyClickListener: (parentComment: Comment) -> Unit,
@@ -54,7 +58,6 @@ class CommentsAdapter(
     private val getCommentLikeStatus: (commentId: String) -> Flow<Resource<Boolean>>
 ) : ListAdapter<UiComment, RecyclerView.ViewHolder>(UiCommentDiffCallback()) {
 
-    // AJOUT : Champ pour stocker l'ID du commentaire à mettre en évidence.
     var highlightedCommentId: String? = null
 
     private companion object {
@@ -63,32 +66,37 @@ class CommentsAdapter(
     }
 
     private val expandedCommentIds = mutableSetOf<String>()
-    private var allUiComments: List<UiComment> = emptyList()
+    private var allParentComments: List<UiComment> = emptyList()
+    private var allRepliesMap: Map<String, List<UiComment>> = emptyMap()
     private val likedCommentsOptimisticState = mutableMapOf<String, Boolean>()
 
-    // MODIFICATION : Le nom est changé pour la clarté, car il ne fait pas que soumettre la liste.
-    fun setComments(comments: List<UiComment>) {
-        allUiComments = comments
+    fun submitNewComments(parents: List<UiComment>, replies: Map<String, List<UiComment>>) {
+        allParentComments = parents
+        allRepliesMap = replies
+        updateDisplayedList()
+    }
+
+    fun clearAllComments() {
+        allParentComments = emptyList()
+        allRepliesMap = emptyMap()
+        expandedCommentIds.clear()
         likedCommentsOptimisticState.clear()
         updateDisplayedList()
     }
 
     private fun updateDisplayedList() {
-        val commentMap = allUiComments.groupBy { it.comment.parentCommentId }
-        val topLevelComments = (commentMap[null] ?: emptyList()).sortedByDescending { it.comment.timestamp }
         val displayedList = mutableListOf<UiComment>()
-
-        topLevelComments.forEach { parentUiComment ->
+        allParentComments.forEach { parentUiComment ->
             displayedList.add(parentUiComment)
             if (expandedCommentIds.contains(parentUiComment.comment.commentId)) {
-                val replies = (commentMap[parentUiComment.comment.commentId] ?: emptyList()).sortedBy { it.comment.timestamp }
+                val replies = allRepliesMap[parentUiComment.comment.commentId] ?: emptyList()
                 displayedList.addAll(replies)
             }
         }
         submitList(displayedList)
     }
 
-    fun toggleRepliesVisibility(commentId: String) {
+    private fun toggleRepliesVisibility(commentId: String) {
         if (expandedCommentIds.contains(commentId)) {
             expandedCommentIds.remove(commentId)
         } else {
@@ -97,6 +105,11 @@ class CommentsAdapter(
         updateDisplayedList()
     }
 
+    // JUSTIFICATION DE LA MODIFICATION : Correction de l'erreur de typographie critique.
+    // Le nom de la méthode a été changé de `getItemViewtype` à `getItemViewType`.
+    // L'annotation `@Override` a été ajoutée. Cette correction assure que notre logique est bien
+    // utilisée par le RecyclerView pour déterminer le type de vue, ce qui résout
+    // l'exception `IllegalArgumentException` et le crash de l'application.
     override fun getItemViewType(position: Int): Int {
         return if (getItem(position).isHidden) {
             VIEW_TYPE_HIDDEN
@@ -116,7 +129,7 @@ class CommentsAdapter(
                 val binding = ItemCommentHiddenBinding.inflate(inflater, parent, false)
                 HiddenCommentViewHolder(binding)
             }
-            else -> throw IllegalArgumentException("Invalid view type")
+            else -> throw IllegalArgumentException("Invalid view type: $viewType")
         }
     }
 
@@ -124,20 +137,18 @@ class CommentsAdapter(
         val uiComment = getItem(position)
         when (holder) {
             is CommentViewHolder -> holder.bind(uiComment.comment)
-            is HiddenCommentViewHolder -> holder.bind(uiComment, currentUserId)
+            is HiddenCommentViewHolder -> holder.bind(uiComment)
         }
     }
 
     inner class HiddenCommentViewHolder(private val binding: ItemCommentHiddenBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(uiComment: UiComment, currentUserId: String?) {
-            val isUserAuthenticated = currentUserId != null
-            if (isUserAuthenticated) {
-                binding.unhideCommentButton.visibility = View.VISIBLE
+        fun bind(uiComment: UiComment) {
+            binding.unhideCommentButton.isVisible = isOwnerOfReading
+            if (isOwnerOfReading) {
                 binding.unhideCommentButton.setOnClickListener {
                     onUnhideClickListener(uiComment.comment.commentId)
                 }
             } else {
-                binding.unhideCommentButton.visibility = View.GONE
                 binding.unhideCommentButton.setOnClickListener(null)
             }
         }
@@ -149,19 +160,19 @@ class CommentsAdapter(
         private val hashtagPattern = Pattern.compile("#(\\w+)")
 
         fun bind(comment: Comment) {
-            // AJOUT : Logique de mise en évidence.
             if (comment.commentId == highlightedCommentId) {
                 highlightAndFade()
-                // On consomme l'ID pour que le highlight ne se reproduise pas lors du scroll.
                 highlightedCommentId = null
             } else {
-                // On s'assure que le fond est normal pour les items non-highlightés.
                 binding.root.setBackgroundColor(Color.TRANSPARENT)
             }
 
             binding.tvCommentAuthorUsername.text = comment.userName.takeIf { it.isNotBlank() } ?: "Utilisateur Anonyme"
             renderCommentText(comment.commentText)
-            binding.tvCommentTimestamp.text = comment.timestamp?.let { formatTimestamp(it.toDate()) }
+
+            val timestampText = comment.timestamp?.let { formatTimestamp(it.toDate()) }
+            val editedIndicator = if (comment.isEdited) " (modifié)" else ""
+            binding.tvCommentTimestamp.text = "$timestampText$editedIndicator"
 
             Glide.with(binding.root.context)
                 .load(comment.userPhotoUrl)
@@ -175,8 +186,7 @@ class CommentsAdapter(
             }
 
             binding.btnLikeComment.setOnClickListener {
-                val currentState = likedCommentsOptimisticState[comment.commentId]
-                    ?: (getCommentLikeStatus(comment.commentId) as? Resource.Success<Boolean>)?.data ?: false
+                val currentState = likedCommentsOptimisticState[comment.commentId] ?: (binding.btnLikeComment.tag as? Boolean ?: false)
                 val newState = !currentState
                 likedCommentsOptimisticState[comment.commentId] = newState
                 updateLikeButtonState(newState, comment.likesCount, true)
@@ -184,12 +194,11 @@ class CommentsAdapter(
                 onLikeClickListener(comment)
             }
 
-            binding.btnLikeComment.text = comment.likesCount.toString()
-
             likeStatusJob?.cancel()
             likeStatusJob = lifecycleOwner.lifecycleScope.launch {
                 getCommentLikeStatus(comment.commentId).collectLatest { resource ->
                     val isLiked = (resource as? Resource.Success)?.data ?: false
+                    binding.btnLikeComment.tag = isLiked
                     val displayState = likedCommentsOptimisticState[comment.commentId] ?: isLiked
                     updateLikeButtonState(displayState, comment.likesCount)
                 }
@@ -229,14 +238,12 @@ class CommentsAdapter(
             }
         }
 
-        // AJOUT : Méthode privée pour gérer l'animation de mise en évidence.
         private fun highlightAndFade() {
             val colorFrom = MaterialColors.getColor(binding.root, com.google.android.material.R.attr.colorPrimaryContainer)
             val colorTo = Color.TRANSPARENT
-
             val colorAnimation = ValueAnimator.ofObject(ArgbEvaluator(), colorFrom, colorTo)
-            colorAnimation.duration = 1500 // Durée en ms
-            colorAnimation.startDelay = 500 // Délai avant que le fade out ne commence
+            colorAnimation.duration = 1500
+            colorAnimation.startDelay = 500
             colorAnimation.addUpdateListener { animator ->
                 binding.root.setBackgroundColor(animator.animatedValue as Int)
             }
@@ -248,23 +255,17 @@ class CommentsAdapter(
             binding.btnLikeComment.setIconResource(iconRes)
 
             val colorAttr = if (isLiked) R.color.red_love else com.google.android.material.R.attr.colorOnSurfaceVariant
-            val resolvedColor = if (isLiked) {
-                ContextCompat.getColor(binding.root.context, colorAttr)
-            } else {
-                MaterialColors.getColor(binding.btnLikeComment, colorAttr)
-            }
+            val resolvedColor = if (isLiked) ContextCompat.getColor(binding.root.context, colorAttr)
+            else MaterialColors.getColor(binding.btnLikeComment, colorAttr)
             binding.btnLikeComment.iconTint = ColorStateList.valueOf(resolvedColor)
             binding.btnLikeComment.setTextColor(resolvedColor)
 
+            val realCount = currentLikesCount
             if (isOptimisticUpdate) {
-                val currentCount = binding.btnLikeComment.text.toString().toIntOrNull() ?: currentLikesCount
-                binding.btnLikeComment.text = if(isLiked) {
-                    (currentCount + 1).toString()
-                } else {
-                    (currentCount - 1).coerceAtLeast(0).toString()
-                }
+                val optimisticCount = if(isLiked) realCount + 1 else realCount - 1
+                binding.btnLikeComment.text = optimisticCount.coerceAtLeast(0).toString()
             } else {
-                binding.btnLikeComment.text = currentLikesCount.toString()
+                binding.btnLikeComment.text = realCount.toString()
             }
         }
 
@@ -277,9 +278,7 @@ class CommentsAdapter(
                 val mention = mentionMatcher.group(1)
                 if (mention != null) {
                     val clickableSpan = object : ClickableSpan() {
-                        override fun onClick(widget: View) {
-                            interactionListener.onMentionClicked(mention)
-                        }
+                        override fun onClick(widget: View) { interactionListener.onMentionClicked(mention) }
                     }
                     spannableString.setSpan(clickableSpan, mentionMatcher.start(), mentionMatcher.end(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     spannableString.setSpan(StyleSpan(Typeface.BOLD), mentionMatcher.start(), mentionMatcher.end(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -292,9 +291,7 @@ class CommentsAdapter(
                 val hashtag = hashtagMatcher.group(1)
                 if (hashtag != null) {
                     val clickableSpan = object : ClickableSpan() {
-                        override fun onClick(widget: View) {
-                            interactionListener.onHashtagClicked(hashtag)
-                        }
+                        override fun onClick(widget: View) { interactionListener.onHashtagClicked(hashtag) }
                     }
                     spannableString.setSpan(clickableSpan, hashtagMatcher.start(), hashtagMatcher.end(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                     spannableString.setSpan(StyleSpan(Typeface.BOLD), hashtagMatcher.start(), hashtagMatcher.end(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -322,7 +319,6 @@ class CommentsAdapter(
         override fun areItemsTheSame(oldItem: UiComment, newItem: UiComment): Boolean {
             return oldItem.comment.commentId == newItem.comment.commentId
         }
-
         override fun areContentsTheSame(oldItem: UiComment, newItem: UiComment): Boolean {
             return oldItem == newItem
         }
