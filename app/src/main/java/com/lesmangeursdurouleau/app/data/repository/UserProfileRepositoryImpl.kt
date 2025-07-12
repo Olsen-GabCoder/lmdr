@@ -1,4 +1,4 @@
-// Fichier complet : UserProfileRepositoryImpl.kt
+// Fichier complet et corrigé : UserProfileRepositoryImpl.kt
 
 package com.lesmangeursdurouleau.app.data.repository
 
@@ -14,6 +14,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.lesmangeursdurouleau.app.data.model.User
+import com.lesmangeursdurouleau.app.data.model.UserListItem
 import com.lesmangeursdurouleau.app.data.paging.UsersPagingSource
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
 import com.lesmangeursdurouleau.app.remote.FirebaseConstants
@@ -32,6 +33,7 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "UserProfileRepository"
+        // La taille de la page est maintenant définie dans la PagingSource, mais on peut la garder ici pour d'autres usages.
         private const val USERS_PAGE_SIZE = 20
     }
 
@@ -83,8 +85,6 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    // JUSTIFICATION DE LA MODIFICATION : La méthode originale est dépréciée car elle n'est pas scalable et cause
-    // des problèmes de performance et de coût. Elle est remplacée par getAllUsersPaginated.
     @Deprecated("Utiliser getAllUsersPaginated pour une approche performante et scalable.", ReplaceWith("getAllUsersPaginated()"))
     override fun getAllUsers(): Flow<Resource<List<User>>> = callbackFlow {
         trySend(Resource.Loading())
@@ -103,11 +103,13 @@ class UserProfileRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    // JUSTIFICATION DE L'AJOUT : Cette nouvelle fonction implémente la pagination.
-    // Elle utilise un Pager de Jetpack Paging 3, configuré avec une taille de page et
-    // notre nouvelle UsersPagingSource, pour créer un flux de données paginées (`PagingData`).
-    // C'est la solution architecturale correcte pour gérer de grandes listes de données.
-    override fun getAllUsersPaginated(): Flow<PagingData<User>> {
+    /**
+     * JUSTIFICATION DE LA MODIFICATION : La signature de retour de la fonction est mise à jour de
+     * `Flow<PagingData<User>>` à `Flow<PagingData<UserListItem>>` pour correspondre à l'interface
+     * et refléter le fait que nous chargeons maintenant le modèle de données optimisé.
+     * Ceci finalise la chaîne de l'optimisation.
+     */
+    override fun getAllUsersPaginated(): Flow<PagingData<UserListItem>> {
         return Pager(
             config = PagingConfig(pageSize = USERS_PAGE_SIZE, enablePlaceholders = false),
             pagingSourceFactory = { UsersPagingSource(firestore) }

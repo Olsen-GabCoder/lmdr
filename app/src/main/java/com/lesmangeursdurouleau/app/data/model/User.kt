@@ -1,9 +1,22 @@
-// PRÊT À COLLER - Fichier User.kt
+// Fichier Modifié : app/src/main/java/com/lesmangeursdurouleau/app/data/model/User.kt
+
 package com.lesmangeursdurouleau.app.data.model
 
 import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
+
+/**
+ * JUSTIFICATION DE LA CRÉATION : Ce nouveau modèle de données est la pierre angulaire de l'optimisation.
+ * Il ne contient que les 3 champs strictement nécessaires à l'affichage dans la liste des membres.
+ * Utiliser ce modèle au lieu de l'objet `User` complet réduit drastiquement la quantité de données
+ * lues depuis Firestore pour chaque item de la liste, optimisant ainsi les coûts et la performance.
+ */
+data class UserListItem(
+    val uid: String = "",
+    val username: String = "",
+    val profilePictureUrl: String? = null
+)
 
 data class User(
     var uid: String = "",
@@ -33,7 +46,6 @@ data class User(
     val highestAffinityPartnerUsername: String? = null,
     val highestAffinityTierName: String? = null,
 
-    // CORRECTION : Champ ajouté pour correspondre à Firestore
     val isEmailVerified: Boolean = false,
 
     val fcmToken: String? = null,
