@@ -465,6 +465,8 @@
     <!-- =================================================================== -->
     <!-- AJOUTS POUR LA REFONTE DU PROFIL PUBLIC - 2023-10-27                  -->
     <!-- =================================================================== -->
+    <string name="no_members_found_for_search">Aucun membre trouvé pour cette recherche</string>
+    <string name="search_members_hint">Rechercher un membre...</string>
     <string name="action_rate">Noter</string>
     <string name="action_bookmark">Ajouter aux favoris</string>
     <string name="action_recommend">Recommander</string>

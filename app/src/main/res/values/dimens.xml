@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Dimensions génériques -->
+    <!--
+        JUSTIFICATION DE L'AJOUT : Cette dimension générique est ajoutée pour être utilisée
+        à travers l'application pour des espacements de taille standard (8dp).
+        Elle est utilisée par MembersFragment pour l'ItemDecoration, évitant ainsi de
+        coder en dur une valeur et favorisant la cohérence de l'UI.
+    -->
+    <dimen name="spacing_small">8dp</dimen>
+
+    <!-- Dimensions spécifiques au Chat -->
     <dimen name="chat_bubble_margin_horizontal">16dp</dimen>
     <dimen name="chat_bubble_corner_radius">20dp</dimen>
     <dimen name="chat_avatar_size">40dp</dimen>
@@ -13,7 +23,6 @@
     <dimen name="reaction_emoji_margin_horizontal">2dp</dimen>
     <dimen name="reaction_emoji_margin_vertical">2dp</dimen>
     <dimen name="reaction_container_margin_top">4dp</dimen>
-    <!-- NOTE : message_group_spacing_default est renommé en message_group_spacing_large pour plus de clarté -->
     <dimen name="message_group_spacing_large">8dp</dimen>
     <dimen name="message_group_spacing_reduced">2dp</dimen>
 </resources>

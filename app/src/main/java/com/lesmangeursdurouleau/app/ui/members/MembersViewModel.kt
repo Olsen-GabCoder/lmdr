@@ -14,28 +14,18 @@ import com.lesmangeursdurouleau.app.data.repository.SocialRepository
 import com.lesmangeursdurouleau.app.data.repository.UserProfileRepository
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
 
 sealed class MembersUiState {
     object Loading : MembersUiState()
     data class Success(val users: List<User>) : MembersUiState()
     data class Error(val message: String) : MembersUiState()
-
-    /**
-     * JUSTIFICATION DE LA MODIFICATION : L'état PagedSuccess est mis à jour pour contenir
-     * un flux de `PagingData<UserListItem>`, le nouveau modèle de données optimisé.
-     */
     data class PagedSuccess(val pagedUsers: Flow<PagingData<UserListItem>>) : MembersUiState()
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MembersViewModel @Inject constructor(
     private val userProfileRepository: UserProfileRepository,
@@ -47,33 +37,59 @@ class MembersViewModel @Inject constructor(
         private const val TAG = "MembersViewModel"
     }
 
-    val uiState: StateFlow<MembersUiState> = savedStateHandle.getStateFlow<String?>("listType", null)
-        .flatMapLatest { listType ->
-            val targetUserId = savedStateHandle.get<String?>("userId")
-            Log.d(TAG, "Détection d'un changement d'état. listType: $listType, targetUserId: $targetUserId")
+    /**
+     * JUSTIFICATION DE L'AJOUT : Un StateFlow privé est ajouté pour contenir le terme de recherche.
+     * Il servira de source de vérité pour la requête de l'utilisateur.
+     */
+    private val _searchQuery = MutableStateFlow("")
 
-            when (listType) {
-                "followers" -> {
-                    if (targetUserId.isNullOrBlank()) {
-                        flow { emit(MembersUiState.Error("ID utilisateur cible manquant pour les followers.")) }
-                    } else {
-                        socialRepository.getFollowersUsers(targetUserId).mapToUiState()
-                    }
-                }
-                "following" -> {
-                    if (targetUserId.isNullOrBlank()) {
-                        flow { emit(MembersUiState.Error("ID utilisateur cible manquant pour les abonnements.")) }
-                    } else {
-                        socialRepository.getFollowingUsers(targetUserId).mapToUiState()
-                    }
-                }
-                else -> {
+    /**
+     * JUSTIFICATION DE LA MODIFICATION : Le StateFlow principal est maintenant reconstruit
+     * à partir de la combinaison de DEUX sources : les arguments de navigation ET le terme de recherche.
+     * Le `debounce` est ajouté sur la requête de recherche pour éviter de surcharger Firestore en
+     * lançant une recherche à chaque caractère tapé. La logique de `when` est mise à jour pour
+     * appeler soit la recherche paginée, soit la liste paginée complète.
+     */
+    val uiState: StateFlow<MembersUiState> = combine(
+        savedStateHandle.getStateFlow<String?>("listType", null),
+        _searchQuery.debounce(300L)
+    ) { listType, query ->
+        Pair(listType, query)
+    }.flatMapLatest { (listType, query) ->
+        val targetUserId = savedStateHandle.get<String?>("userId")
+        Log.d(TAG, "Détection d'un changement d'état. listType: $listType, query: '$query'")
+
+        when (listType) {
+            "followers" -> {
+                // La recherche côté client pourrait être implémentée ici si nécessaire.
+                getFollowListFlow(
+                    targetUserId,
+                    errorMessage = "ID utilisateur cible manquant pour les followers.",
+                    fetcher = socialRepository::getFollowersUsers
+                )
+            }
+            "following" -> {
+                // La recherche côté client pourrait être implémentée ici si nécessaire.
+                getFollowListFlow(
+                    targetUserId,
+                    errorMessage = "ID utilisateur cible manquant pour les abonnements.",
+                    fetcher = socialRepository::getFollowingUsers
+                )
+            }
+            else -> {
+                // Cas de la liste "tous les membres" qui supporte la recherche paginée.
+                val pagedUsersFlow = if (query.isNotBlank()) {
+                    Log.d(TAG, "Recherche de la liste paginée avec la requête: '$query'")
+                    userProfileRepository.searchUsersPaginated(query)
+                } else {
                     Log.d(TAG, "Chargement de la liste paginée optimisée de tous les utilisateurs.")
-                    val pagedUsersFlow = userProfileRepository.getAllUsersPaginated().cachedIn(viewModelScope)
-                    flow { emit(MembersUiState.PagedSuccess(pagedUsersFlow)) }
-                }
+                    userProfileRepository.getAllUsersPaginated()
+                }.cachedIn(viewModelScope) // Le cache est appliqué au résultat du if/else
+
+                flow { emit(MembersUiState.PagedSuccess(pagedUsersFlow)) }
             }
         }
+    }
         .catch { e ->
             Log.e(TAG, "Exception dans le flow principal du ViewModel", e)
             emit(MembersUiState.Error("Erreur technique: ${e.localizedMessage}"))
@@ -83,6 +99,25 @@ class MembersViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = MembersUiState.Loading
         )
+
+    /**
+     * JUSTIFICATION DE L'AJOUT : Nouvelle fonction publique pour que l'UI (Fragment) puisse notifier
+     * le ViewModel d'un changement dans la requête de recherche.
+     */
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
+    private fun getFollowListFlow(
+        targetUserId: String?,
+        errorMessage: String,
+        fetcher: (String) -> Flow<Resource<List<User>>>
+    ): Flow<MembersUiState> {
+        if (targetUserId.isNullOrBlank()) {
+            return flow { emit(MembersUiState.Error(errorMessage)) }
+        }
+        return fetcher(targetUserId).mapToUiState()
+    }
 
     private fun Flow<Resource<List<User>>>.mapToUiState(): Flow<MembersUiState> {
         return this.map { resource ->

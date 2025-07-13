@@ -1,7 +1,9 @@
-// Fichier complet et corrigé : MembersFragment.kt
+// Fichier Modifié : MembersFragment.kt
 
 package com.lesmangeursdurouleau.app.ui.members
 
+import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -9,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -18,6 +21,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.paging.LoadState
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.databinding.FragmentMembersBinding
 import dagger.hilt.android.AndroidEntryPoint
@@ -56,13 +60,11 @@ class MembersFragment : Fragment() {
         Log.i(TAG, "Titre du fragment et ActionBar mis à jour avec: '${args.listTitle}'")
 
         setupRecyclerView()
+        setupSearch()
         observeUiState()
     }
 
     private fun setupRecyclerView() {
-        // JUSTIFICATION DE LA MODIFICATION : L'adapter est instancié pour fonctionner avec `UserListItem`.
-        // Le corps de la lambda reste le même car `UserListItem` contient bien `uid` et `username`,
-        // mais le type du paramètre `member` est maintenant inféré comme `UserListItem`.
         membersAdapter = MembersAdapter { member ->
             val action = MembersFragmentDirections.actionMembersFragmentToPublicProfileFragment(
                 userId = member.uid,
@@ -74,42 +76,50 @@ class MembersFragment : Fragment() {
         binding.rvMembers.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = membersAdapter
-            setHasFixedSize(false) // La taille de la liste change avec la pagination.
+            setHasFixedSize(false)
+            val verticalSpacing = resources.getDimensionPixelSize(R.dimen.spacing_small)
+            addItemDecoration(VerticalSpaceItemDecoration(verticalSpacing))
         }
     }
 
     /**
-     * JUSTIFICATION DE LA MODIFICATION : La méthode d'observation a été entièrement réécrite pour
-     * fonctionner de manière réactive avec le `StateFlow` du ViewModel et l'état de l'adapter de Paging.
-     * Elle corrige la faille de conception MVVM (🏗️) en ne faisant qu'observer l'état.
+     * JUSTIFICATION DE L'AJOUT : Cette nouvelle fonction configure le listener sur
+     * le champ de recherche. Elle notifie le ViewModel à chaque changement de texte.
      */
+    private fun setupSearch() {
+        binding.etSearchMembers.addTextChangedListener { text ->
+            viewModel.onSearchQueryChanged(text.toString())
+        }
+    }
+
     private fun observeUiState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Coroutine pour observer l'état global émis par le ViewModel.
                 launch {
                     viewModel.uiState.collectLatest { state ->
                         handleUiState(state)
                     }
                 }
 
-                // Coroutine pour observer l'état de chargement spécifique à Paging.
-                // C'est la meilleure pratique pour gérer l'UI de chargement/erreur avec Paging 3.
                 launch {
                     membersAdapter.loadStateFlow.collectLatest { loadStates ->
-                        // Gère la visibilité du ProgressBar principal pour le chargement initial.
                         binding.progressBarMembers.isVisible = loadStates.refresh is LoadState.Loading
-
-                        // Affiche la liste uniquement si le chargement initial est terminé et sans erreur.
                         binding.rvMembers.isVisible = loadStates.refresh is LoadState.NotLoading
 
-                        // Gère l'affichage du message d'erreur.
                         val refreshState = loadStates.refresh
                         if (refreshState is LoadState.Error) {
                             binding.tvErrorMessage.text = getString(R.string.error_loading_members, refreshState.error.localizedMessage)
                             Log.e(TAG, "Erreur de chargement Paging: ${refreshState.error.localizedMessage}")
                         }
-                        binding.tvErrorMessage.isVisible = refreshState is LoadState.Error
+
+                        // Gère le cas "pas de résultats" après un chargement réussi
+                        if (loadStates.refresh is LoadState.NotLoading && membersAdapter.itemCount == 0) {
+                            binding.tvErrorMessage.text = getString(R.string.no_members_found_for_search) // Nouvelle string à ajouter
+                            binding.tvErrorMessage.isVisible = true
+                            binding.rvMembers.isVisible = false
+                        } else {
+                            binding.tvErrorMessage.isVisible = refreshState is LoadState.Error
+                        }
                     }
                 }
             }
@@ -117,12 +127,8 @@ class MembersFragment : Fragment() {
     }
 
     private fun handleUiState(state: MembersUiState) {
-        // La visibilité des composants principaux (ProgressBar, RecyclerView, Error TextView)
-        // est maintenant principalement gérée par le `loadStateFlow` ci-dessus pour plus de précision.
-        // Cette fonction gère la soumission des données.
         when (state) {
             is MembersUiState.PagedSuccess -> {
-                // Soumet le flux de données paginées à l'adapter.
                 viewLifecycleOwner.lifecycleScope.launch {
                     state.pagedUsers.collectLatest { pagingData ->
                         membersAdapter.submitData(pagingData)
@@ -130,13 +136,9 @@ class MembersFragment : Fragment() {
                 }
             }
             is MembersUiState.Success -> {
-                // Ce cas gère les listes non-paginées (followers/following). Comme notre adapter est maintenant
-                // un PagingDataAdapter, on ne peut pas lui soumettre une liste simple.
-                // Pour une solution complète, ces listes devraient aussi être paginées.
-                // Pour l'instant, on affiche une liste vide et on logue l'information.
                 Log.d(TAG, "Reçu une liste non-paginée qui ne peut être affichée par le PagingDataAdapter.")
                 binding.progressBarMembers.isVisible = false
-                binding.rvMembers.isVisible = true // Affiche la liste (qui sera vide)
+                binding.rvMembers.isVisible = true
                 binding.tvErrorMessage.isVisible = state.users.isEmpty()
                 if (state.users.isEmpty()) {
                     binding.tvErrorMessage.text = when (args.listType) {
@@ -165,5 +167,13 @@ class MembersFragment : Fragment() {
         binding.rvMembers.adapter = null
         _binding = null
         Log.d(TAG, "onDestroyView: Binding nulifié.")
+    }
+}
+
+private class VerticalSpaceItemDecoration(private val verticalSpaceHeight: Int) : RecyclerView.ItemDecoration() {
+    override fun getItemOffsets(outRect: Rect, view: View, parent: RecyclerView, state: RecyclerView.State) {
+        if (parent.getChildAdapterPosition(view) != 0) {
+            outRect.top = verticalSpaceHeight
+        }
     }
 }

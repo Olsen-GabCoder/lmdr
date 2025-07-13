@@ -6,26 +6,70 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:attr/colorBackground"
-    android:padding="16dp"
     tools:context=".ui.members.MembersFragment">
 
+    <!-- JUSTIFICATION : Ce titre est correctement contraint en haut de l'écran, servant de point d'ancrage visuel. -->
     <TextView
         android:id="@+id/tv_members_title"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="@string/members_title"
-        android:textAppearance="?attr/textAppearanceHeadline5" android:textColor="?attr/colorOnBackground"
+        android:textAppearance="?attr/textAppearanceHeadline5"
+        android:textColor="?attr/colorOnBackground"
         android:textStyle="bold"
-        android:layout_marginBottom="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="16dp"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!--
+        JUSTIFICATION ARCHITECTURALE ET FONCTIONNELLE : Ce bloc TextInputLayout est la solution correcte
+        et remplace toute implémentation défectueuse précédente.
+        1.  Il utilise `com.google.android.material.textfield.TextInputLayout` : C'est le composant Material Design
+            standard, garantissant la compatibilité, l'accessibilité et le style attendu.
+        2.  `style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"` : Cette ligne applique
+            explicitement le style de champ de texte avec des bordures, corrigeant le problème du "champ dégradé".
+        3.  `android:layout_height="wrap_content"` : Cet attribut est crucial. Il force le champ à n'occuper
+            que la hauteur nécessaire à son contenu, empêchant l'étirement vertical qui causait le bug visuel.
+        4.  `app:startIconDrawable="@drawable/ic_search"` : Cette ligne place une icône de recherche de taille
+            appropriée à l'intérieur du champ de texte, au début. C'est la méthode correcte, qui remplace
+            l'ancienne approche erronée de "l'icône de loupe géante".
+    -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_search_members"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:hint="@string/search_members_hint"
+        app:layout_constraintTop_toBottomOf="@id/tv_members_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:endIconMode="clear_text">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_search_members"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_members"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintTop_toBottomOf="@id/tv_members_title"
+        android:layout_marginTop="8dp"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintTop_toBottomOf="@id/til_search_members"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -38,24 +82,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/til_search_members"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
         android:id="@+id/tv_error_message"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         android:gravity="center"
         android:visibility="gone"
         android:textAppearance="?attr/textAppearanceBody1"
         android:textColor="?attr/colorError"
-        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/til_search_members"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="Erreur de chargement" />
+        tools:text="Erreur de chargement ou aucun résultat trouvé" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

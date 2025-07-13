@@ -12,11 +12,6 @@ import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.UserListItem
 import com.lesmangeursdurouleau.app.databinding.ItemMemberBinding
 
-/**
- * JUSTIFICATION DE LA MODIFICATION : L'adapter est mis à jour pour fonctionner avec `UserListItem`.
- * Le type générique de PagingDataAdapter et le type du paramètre `onItemClick` sont modifiés
- * pour utiliser le modèle de données optimisé.
- */
 class MembersAdapter(
     private val onItemClick: (UserListItem) -> Unit
 ) : PagingDataAdapter<UserListItem, MembersAdapter.MemberViewHolder>(UserListItemDiffCallback()) {
@@ -34,6 +29,12 @@ class MembersAdapter(
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .circleCrop()
                 .into(binding.ivMemberPicture)
+
+            // JUSTIFICATION DE L'AJOUT : Cette ligne est ajoutée pour corriger la faille d'accessibilité ♿.
+            // Le contentDescription de l'avatar est maintenant dynamique et plus informatif.
+            // Au lieu d'un "Photo de profil" générique, TalkBack lira "Photo de profil de [NomUtilisateur]",
+            // donnant un contexte précieux à l'utilisateur.
+            binding.ivMemberPicture.contentDescription = itemView.context.getString(R.string.profile_picture_of_user_description, member.username)
 
             itemView.setOnClickListener {
                 getItem(bindingAdapterPosition)?.let { user ->

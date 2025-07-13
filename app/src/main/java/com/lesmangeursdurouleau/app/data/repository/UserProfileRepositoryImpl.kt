@@ -1,4 +1,4 @@
-// Fichier complet et corrigé : UserProfileRepositoryImpl.kt
+// Fichier Modifié : UserProfileRepositoryImpl.kt
 
 package com.lesmangeursdurouleau.app.data.repository
 
@@ -15,6 +15,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.data.model.UserListItem
+import com.lesmangeursdurouleau.app.data.paging.SearchUsersPagingSource
 import com.lesmangeursdurouleau.app.data.paging.UsersPagingSource
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
 import com.lesmangeursdurouleau.app.remote.FirebaseConstants
@@ -33,7 +34,6 @@ class UserProfileRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "UserProfileRepository"
-        // La taille de la page est maintenant définie dans la PagingSource, mais on peut la garder ici pour d'autres usages.
         private const val USERS_PAGE_SIZE = 20
     }
 
@@ -103,16 +103,22 @@ class UserProfileRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    /**
-     * JUSTIFICATION DE LA MODIFICATION : La signature de retour de la fonction est mise à jour de
-     * `Flow<PagingData<User>>` à `Flow<PagingData<UserListItem>>` pour correspondre à l'interface
-     * et refléter le fait que nous chargeons maintenant le modèle de données optimisé.
-     * Ceci finalise la chaîne de l'optimisation.
-     */
     override fun getAllUsersPaginated(): Flow<PagingData<UserListItem>> {
         return Pager(
             config = PagingConfig(pageSize = USERS_PAGE_SIZE, enablePlaceholders = false),
             pagingSourceFactory = { UsersPagingSource(firestore) }
+        ).flow
+    }
+
+    /**
+     * JUSTIFICATION DE L'AJOUT : L'implémentation de la nouvelle méthode de recherche.
+     * Elle utilise un Pager, comme la méthode `getAllUsersPaginated`, mais lui fournit
+     * la nouvelle `SearchUsersPagingSource`, en lui passant la requête de recherche.
+     */
+    override fun searchUsersPaginated(query: String): Flow<PagingData<UserListItem>> {
+        return Pager(
+            config = PagingConfig(pageSize = USERS_PAGE_SIZE, enablePlaceholders = false),
+            pagingSourceFactory = { SearchUsersPagingSource(firestore, query) }
         ).flow
     }
 

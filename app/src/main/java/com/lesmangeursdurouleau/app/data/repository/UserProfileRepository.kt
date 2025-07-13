@@ -15,12 +15,15 @@ interface UserProfileRepository {
     @Deprecated("Non scalable. Utiliser getAllUsersPaginated() à la place.", ReplaceWith("getAllUsersPaginated()"))
     fun getAllUsers(): Flow<Resource<List<User>>>
 
-    /**
-     * JUSTIFICATION DE LA MODIFICATION : La signature de la méthode est mise à jour dans l'interface
-     * pour refléter le fait qu'elle retourne maintenant un flux de données paginées du type allégé `UserListItem`.
-     * Cela assure la cohérence du contrat à travers l'application.
-     */
     fun getAllUsersPaginated(): Flow<PagingData<UserListItem>>
+
+    /**
+     * JUSTIFICATION DE L'AJOUT : Cette nouvelle méthode est ajoutée au contrat pour permettre
+     * au ViewModel de demander une liste paginée et filtrée d'utilisateurs.
+     * @param query Le terme de recherche pour filtrer les utilisateurs.
+     * @return Un Flow de PagingData contenant les utilisateurs correspondants à la recherche.
+     */
+    fun searchUsersPaginated(query: String): Flow<PagingData<UserListItem>>
 
     fun getUserById(userId: String): Flow<Resource<User>>
     suspend fun updateUserTypingStatus(userId: String, isTyping: Boolean): Resource<Unit>

@@ -59,9 +59,7 @@
         <action
             android:id="@+id/action_profileFragment_to_membersFragment"
             app:destination="@id/membersFragmentDestination" />
-        <action
-            android:id="@+id/action_profileFragment_to_chatFragment"
-            app:destination="@id/chatFragmentDestination" />
+        <!-- L'action vers chatFragmentDestination a été supprimée. -->
         <action
             android:id="@+id/action_navigation_members_profile_to_editCurrentReadingFragment"
             app:destination="@id/editCurrentReadingFragment"
@@ -132,7 +130,6 @@
             app:argType="string"
             app:nullable="true"
             android:defaultValue="Profil Membre" />
-        <!-- MODIFICATION: Argument renommé pour plus de clarté (highlight vs scroll) et conformité avec la nouvelle logique -->
         <argument
             android:name="highlightedCommentId"
             app:argType="string"
@@ -168,25 +165,12 @@
         <action
             android:id="@+id/action_publicProfileFragmentDestination_to_privateChatFragmentDestination"
             app:destination="@id/privateChatFragmentDestination" />
-
-        <!-- AJOUT: Déclaration du deep link pour cette destination. -->
         <deepLink
             android:id="@+id/deepLinkToComment"
             app:uri="https://lesmangeursdurouleau.com/comment?targetUserId={userId}&amp;highlightedCommentId={highlightedCommentId}" />
-
-
     </fragment>
 
-    <!-- Discussion générale -->
-    <fragment
-        android:id="@+id/chatFragmentDestination"
-        android:name="com.lesmangeursdurouleau.app.ui.chat.ChatFragment"
-        android:label="Discussion Générale"
-        tools:layout="@layout/fragment_chat">
-        <action
-            android:id="@+id/action_chatFragment_to_publicProfileFragment"
-            app:destination="@id/publicProfileFragmentDestination" />
-    </fragment>
+    <!-- Le fragment "Discussion générale" (chatFragmentDestination) a été supprimé. -->
 
     <!-- Ajout/Modification de Lecture Mensuelle -->
     <fragment

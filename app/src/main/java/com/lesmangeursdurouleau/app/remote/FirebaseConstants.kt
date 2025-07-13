@@ -5,7 +5,6 @@ object FirebaseConstants {
     // --- COLLECTIONS PRINCIPALES ---
     const val COLLECTION_USERS = "users"
     const val COLLECTION_BOOKS = "books"
-    const val COLLECTION_GENERAL_CHAT = "general_chat_messages"
     const val COLLECTION_MONTHLY_READINGS = "monthly_readings"
     const val COLLECTION_APP_CONFIG = "app_config"
     const val COLLECTION_CONVERSATIONS = "conversations"

@@ -324,11 +324,6 @@ class ProfileFragment : Fragment() {
             findNavController().navigate(action)
         }
 
-        binding.buttonGeneralChat.setOnClickListener {
-            val action = ProfileFragmentDirections.actionProfileFragmentToChatFragment()
-            findNavController().navigate(action)
-        }
-
         // AJOUT DES LISTENERS POUR LES NOUVEAUX BOUTONS
         binding.buttonNotifications.setOnClickListener {
             val action = ProfileFragmentDirections.actionNavigationMembersProfileToNotificationsDestination()

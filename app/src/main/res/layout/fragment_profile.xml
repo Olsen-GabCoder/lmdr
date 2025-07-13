@@ -553,19 +553,7 @@
                         app:strokeWidth="2dp"
                         android:textColor="?attr/colorPrimary" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/button_general_chat"
-                        style="@style/Widget.Material3.Button.TonalButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:text="@string/general_chat_title"
-                        android:textSize="16sp"
-                        android:textAllCaps="false"
-                        app:icon="@drawable/ic_chat"
-                        app:iconGravity="textStart"
-                        app:cornerRadius="12dp"
-                        app:backgroundTint="?attr/colorSurfaceVariant"
-                        android:textColor="?attr/colorOnSurfaceVariant" />
+                    <!-- BOUTON DISCUSSION GÉNÉRALE SUPPRIMÉ -->
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>

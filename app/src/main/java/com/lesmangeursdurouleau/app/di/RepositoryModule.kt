@@ -22,14 +22,6 @@ object RepositoryModule {
     // des dépendances (comme firestore, firebaseAuth, etc.) et ne peuvent donc pas
     // être simplement "liés" avec @Binds.
 
-    @Provides
-    @Singleton
-    fun provideChatRepository(
-        firestore: FirebaseFirestore,
-        firebaseAuth: FirebaseAuth
-    ): ChatRepository {
-        return ChatRepositoryImpl(firestore, firebaseAuth)
-    }
 
     @Provides
     @Singleton
