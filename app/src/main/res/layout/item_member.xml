@@ -47,4 +47,4 @@ android:padding="16dp">
     tools:text="NomUtilisateurTrèsLongPourTesterL'Ellipsize" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-    </com.google.android.material.card.MaterialCardView>
+</com.google.android.material.card.MaterialCardView>

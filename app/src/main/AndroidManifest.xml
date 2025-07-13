@@ -13,8 +13,6 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Permission nécessaire pour afficher des notifications sur Android 13 (API 33) et plus -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
@@ -41,7 +39,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true">
-            <!-- AJOUT : Intent filter pour intercepter le deep link des commentaires. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -51,7 +48,6 @@
                     android:host="lesmangeursdurouleau.com"
                     android:pathPrefix="/comment" />
             </intent-filter>
-            <!-- AJOUT : La bibliothèque de navigation a aussi besoin de son propre nav-graph pour générer des deep links. -->
             <nav-graph android:value="@navigation/main_nav_graph" />
         </activity>
 
@@ -62,7 +58,26 @@
             android:name=".ui.readings.BookDetailActivity"
             android:exported="false" />
 
-        <!-- Déclaration du service Firebase Cloud Messaging -->
+        <activity
+            android:name=".ui.cropper.CropperActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.LesMangeursDuRouleau.Cropper"
+            android:exported="false"
+            tools:ignore="LockedOrientationActivity" />
+
+        <!--
+         JUSTIFICATION DE L'AJOUT : C'est la correction du crash. La librairie uCrop a besoin que
+         son activité principale, `UCropActivity`, soit déclarée dans le manifeste de l'application
+         qui l'utilise. Sans cette déclaration, Android ne peut pas la trouver et lance une
+         `ActivityNotFoundException`. En ajoutant ce bloc, nous résolvons le crash.
+        -->
+        <activity
+            android:name="com.yalantis.ucrop.UCropActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            tools:ignore="LockedOrientationActivity" />
+
+
         <service
             android:name=".notifications.MyFirebaseMessagingService"
             android:exported="false">
@@ -70,7 +85,6 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-        <!-- FIN DE L'AJOUT DU SERVICE FCM -->
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

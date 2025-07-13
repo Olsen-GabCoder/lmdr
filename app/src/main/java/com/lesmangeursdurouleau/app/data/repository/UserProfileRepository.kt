@@ -1,5 +1,4 @@
-// Fichier Modifié : UserProfileRepository.kt
-
+// PRÊT À COLLER - Fichier UserProfileRepository.kt mis à jour
 package com.lesmangeursdurouleau.app.data.repository
 
 import androidx.paging.PagingData
@@ -12,17 +11,22 @@ interface UserProfileRepository {
     suspend fun updateUserProfile(userId: String, username: String): Resource<Unit>
     suspend fun updateUserProfilePicture(userId: String, imageData: ByteArray): Resource<String>
 
+    /**
+     * JUSTIFICATION DE L'AJOUT : Ajout du contrat pour la mise à jour de la photo de couverture.
+     * Cette nouvelle méthode définit l'opération que l'implémentation devra fournir.
+     * Sa signature est cohérente avec `updateUserProfilePicture`, garantissant une uniformité
+     * architecturale pour les opérations de mise à jour d'images.
+     * @param userId L'ID de l'utilisateur qui met à jour sa couverture.
+     * @param imageData Les données binaires de la nouvelle image.
+     * @return Un `Resource<String>` contenant l'URL de l'image uploadée en cas de succès.
+     */
+    suspend fun updateUserCoverPicture(userId: String, imageData: ByteArray): Resource<String>
+
     @Deprecated("Non scalable. Utiliser getAllUsersPaginated() à la place.", ReplaceWith("getAllUsersPaginated()"))
     fun getAllUsers(): Flow<Resource<List<User>>>
 
     fun getAllUsersPaginated(): Flow<PagingData<UserListItem>>
 
-    /**
-     * JUSTIFICATION DE L'AJOUT : Cette nouvelle méthode est ajoutée au contrat pour permettre
-     * au ViewModel de demander une liste paginée et filtrée d'utilisateurs.
-     * @param query Le terme de recherche pour filtrer les utilisateurs.
-     * @return Un Flow de PagingData contenant les utilisateurs correspondants à la recherche.
-     */
     fun searchUsersPaginated(query: String): Flow<PagingData<UserListItem>>
 
     fun getUserById(userId: String): Flow<Resource<User>>

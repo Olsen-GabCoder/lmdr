@@ -12,6 +12,12 @@
     <color name="gradient_end_violet">#7C5DDE</color>
     <color name="primary_accent">#6366F1</color>
     <color name="secondary_accent">#7986CB</color>
+    <color name="ucrop_color_widget_active">#FF5722</color>
+    <color name="ucrop_color_toolbar">#212121</color>
+    <color name="ucrop_color_statusbar">#000000</color>
+    <color name="ucrop_color_toolbar_widget">#FFFFFF</color>
+    <color name="ucrop_color_root_view_background">#121212</color>
+
 
     <!-- Couleurs pour les statuts des Chips -->
     <color name="chip_bg_planified">#E0E0E0</color> <!-- Gris clair -->

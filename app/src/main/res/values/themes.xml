@@ -16,7 +16,11 @@
         <item name="colorOnError">@color/white</item>
     </style>
 
-
+    <style name="Theme.LesMangeursDuRouleau.Cropper" parent="Theme.LesMangeursDuRouleau">
+        <item name="colorPrimary">@color/ucrop_color_toolbar</item>
+        <item name="colorPrimaryDark">@color/ucrop_color_statusbar</item>
+        <item name="colorAccent">@color/ucrop_color_widget_active</item>
+    </style>
     <style name="Theme.LesMangeursDuRouleau" parent="Base.Theme.LesMangeursDuRouleau" />
 
     <style name="ChatBubbleSent">

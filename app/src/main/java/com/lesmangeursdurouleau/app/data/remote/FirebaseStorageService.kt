@@ -1,10 +1,11 @@
+// PRÊT À COLLER - Fichier FirebaseStorageService.kt mis à jour
 package com.lesmangeursdurouleau.app.data.remote
 
 import android.net.Uri
 import android.util.Log
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageException
-import com.lesmangeursdurouleau.app.remote.FirebaseConstants // Import de la classe des constantes
+import com.lesmangeursdurouleau.app.remote.FirebaseConstants
 import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
@@ -20,76 +21,87 @@ class FirebaseStorageService @Inject constructor(
     }
 
     suspend fun uploadProfilePicture(userId: String, imageData: ByteArray): Resource<String> {
-        Log.d(TAG, "uploadProfilePicture: Reçu pour UserID: $userId, Taille des imageData: ${imageData.size} bytes.")
-
         if (imageData.isEmpty()) {
-            Log.e(TAG, "uploadProfilePicture: imageData est vide. Annulation de l'upload.")
             return Resource.Error("Impossible d'uploader une image vide.")
         }
-
         val randomFileName = "${UUID.randomUUID()}.jpg"
-        val storageRef = storage.reference.child("profile_pictures/$userId/$randomFileName")
+        // JUSTIFICATION : Utilisation de la constante pour la robustesse.
+        val storageRef = storage.reference.child("${FirebaseConstants.STORAGE_PROFILE_PICTURES}/$userId/$randomFileName")
         Log.i(TAG, "uploadProfilePicture: Tentative d'upload vers Storage Path: ${storageRef.path}")
 
         return try {
-            Log.d(TAG, "uploadProfilePicture: Exécution de storageRef.putBytes() pour ${storageRef.path}")
             storageRef.putBytes(imageData).await()
-            Log.i(TAG, "uploadProfilePicture: putBytes SUCCÈS pour ${storageRef.path}")
-
-            Log.d(TAG, "uploadProfilePicture: Exécution de storageRef.downloadUrl.await() pour ${storageRef.path}")
             val downloadUrl = storageRef.downloadUrl.await().toString()
-            Log.i(TAG, "uploadProfilePicture: getDownloadUrl SUCCÈS pour ${storageRef.path}. URL: $downloadUrl")
-
+            Log.i(TAG, "uploadProfilePicture: SUCCÈS. URL: $downloadUrl")
             Resource.Success(downloadUrl)
-
         } catch (e: Exception) {
-            Log.e(TAG, "uploadProfilePicture: EXCEPTION lors de l'opération sur ${storageRef.path}. Type: ${e.javaClass.simpleName}, Message: ${e.message}", e)
-
-            val errorMessage = if (e is StorageException) {
-                "Erreur Firebase Storage (code ${e.errorCode}): ${e.localizedMessage}"
-            } else {
-                "Erreur lors de l'upload de la photo: ${e.localizedMessage}"
-            }
-            Log.e(TAG, "uploadProfilePicture: Message d'erreur final retourné au Repository: $errorMessage")
-            Resource.Error(errorMessage)
+            handleUploadException(e, storageRef.path)
         }
     }
 
     /**
-     * Uploade une image pour un message de chat dans un chemin de stockage organisé.
-     * @param conversationId L'ID de la conversation, utilisé pour organiser les fichiers.
-     * @param fileName Le nom unique du fichier (par exemple, un UUID).
-     * @param imageUri L'URI locale de l'image à uploader.
-     * @return Une Resource contenant l'URL de téléchargement en cas de succès, ou un message d'erreur.
+     * JUSTIFICATION DE L'AJOUT : Nouvelle méthode pour uploader la photo de couverture.
+     * Cette méthode est une symétrie de `uploadProfilePicture` mais utilise le chemin de stockage
+     * dédié `cover_pictures` (via la constante `STORAGE_COVER_PICTURES`), que nous avons
+     * précédemment défini et sécurisé dans `storage.rules`.
+     * Elle encapsule la logique d'upload et de gestion d'erreurs, rendant le `UserProfileRepository`
+     * plus propre et respectant le principe de responsabilité unique.
+     *
+     * @param userId L'ID de l'utilisateur.
+     * @param imageData Les données binaires de l'image.
+     * @return Une Resource contenant l'URL de l'image en cas de succès.
      */
+    suspend fun uploadCoverPicture(userId: String, imageData: ByteArray): Resource<String> {
+        if (imageData.isEmpty()) {
+            return Resource.Error("Impossible d'uploader une image vide.")
+        }
+        val randomFileName = "${UUID.randomUUID()}.jpg"
+        // JUSTIFICATION : Utilise le nouveau chemin dédié aux photos de couverture.
+        val storageRef = storage.reference.child("${FirebaseConstants.STORAGE_COVER_PICTURES}/$userId/$randomFileName")
+        Log.i(TAG, "uploadCoverPicture: Tentative d'upload vers Storage Path: ${storageRef.path}")
+
+        return try {
+            storageRef.putBytes(imageData).await()
+            val downloadUrl = storageRef.downloadUrl.await().toString()
+            Log.i(TAG, "uploadCoverPicture: SUCCÈS. URL: $downloadUrl")
+            Resource.Success(downloadUrl)
+        } catch (e: Exception) {
+            handleUploadException(e, storageRef.path)
+        }
+    }
+
     suspend fun uploadChatMessageImage(
         conversationId: String,
         fileName: String,
         imageUri: Uri
     ): Resource<String> {
-        Log.d(TAG, "uploadChatMessageImage: Reçu pour ConversationID: $conversationId")
-
-        // MODIFIÉ: Utilisation de la constante pour la robustesse
+        // JUSTIFICATION : Utilisation de la constante pour la robustesse.
         val storageRef = storage.reference.child("${FirebaseConstants.STORAGE_CHAT_IMAGES}/$conversationId/$fileName")
         Log.i(TAG, "uploadChatMessageImage: Tentative d'upload vers Storage Path: ${storageRef.path}")
 
         return try {
             storageRef.putFile(imageUri).await()
-            Log.i(TAG, "uploadChatMessageImage: putFile SUCCÈS pour ${storageRef.path}")
-
             val downloadUrl = storageRef.downloadUrl.await().toString()
-            Log.i(TAG, "uploadChatMessageImage: getDownloadUrl SUCCÈS. URL: $downloadUrl")
-
+            Log.i(TAG, "uploadChatMessageImage: SUCCÈS. URL: $downloadUrl")
             Resource.Success(downloadUrl)
         } catch (e: Exception) {
-            Log.e(TAG, "uploadChatMessageImage: EXCEPTION lors de l'opération sur ${storageRef.path}. Message: ${e.message}", e)
-
-            val errorMessage = if (e is StorageException) {
-                "Erreur Storage (code ${e.errorCode}): ${e.localizedMessage}"
-            } else {
-                "Erreur lors de l'upload de l'image: ${e.localizedMessage}"
-            }
-            Resource.Error(errorMessage)
+            handleUploadException(e, storageRef.path)
         }
+    }
+
+    /**
+     * JUSTIFICATION DE L'AJOUT : Extraction de la logique de gestion des exceptions.
+     * Le bloc `catch` était dupliqué. Cette fonction privée centralise le logging et la
+     * transformation de l'exception en un message d'erreur pour l'utilisateur,
+     * respectant ainsi le principe DRY (Don't Repeat Yourself).
+     */
+    private fun handleUploadException(e: Exception, path: String): Resource.Error<String> {
+        Log.e(TAG, "EXCEPTION lors de l'opération sur $path. Type: ${e.javaClass.simpleName}, Message: ${e.message}", e)
+        val errorMessage = if (e is StorageException) {
+            "Erreur Firebase Storage (code ${e.errorCode}): ${e.localizedMessage}"
+        } else {
+            "Erreur lors de l'upload: ${e.localizedMessage}"
+        }
+        return Resource.Error(errorMessage)
     }
 }

@@ -9,9 +9,14 @@
     <string name="unknown_error">Une erreur inconnue est survenue.</string>
     <string name="cancel">Annuler</string>
     <string name="na">N/A</string>
+    <string name="title_crop_image">Recadrer l\'image</string>
     <string name="comment_hidden_placeholder">Ce commentaire est masqué.</string>
     <string name="action_unhide">Afficher</string>
     <string name="action_show_comments">Afficher les commentaires</string>
+    <string name="fab_edit_cover_description">Modifier la photo de couverture</string>
+    <string name="cover_photo_updated_success">Photo de couverture mise à jour avec succès</string>
+    <string name="error_updating_cover_photo">Échec de la mise à jour de la photo de couverture</string>
+    <string name="error_cropping_image">Une erreur est survenue lors du recadrage de l’image.</string>
 
     <string name="completed_on_date">Terminé le %1$s</string>
     <!-- Strings pour le nouveau design du Profil Public -->

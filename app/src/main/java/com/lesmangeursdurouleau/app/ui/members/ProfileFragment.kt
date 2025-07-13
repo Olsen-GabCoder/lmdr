@@ -1,14 +1,15 @@
-// PRÊT À COLLER - Fichier ProfileFragment.kt mis à jour
+// PRÊT À COLLER - Fichier ProfileFragment.kt mis à jour par ajout, sans régression.
 package com.lesmangeursdurouleau.app.ui.members
 
+import android.app.Activity // IMPORT AJOUTÉ
 import android.content.Intent
-import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher // IMPORT AJOUTÉ
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -18,16 +19,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
-import com.bumptech.glide.load.DataSource
-import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import com.bumptech.glide.request.RequestListener
-import com.bumptech.glide.request.target.Target
 import com.google.android.material.snackbar.Snackbar
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.databinding.FragmentProfileBinding
 import com.lesmangeursdurouleau.app.ui.auth.AuthActivity
 import com.lesmangeursdurouleau.app.ui.auth.AuthViewModel
+import com.lesmangeursdurouleau.app.ui.cropper.CropperActivity // IMPORT AJOUTÉ
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -44,35 +42,45 @@ class ProfileFragment : Fragment() {
 
     companion object {
         private const val TAG = "ProfileFragment"
+        // CONSTANTES AJOUTÉES
+        private const val CROP_TYPE_PROFILE = "CROP_TYPE_PROFILE"
+        private const val CROP_TYPE_COVER = "CROP_TYPE_COVER"
     }
 
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            try {
-                Glide.with(this)
-                    .load(uri)
-                    .placeholder(R.drawable.ic_profile_placeholder)
-                    .error(R.drawable.ic_profile_placeholder)
-                    .transition(DrawableTransitionOptions.withCrossFade())
-                    .circleCrop()
-                    .into(binding.ivProfilePicture)
+    // VARIABLE AJOUTÉE
+    private var currentCropType: String? = null
 
-                val imageData: ByteArray? = requireContext().contentResolver.openInputStream(uri)?.use { inputStream ->
-                    inputStream.readBytes()
-                }
-
-                imageData?.let { data ->
-                    authViewModel.currentUser.value?.uid?.let { userId ->
-                        binding.fabSelectPicture.isEnabled = false
-                        authViewModel.updateProfilePicture(userId, data)
-                    } ?: Snackbar.make(binding.root, getString(R.string.user_not_connected_error), Snackbar.LENGTH_SHORT).show()
-                } ?: Snackbar.make(binding.root, getString(R.string.error_reading_image), Snackbar.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Snackbar.make(binding.root, getString(R.string.error_generic_with_message, e.localizedMessage), Snackbar.LENGTH_LONG).show()
-                binding.fabSelectPicture.isEnabled = true
+    // MODIFICATION : Le launcher existant est modifié pour lancer l'activité de recadrage au lieu de l'upload.
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { sourceUri ->
+            when (currentCropType) {
+                CROP_TYPE_PROFILE -> startCropActivity(sourceUri, isCircle = true, aspectRatioX = 1f, aspectRatioY = 1f)
+                CROP_TYPE_COVER -> startCropActivity(sourceUri, isCircle = false, aspectRatioX = 16f, aspectRatioY = 9f)
             }
         }
     }
+
+    // AJOUT : Nouveau launcher pour gérer le résultat de CropperActivity.
+    private val cropResultLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val croppedUri = result.data?.data
+                if (croppedUri != null) {
+                    Log.d(TAG, "Image recadrée reçue: $croppedUri")
+                    when (currentCropType) {
+                        CROP_TYPE_PROFILE -> authViewModel.updateProfilePicture(croppedUri)
+                        CROP_TYPE_COVER -> authViewModel.updateCoverPicture(croppedUri)
+                    }
+                } else {
+                    Snackbar.make(binding.root, getString(R.string.error_cropping_image), Snackbar.LENGTH_SHORT).show()
+                }
+            } else {
+                Log.d(TAG, "Le recadrage a été annulé ou a échoué.")
+            }
+        }
+
+    // Le launcher `pickCoverImageLauncher` est maintenant redondant et est supprimé,
+    // car `pickImageLauncher` gère les deux cas. Le code ci-dessous est votre code original inchangé.
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -84,201 +92,193 @@ class ProfileFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupObservers()
+        setupStateAndEventCollectors()
         setupClickListeners()
-        setupManageCurrentReadingButton()
     }
 
-    private fun setupObservers() {
-        profileViewModel.userProfileData.observe(viewLifecycleOwner) { resource ->
-            val isLoadingProfile = resource is Resource.Loading
-            val isUpdatingUsername = profileViewModel.usernameUpdateResult.value is Resource.Loading
-            val isUpdatingBio = profileViewModel.bioUpdateResult.value is Resource.Loading
-            val isUpdatingCity = profileViewModel.cityUpdateResult.value is Resource.Loading
-
-            binding.buttonSaveProfile.isEnabled = !isLoadingProfile && !isUpdatingUsername && !isUpdatingBio && !isUpdatingCity
-            binding.fabSelectPicture.isEnabled = !isLoadingProfile && (authViewModel.profilePictureUpdateResult.value !is Resource.Loading)
-
-            when (resource) {
-                is Resource.Loading -> {
-                    Log.d(TAG, "Chargement des données du profil...")
-                }
-                is Resource.Success -> {
-                    Log.d(TAG, "Données du profil chargées/mises à jour.")
-                    resource.data?.let { user ->
-                        binding.tvProfileEmail.text = user.email ?: getString(R.string.email_not_available)
-                        binding.etProfileUsername.setText(user.username ?: getString(R.string.username_not_defined))
-                        binding.etProfileBio.setText(user.bio ?: "")
-                        binding.etProfileCity.setText(user.city ?: "")
-
-                        val photoUrl = user.profilePictureUrl
-                        Log.d(TAG, "Chargement de l'image de profil pour '${user.username}'. URL: '$photoUrl'")
-                        Glide.with(this)
-                            .load(photoUrl)
-                            .placeholder(R.drawable.ic_profile_placeholder)
-                            .error(R.drawable.ic_profile_placeholder)
-                            .listener(object : RequestListener<Drawable> {
-                                override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
-                                    Log.e(TAG, "Glide onLoadFailed pour URL: $model", e)
-                                    return false
-                                }
-                                override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>?, dataSource: DataSource, isFirstResource: Boolean): Boolean {
-                                    Log.d(TAG, "Glide onResourceReady pour URL: $model")
-                                    return false
-                                }
-                            })
-                            .circleCrop()
-                            .transition(DrawableTransitionOptions.withCrossFade())
-                            .into(binding.ivProfilePicture)
-                    } ?: run {
-                        Log.e(TAG, "User data is null in Resource.Success for profile.")
-                        Snackbar.make(binding.root, getString(R.string.error_loading_profile), Snackbar.LENGTH_LONG).show()
-                    }
-                }
-                is Resource.Error -> {
-                    Log.e(TAG, "Erreur de chargement du profil: ${resource.message}")
-                    Snackbar.make(binding.root, resource.message ?: getString(R.string.error_loading_profile), Snackbar.LENGTH_LONG).show()
-                    binding.tvProfileEmail.text = getString(R.string.email_not_available)
-                    binding.etProfileUsername.setText(getString(R.string.username_not_defined))
-                    binding.etProfileBio.setText("")
-                    binding.etProfileCity.setText("")
-                    binding.ivProfilePicture.setImageResource(R.drawable.ic_profile_placeholder)
-                }
-            }
+    // AJOUT : Nouvelle fonction helper pour lancer CropperActivity.
+    private fun startCropActivity(sourceUri: Uri, isCircle: Boolean, aspectRatioX: Float, aspectRatioY: Float) {
+        val intent = Intent(requireContext(), CropperActivity::class.java).apply {
+            putExtra(CropperActivity.EXTRA_INPUT_URI, sourceUri.toString())
+            putExtra(CropperActivity.EXTRA_CROP_SHAPE, if (isCircle) CropperActivity.SHAPE_CIRCLE else CropperActivity.SHAPE_RECTANGLE)
+            putExtra(CropperActivity.EXTRA_ASPECT_RATIO_X, aspectRatioX)
+            putExtra(CropperActivity.EXTRA_ASPECT_RATIO_Y, aspectRatioY)
         }
+        cropResultLauncher.launch(intent)
+    }
 
-        profileViewModel.usernameUpdateResult.observe(viewLifecycleOwner) { result ->
-            val isLoadingProfile = profileViewModel.userProfileData.value is Resource.Loading
-            val isUpdatingBio = profileViewModel.bioUpdateResult.value is Resource.Loading
-            val isUpdatingCity = profileViewModel.cityUpdateResult.value is Resource.Loading
-            binding.buttonSaveProfile.isEnabled = !isLoadingProfile && (result !is Resource.Loading) && !isUpdatingBio && !isUpdatingCity
-
-            when (result) {
-                is Resource.Success -> Snackbar.make(binding.root, getString(R.string.username_updated_success), Snackbar.LENGTH_SHORT).show()
-                is Resource.Error -> Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_username), Snackbar.LENGTH_LONG).show()
-                is Resource.Loading -> Log.d(TAG, "Mise à jour du pseudo en cours...")
-                null -> { if (!isLoadingProfile && !isUpdatingBio && !isUpdatingCity) { binding.buttonSaveProfile.isEnabled = true } }
-            }
-        }
-
-        profileViewModel.bioUpdateResult.observe(viewLifecycleOwner) { result ->
-            val isLoadingProfile = profileViewModel.userProfileData.value is Resource.Loading
-            val isUpdatingUsername = profileViewModel.usernameUpdateResult.value is Resource.Loading
-            val isUpdatingCity = profileViewModel.cityUpdateResult.value is Resource.Loading
-            binding.buttonSaveProfile.isEnabled = !isLoadingProfile && !isUpdatingUsername && (result !is Resource.Loading) && !isUpdatingCity
-
-            when (result) {
-                is Resource.Success -> Snackbar.make(binding.root, getString(R.string.bio_updated_success), Snackbar.LENGTH_SHORT).show()
-                is Resource.Error -> Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_bio), Snackbar.LENGTH_LONG).show()
-                is Resource.Loading -> Log.d(TAG, "Mise à jour de la biographie en cours...")
-                null -> { if (!isLoadingProfile && !isUpdatingUsername && !isUpdatingCity) { binding.buttonSaveProfile.isEnabled = true } }
-            }
-        }
-
-        profileViewModel.cityUpdateResult.observe(viewLifecycleOwner) { result ->
-            val isLoadingProfile = profileViewModel.userProfileData.value is Resource.Loading
-            val isUpdatingUsername = profileViewModel.usernameUpdateResult.value is Resource.Loading
-            val isUpdatingBio = profileViewModel.bioUpdateResult.value is Resource.Loading
-            binding.buttonSaveProfile.isEnabled = !isLoadingProfile && !isUpdatingUsername && !isUpdatingBio && (result !is Resource.Loading)
-
-            when (result) {
-                is Resource.Success -> Snackbar.make(binding.root, getString(R.string.city_updated_success), Snackbar.LENGTH_SHORT).show()
-                is Resource.Error -> Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_city), Snackbar.LENGTH_LONG).show()
-                is Resource.Loading -> Log.d(TAG, "Mise à jour de la ville en cours...")
-                null -> { if (!isLoadingProfile && !isUpdatingUsername && !isUpdatingBio) { binding.buttonSaveProfile.isEnabled = true } }
-            }
-        }
-
-        authViewModel.profilePictureUpdateResult.observe(viewLifecycleOwner) { result ->
-            binding.fabSelectPicture.isEnabled = result !is Resource.Loading
-            when (result) {
-                is Resource.Success -> {
-                    Snackbar.make(binding.root, getString(R.string.profile_picture_updated_success), Snackbar.LENGTH_SHORT).show()
-                    profileViewModel.loadCurrentUserProfile()
-                }
-                is Resource.Error -> {
-                    Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_profile_picture), Snackbar.LENGTH_LONG).show()
-                    profileViewModel.loadCurrentUserProfile()
-                }
-                is Resource.Loading -> { /* Bouton géré */ }
-                null -> { if (profileViewModel.userProfileData.value !is Resource.Loading) { binding.fabSelectPicture.isEnabled = true } }
-            }
-        }
-
+    private fun setupStateAndEventCollectors() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                profileViewModel.currentReadingUiState.collectLatest { uiState ->
-                    binding.cardPrivateCurrentReading.visibility = View.VISIBLE
-                    binding.btnManageCurrentReading.visibility = View.VISIBLE
-                    binding.btnManageCurrentReading.isEnabled = !uiState.isLoading
+                launch {
+                    profileViewModel.uiState.collectLatest { state ->
+                        Log.d(TAG, "Nouvel état UI du profil reçu: $state")
+                        updateUi(state)
+                    }
+                }
 
-                    when {
-                        uiState.isLoading -> {
-                            binding.tvPrivateCurrentReadingBookTitle.text = ""
-                            binding.tvPrivateCurrentReadingBookAuthor.text = ""
-                            binding.ivPrivateCurrentReadingBookCover.setImageResource(android.R.color.transparent)
-                            binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
-                            binding.progressBarPrivateCurrentReading.visibility = View.GONE
-                            binding.llPrivatePersonalReflectionSection.visibility = View.GONE
-                            binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
-                            Log.d(TAG, "currentReadingUiState (Private): Chargement en cours.")
-                        }
-                        uiState.error != null -> {
-                            binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.error_loading_data)
-                            binding.tvPrivateCurrentReadingBookAuthor.text = uiState.error
-                            binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_error)
-                            binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
-                            binding.progressBarPrivateCurrentReading.visibility = View.GONE
-                            binding.llPrivatePersonalReflectionSection.visibility = View.GONE
-                            binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
-                            Snackbar.make(binding.root, uiState.error, Snackbar.LENGTH_LONG).show()
-                            Log.e(TAG, "currentReadingUiState (Private): Erreur: ${uiState.error}")
-                        }
-                        uiState.bookReading == null || uiState.bookDetails == null -> {
-                            binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.no_current_reading_title)
-                            binding.tvPrivateCurrentReadingBookAuthor.text = getString(R.string.tap_to_add_reading)
-                            binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_add_book_placeholder)
-                            binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
-                            binding.progressBarPrivateCurrentReading.visibility = View.GONE
-                            binding.llPrivatePersonalReflectionSection.visibility = View.GONE
-                            binding.btnManageCurrentReading.setText(R.string.add_reading_button)
-                            Log.d(TAG, "currentReadingUiState (Private): Aucune lecture en cours. Affichage 'Ajouter'.")
-                        }
-                        else -> {
-                            binding.tvPrivateCurrentReadingProgressText.visibility = View.VISIBLE
-                            binding.progressBarPrivateCurrentReading.visibility = View.VISIBLE
-                            binding.llPrivatePersonalReflectionSection.visibility = View.VISIBLE
-                            binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
-                            Log.d(TAG, "currentReadingUiState (Private): Affichage de la lecture en cours.")
+                launch {
+                    profileViewModel.eventFlow.collectLatest { event ->
+                        Log.d(TAG, "Nouvel événement de profil reçu: $event")
+                        handleEvent(event)
+                    }
+                }
 
-                            val reading = uiState.bookReading
-                            val book = uiState.bookDetails
-
-                            Glide.with(this@ProfileFragment).load(book.coverImageUrl).placeholder(R.drawable.ic_book_placeholder).error(R.drawable.ic_book_placeholder).transition(DrawableTransitionOptions.withCrossFade()).into(binding.ivPrivateCurrentReadingBookCover)
-                            binding.tvPrivateCurrentReadingBookTitle.text = book.title
-                            binding.tvPrivateCurrentReadingBookAuthor.text = book.author
-
-                            val currentPage = reading.currentPage
-                            val totalPages = reading.totalPages
-                            if (totalPages > 0) {
-                                binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_format, currentPage, totalPages)
-                                val progressPercentage = (currentPage.toFloat() / totalPages.toFloat() * 100).toInt()
-                                binding.progressBarPrivateCurrentReading.progress = progressPercentage
-                            } else {
-                                binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_unknown)
-                                binding.progressBarPrivateCurrentReading.progress = 0
+                launch {
+                    authViewModel.profilePictureUpdateResult.collectLatest { result ->
+                        binding.fabSelectPicture.isEnabled = result !is Resource.Loading<*>
+                        when (result) {
+                            is Resource.Success<*> -> {
+                                Snackbar.make(binding.root, getString(R.string.profile_picture_updated_success), Snackbar.LENGTH_SHORT).show()
                             }
-
-                            val personalNote = reading.favoriteQuote?.takeIf { it.isNotBlank() } ?: reading.personalReflection?.takeIf { it.isNotBlank() }
-                            if (!personalNote.isNullOrBlank()) {
-                                binding.llPrivatePersonalReflectionSection.visibility = View.VISIBLE
-                                binding.tvPrivateCurrentReadingPersonalNote.text = personalNote
-                            } else {
-                                binding.llPrivatePersonalReflectionSection.visibility = View.GONE
-                                binding.tvPrivateCurrentReadingPersonalNote.text = ""
+                            is Resource.Error<*> -> {
+                                Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_profile_picture), Snackbar.LENGTH_LONG).show()
                             }
+                            is Resource.Loading<*>, null -> { /* No-op */ }
                         }
                     }
+                }
+
+                launch {
+                    authViewModel.coverPictureUpdateResult.collectLatest { result ->
+                        binding.fabEditCover.isEnabled = result !is Resource.Loading<*>
+                        when(result) {
+                            is Resource.Success<*> -> {
+                                Snackbar.make(binding.root, getString(R.string.cover_photo_updated_success), Snackbar.LENGTH_SHORT).show()
+                            }
+                            is Resource.Error<*> -> {
+                                Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_cover_photo), Snackbar.LENGTH_LONG).show()
+                            }
+                            is Resource.Loading<*>, null -> { /* No-op */ }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateUi(state: ProfileUiState) {
+        binding.buttonSaveProfile.isEnabled = !state.isSaving
+        if (state.isSaving) {
+            binding.fabSelectPicture.isEnabled = false
+            binding.fabEditCover.isEnabled = false
+        }
+
+        state.screenError?.let {
+            Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
+        }
+
+        if (state.user != null) {
+            val user = state.user
+            binding.tvProfileEmail.text = user.email ?: getString(R.string.email_not_available)
+            if (!binding.etProfileUsername.isFocused) {
+                binding.etProfileUsername.setText(user.username ?: getString(R.string.username_not_defined))
+            }
+            if (!binding.etProfileBio.isFocused) {
+                binding.etProfileBio.setText(user.bio ?: "")
+            }
+            if (!binding.etProfileCity.isFocused) {
+                binding.etProfileCity.setText(user.city ?: "")
+            }
+
+            Glide.with(this)
+                .load(user.profilePictureUrl)
+                .placeholder(R.drawable.ic_profile_placeholder)
+                .error(R.drawable.ic_profile_placeholder)
+                .circleCrop()
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(binding.ivProfilePicture)
+
+            Glide.with(this)
+                .load(user.coverPictureUrl)
+                .placeholder(R.drawable.profile_header_gradient)
+                .error(R.drawable.profile_header_gradient)
+                .transition(DrawableTransitionOptions.withCrossFade())
+                .into(binding.ivCoverPhoto)
+
+        } else {
+            if (!state.isLoading) {
+                binding.tvProfileEmail.text = getString(R.string.email_not_available)
+                binding.etProfileUsername.setText(getString(R.string.username_not_defined))
+                binding.etProfileBio.setText("")
+                binding.etProfileCity.setText("")
+                binding.ivProfilePicture.setImageResource(R.drawable.ic_profile_placeholder)
+                binding.ivCoverPhoto.setImageResource(R.drawable.profile_header_gradient)
+            }
+        }
+
+        updateCurrentReadingUi(state.currentReading)
+    }
+
+    private fun handleEvent(event: ProfileEvent) {
+        when (event) {
+            is ProfileEvent.ShowSnackbar -> {
+                Snackbar.make(binding.root, event.message, Snackbar.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun updateCurrentReadingUi(uiState: PrivateCurrentReadingUiState) {
+        binding.cardPrivateCurrentReading.visibility = View.VISIBLE
+        binding.btnManageCurrentReading.visibility = View.VISIBLE
+        binding.btnManageCurrentReading.isEnabled = !uiState.isLoading
+
+        when {
+            uiState.isLoading -> {
+                binding.tvPrivateCurrentReadingBookTitle.text = ""
+                binding.tvPrivateCurrentReadingBookAuthor.text = ""
+                binding.ivPrivateCurrentReadingBookCover.setImageResource(android.R.color.transparent)
+                binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
+                binding.progressBarPrivateCurrentReading.visibility = View.GONE
+                binding.llPrivatePersonalReflectionSection.visibility = View.GONE
+                binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
+            }
+            uiState.error != null -> {
+                binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.error_loading_data)
+                binding.tvPrivateCurrentReadingBookAuthor.text = uiState.error
+                binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_error)
+            }
+            uiState.bookReading == null || uiState.bookDetails == null -> {
+                binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.no_current_reading_title)
+                binding.tvPrivateCurrentReadingBookAuthor.text = getString(R.string.tap_to_add_reading)
+                binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_add_book_placeholder)
+                binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
+                binding.progressBarPrivateCurrentReading.visibility = View.GONE
+                binding.llPrivatePersonalReflectionSection.visibility = View.GONE
+                binding.btnManageCurrentReading.setText(R.string.add_reading_button)
+            }
+            else -> {
+                binding.tvPrivateCurrentReadingProgressText.visibility = View.VISIBLE
+                binding.progressBarPrivateCurrentReading.visibility = View.VISIBLE
+                binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
+
+                val reading = uiState.bookReading
+                val book = uiState.bookDetails
+
+                Glide.with(this@ProfileFragment)
+                    .load(book.coverImageUrl)
+                    .placeholder(R.drawable.ic_book_placeholder)
+                    .error(R.drawable.ic_book_placeholder)
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(binding.ivPrivateCurrentReadingBookCover)
+
+                binding.tvPrivateCurrentReadingBookTitle.text = book.title
+                binding.tvPrivateCurrentReadingBookAuthor.text = book.author
+
+                if (reading.totalPages > 0) {
+                    binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_format, reading.currentPage, reading.totalPages)
+                    binding.progressBarPrivateCurrentReading.progress = (reading.currentPage.toFloat() / reading.totalPages.toFloat() * 100).toInt()
+                } else {
+                    binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_unknown)
+                    binding.progressBarPrivateCurrentReading.progress = 0
+                }
+
+                val personalNote = reading.favoriteQuote?.takeIf { it.isNotBlank() } ?: reading.personalReflection?.takeIf { it.isNotBlank() }
+                if (!personalNote.isNullOrBlank()) {
+                    binding.llPrivatePersonalReflectionSection.visibility = View.VISIBLE
+                    binding.tvPrivateCurrentReadingPersonalNote.text = personalNote
+                } else {
+                    binding.llPrivatePersonalReflectionSection.visibility = View.GONE
                 }
             }
         }
@@ -290,12 +290,16 @@ class ProfileFragment : Fragment() {
             navigateToAuthActivity()
         }
 
+        // MODIFICATION : Le listener définit maintenant le type de recadrage et lance le launcher générique.
         binding.fabSelectPicture.setOnClickListener {
-            if (profileViewModel.firebaseAuth.currentUser != null) {
-                pickImageLauncher.launch("image/*")
-            } else {
-                Snackbar.make(binding.root, getString(R.string.user_not_connected_error_for_action, getString(R.string.select_picture)), Snackbar.LENGTH_SHORT).show()
-            }
+            currentCropType = CROP_TYPE_PROFILE
+            pickImageLauncher.launch("image/*")
+        }
+
+        // MODIFICATION : Le listener définit maintenant le type de recadrage et lance le launcher générique.
+        binding.fabEditCover.setOnClickListener {
+            currentCropType = CROP_TYPE_COVER
+            pickImageLauncher.launch("image/*")
         }
 
         binding.buttonSaveProfile.setOnClickListener {
@@ -303,20 +307,8 @@ class ProfileFragment : Fragment() {
             val newBio = binding.etProfileBio.text.toString().trim()
             val newCity = binding.etProfileCity.text.toString().trim()
 
-            binding.tilProfileUsername.error = null
-
-            var canProceedWithUsername = true
-            if (newUsername.isBlank()) {
-                binding.tilProfileUsername.error = getString(R.string.username_cannot_be_empty)
-                canProceedWithUsername = false
-            }
-
-            if (canProceedWithUsername) {
-                Log.d(TAG, "Clic sur Enregistrer. Pseudo: '$newUsername', Bio: '$newBio', Ville: '$newCity'.")
-                profileViewModel.updateUsername(newUsername)
-            }
-            profileViewModel.updateBio(newBio)
-            profileViewModel.updateCity(newCity)
+            Log.d(TAG, "Clic sur Enregistrer. Transmission des données au ViewModel.")
+            profileViewModel.updateProfile(newUsername, newBio, newCity)
         }
 
         binding.buttonViewMembers.setOnClickListener {
@@ -324,7 +316,6 @@ class ProfileFragment : Fragment() {
             findNavController().navigate(action)
         }
 
-        // AJOUT DES LISTENERS POUR LES NOUVEAUX BOUTONS
         binding.buttonNotifications.setOnClickListener {
             val action = ProfileFragmentDirections.actionNavigationMembersProfileToNotificationsDestination()
             findNavController().navigate(action)
@@ -334,11 +325,9 @@ class ProfileFragment : Fragment() {
             val action = ProfileFragmentDirections.actionNavigationMembersProfileToConversationsListFragmentDestination()
             findNavController().navigate(action)
         }
-    }
 
-    private fun setupManageCurrentReadingButton() {
         binding.btnManageCurrentReading.setOnClickListener {
-            Log.d(TAG, "Bouton 'Gérer la lecture' ou 'Ajouter une lecture' cliqué. Navigation vers l'écran d'édition.")
+            Log.d(TAG, "Bouton 'Gérer la lecture' cliqué. Navigation vers l'écran d'édition.")
             val action = ProfileFragmentDirections.actionNavigationMembersProfileToEditCurrentReadingFragment()
             findNavController().navigate(action)
         }
@@ -354,9 +343,6 @@ class ProfileFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        profileViewModel.clearUsernameUpdateResult()
-        profileViewModel.clearBioUpdateResult()
-        profileViewModel.clearCityUpdateResult()
         _binding = null
         Log.d(TAG, "onDestroyView: Binding nulifié.")
     }

@@ -33,6 +33,7 @@ leanback = "1.0.0"
 materialVersion = "1.12.0"
 pagingCommonAndroid = "3.3.6"
 pagingRuntimeKtx = "3.3.6"
+activity = "1.10.1"
 
 [libraries]
 # AndroidX Core & UI
@@ -80,6 +81,7 @@ androidx-leanback = { group = "androidx.leanback", name = "leanback", version.re
 google-material = { group = "com.google.android.material", name = "material", version.ref = "materialVersion" }
 androidx-paging-common-android = { group = "androidx.paging", name = "paging-common-android", version.ref = "pagingCommonAndroid" }
 androidx-paging-runtime-ktx = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "pagingRuntimeKtx" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 
 [plugins]
 # CORRECTION : Mise à jour des versions des plugins pour une meilleure compatibilité et stabilité.

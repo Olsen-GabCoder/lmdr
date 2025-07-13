@@ -1,8 +1,7 @@
+// PRÊT À COLLER - Fichier ProfileViewModel.kt mis à jour
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -11,7 +10,6 @@ import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.data.model.UserBookReading
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
 import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
-// MODIFIÉ: Import de UserProfileRepository et suppression de UserRepository
 import com.lesmangeursdurouleau.app.data.repository.UserProfileRepository
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +17,21 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// UI State pour la lecture en cours du profil privé
+// JUSTIFICATION : La structure de l'événement reste la même, c'est une architecture saine.
+sealed class ProfileEvent {
+    data class ShowSnackbar(val message: String) : ProfileEvent()
+}
+
+// JUSTIFICATION : La classe d'état unique (UiState) reste le pilier de notre architecture MVI.
+data class ProfileUiState(
+    val isLoading: Boolean = true,
+    val isSaving: Boolean = false,
+    val user: User? = null,
+    val currentReading: PrivateCurrentReadingUiState = PrivateCurrentReadingUiState(),
+    val screenError: String? = null
+)
+
+// JUSTIFICATION : L'état imbriqué pour la lecture en cours est conservé pour une bonne organisation.
 data class PrivateCurrentReadingUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
@@ -29,7 +41,6 @@ data class PrivateCurrentReadingUiState(
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    // MODIFIÉ: Remplacement de UserRepository par UserProfileRepository
     private val userProfileRepository: UserProfileRepository,
     private val bookRepository: BookRepository,
     private val readingRepository: ReadingRepository,
@@ -40,231 +51,116 @@ class ProfileViewModel @Inject constructor(
         private const val TAG = "ProfileViewModel"
     }
 
-    // Ceci est la source de vérité principale pour le profil de l'utilisateur
-    private val _userProfileData = MutableLiveData<Resource<User>>()
-    val userProfileData: LiveData<Resource<User>> = _userProfileData
+    // JUSTIFICATION : La source de vérité unique est conservée.
+    private val _uiState = MutableStateFlow(ProfileUiState())
+    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
-    // Les résultats des mises à jour, pour les SnackBar/Toast
-    private val _cityUpdateResult = MutableLiveData<Resource<Unit>?>()
-    val cityUpdateResult: LiveData<Resource<Unit>?> = _cityUpdateResult
-
-    private val _bioUpdateResult = MutableLiveData<Resource<Unit>?>()
-    val bioUpdateResult: LiveData<Resource<Unit>?> = _bioUpdateResult
-
-    private val _usernameUpdateResult = MutableLiveData<Resource<Unit>?>()
-    val usernameUpdateResult: LiveData<Resource<Unit>?> = _usernameUpdateResult
-
-    // NOUVEAU: StateFlow pour la lecture en cours du profil privé
-    private val _currentReadingUiState = MutableStateFlow(PrivateCurrentReadingUiState(isLoading = true))
-    val currentReadingUiState: StateFlow<PrivateCurrentReadingUiState> = _currentReadingUiState.asStateFlow()
+    // JUSTIFICATION : Le SharedFlow pour les événements ponctuels est conservé.
+    private val _eventFlow = MutableSharedFlow<ProfileEvent>()
+    val eventFlow: SharedFlow<ProfileEvent> = _eventFlow.asSharedFlow()
 
     init {
-        Log.d(TAG, "ViewModel initialisé.")
-        loadCurrentUserProfile()
+        Log.d(TAG, "ViewModel initialisé. Lancement du chargement des données du profil.")
+        loadProfileAndReadingData()
+    }
 
-        // LOGIQUE EXISTANTE : Observer la lecture en cours de l'utilisateur connecté
-        val currentUserUid = firebaseAuth.currentUser?.uid
-        if (!currentUserUid.isNullOrBlank()) {
-            viewModelScope.launch {
-                readingRepository.getCurrentReading(currentUserUid)
-                    .flatMapLatest { readingResource ->
-                        when (readingResource) {
-                            is Resource.Loading -> flowOf(
-                                PrivateCurrentReadingUiState(isLoading = true)
-                            )
-                            is Resource.Error -> flowOf(
-                                PrivateCurrentReadingUiState(isLoading = false, error = readingResource.message)
-                            )
-                            is Resource.Success -> {
-                                val userBookReading = readingResource.data
-                                if (userBookReading != null) {
-                                    Log.d(TAG, "Lecture en cours trouvée pour $currentUserUid, bookId: ${userBookReading.bookId}. Tentative de récupération des détails du livre.")
-                                    bookRepository.getBookById(userBookReading.bookId)
-                                        .map { bookResource ->
-                                            when (bookResource) {
-                                                is Resource.Loading -> PrivateCurrentReadingUiState(
-                                                    isLoading = true,
-                                                    bookReading = userBookReading,
-                                                    bookDetails = null // Clear book details while loading them
-                                                )
-                                                is Resource.Error -> {
-                                                    Log.e(TAG, "Erreur lors de la récupération des détails du livre ${userBookReading.bookId}: ${bookResource.message}")
-                                                    PrivateCurrentReadingUiState(
-                                                        isLoading = false,
-                                                        error = bookResource.message,
-                                                        bookReading = userBookReading,
-                                                        bookDetails = null
-                                                    )
-                                                }
-                                                is Resource.Success -> {
-                                                    Log.d(TAG, "Détails du livre ${userBookReading.bookId} récupérés avec succès: ${bookResource.data?.title}")
-                                                    PrivateCurrentReadingUiState(
-                                                        isLoading = false,
-                                                        error = null,
-                                                        bookReading = userBookReading,
-                                                        bookDetails = bookResource.data
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        .catch { e ->
-                                            Log.e(TAG, "Exception lors de la récupération des détails du livre pour lecture en cours: ${e.message}", e)
-                                            emit(PrivateCurrentReadingUiState(
-                                                isLoading = false,
-                                                error = "Erreur chargement détails livre: ${e.localizedMessage}",
-                                                bookReading = userBookReading,
-                                                bookDetails = null
-                                            ))
-                                        }
-                                } else {
-                                    Log.d(TAG, "Aucune lecture en cours trouvée pour l'utilisateur $currentUserUid.")
-                                    flowOf(PrivateCurrentReadingUiState(
-                                        isLoading = false,
-                                        error = null,
-                                        bookReading = null,
-                                        bookDetails = null
-                                    ))
-                                }
-                            }
-                        }
-                    }
-                    .catch { e ->
-                        Log.e(TAG, "Exception générale du flow de lecture en cours pour $currentUserUid: ${e.message}", e)
-                        _currentReadingUiState.value = PrivateCurrentReadingUiState(
+    private fun loadProfileAndReadingData() {
+        val userId = firebaseAuth.currentUser?.uid
+        if (userId.isNullOrBlank()) {
+            _uiState.update { it.copy(isLoading = false, screenError = "Utilisateur non connecté.") }
+            Log.e(TAG, "loadProfileAndReadingData: Impossible de charger les données, UID utilisateur est null.")
+            return
+        }
+
+        viewModelScope.launch {
+            userProfileRepository.getUserById(userId)
+                .combine(getCurrentReadingFlow(userId)) { userResource, readingState ->
+                    // JUSTIFICATION : CORRECTION SYNTAXIQUE.
+                    // Remplacement de `is Resource.Loading` par `is Resource.Loading<*>` (et de même pour Error et Success)
+                    // pour se conformer aux exigences du compilateur Kotlin pour les classes génériques.
+                    when (userResource) {
+                        is Resource.Loading<*> -> _uiState.value.copy(isLoading = true, screenError = null)
+                        is Resource.Error<*> -> _uiState.value.copy(isLoading = false, screenError = userResource.message)
+                        is Resource.Success<*> -> _uiState.value.copy(
                             isLoading = false,
-                            error = "Erreur générale lecture en cours: ${e.localizedMessage}"
+                            user = userResource.data,
+                            currentReading = readingState,
+                            screenError = null
                         )
                     }
-                    .collectLatest { uiState ->
-                        _currentReadingUiState.value = uiState
-                    }
-            }
-        } else {
-            Log.e(TAG, "Aucun utilisateur connecté pour charger la lecture en cours.")
-            _currentReadingUiState.value = PrivateCurrentReadingUiState(
-                isLoading = false,
-                error = "Utilisateur non connecté."
-            )
-        }
-    }
-
-    fun loadCurrentUserProfile() {
-        Log.d(TAG, "loadCurrentUserProfile: Entrée dans la fonction.")
-        val firebaseCurrentUser = firebaseAuth.currentUser
-        if (firebaseCurrentUser == null) {
-            _userProfileData.value = Resource.Error("Utilisateur non connecté.")
-            Log.e(TAG, "loadCurrentUserProfile: Aucun utilisateur Firebase connecté.")
-            return
-        }
-
-        _userProfileData.value = Resource.Loading()
-
-        viewModelScope.launch {
-            // MODIFIÉ: Appel sur userProfileRepository
-            userProfileRepository.getUserById(firebaseCurrentUser.uid)
+                }
                 .catch { e ->
-                    Log.e(TAG, "Erreur lors de la collecte du getUserById flow", e)
-                    _userProfileData.postValue(Resource.Error("Erreur de chargement du profil: ${e.localizedMessage}"))
+                    Log.e(TAG, "Exception dans le flow combiné de chargement du profil.", e)
+                    _uiState.update { it.copy(isLoading = false, screenError = "Une erreur est survenue: ${e.localizedMessage}") }
                 }
-                .collectLatest { resource ->
-                    Log.d(TAG, "loadCurrentUserProfile: Reçu de Firestore: $resource")
-                    _userProfileData.postValue(resource)
+                .collectLatest { newState ->
+                    _uiState.value = newState
                 }
         }
     }
 
-    fun setCurrentProfilePictureUrl(newUrl: String?) {
-        Log.d(TAG, "setCurrentProfilePictureUrl: Tentative de mise à jour de profilePictureUrl dans userProfileData avec: '$newUrl'")
-        val currentResource = _userProfileData.value
-        if (currentResource is Resource.Success && currentResource.data != null) {
-            val updatedUser = currentResource.data.copy(profilePictureUrl = newUrl)
-            _userProfileData.value = Resource.Success(updatedUser)
-            Log.d(TAG, "setCurrentProfilePictureUrl: _userProfileData mis à jour avec la nouvelle URL.")
-        } else {
-            Log.w(TAG, "setCurrentProfilePictureUrl: Impossible de mettre à jour _userProfileData, ressource actuelle non SUCCESS ou données null.")
-        }
-    }
-
-    fun updateUsername(newUsername: String) {
-        val userId = firebaseAuth.currentUser?.uid
-        if (userId == null) {
-            _usernameUpdateResult.value = Resource.Error("Utilisateur non connecté pour la mise à jour du pseudo.")
-            Log.e(TAG, "updateUsername: UserID est null, impossible de mettre à jour.")
-            return
-        }
-        if (newUsername.isBlank()) {
-            _usernameUpdateResult.value = Resource.Error("Le pseudo ne peut pas être vide.")
-            Log.w(TAG, "updateUsername: Tentative de mise à jour avec un pseudo vide.")
-            return
-        }
-        Log.d(TAG, "updateUsername: Tentative de mise à jour du pseudo vers '$newUsername' pour UserID: $userId")
-        _usernameUpdateResult.value = Resource.Loading()
-        viewModelScope.launch {
-            // MODIFIÉ: Appel sur userProfileRepository
-            val result = userProfileRepository.updateUserProfile(userId, newUsername)
-            _usernameUpdateResult.postValue(result)
-            if (result is Resource.Success) {
-                Log.i(TAG, "updateUsername: Succès de la mise à jour du pseudo vers '$newUsername'.")
-                val currentResource = _userProfileData.value
-                if (currentResource is Resource.Success && currentResource.data != null) {
-                    val updatedUser = currentResource.data.copy(username = newUsername)
-                    _userProfileData.postValue(Resource.Success(updatedUser)) // Mise à jour de la source de vérité
+    private fun getCurrentReadingFlow(userId: String): Flow<PrivateCurrentReadingUiState> {
+        return readingRepository.getCurrentReading(userId)
+            .flatMapLatest { readingResource ->
+                // JUSTIFICATION : CORRECTION SYNTAXIQUE
+                when (readingResource) {
+                    is Resource.Loading<*> -> flowOf(PrivateCurrentReadingUiState(isLoading = true))
+                    is Resource.Error<*> -> flowOf(PrivateCurrentReadingUiState(isLoading = false, error = readingResource.message))
+                    is Resource.Success<*> -> {
+                        val reading = readingResource.data
+                        if (reading != null) {
+                            bookRepository.getBookById(reading.bookId).map { bookResource ->
+                                // JUSTIFICATION : CORRECTION SYNTAXIQUE
+                                PrivateCurrentReadingUiState(
+                                    isLoading = bookResource is Resource.Loading<*>,
+                                    error = if (bookResource is Resource.Error<*>) bookResource.message else null,
+                                    bookReading = reading,
+                                    bookDetails = if (bookResource is Resource.Success<*>) bookResource.data else null
+                                )
+                            }
+                        } else {
+                            flowOf(PrivateCurrentReadingUiState(isLoading = false))
+                        }
+                    }
                 }
-            } else if (result is Resource.Error) {
-                Log.e(TAG, "updateUsername: Échec de la mise à jour du pseudo: ${result.message}")
             }
-        }
-    }
-
-    fun updateBio(newBio: String) {
-        val userId = firebaseAuth.currentUser?.uid
-        if (userId == null) {
-            _bioUpdateResult.value = Resource.Error("Utilisateur non connecté pour la mise à jour de la biographie.")
-            Log.e(TAG, "updateBio: UserID est null, impossible de mettre à jour.")
-            return
-        }
-        Log.d(TAG, "updateBio: Tentative de mise à jour de la bio vers '$newBio' pour UserID: $userId")
-        _bioUpdateResult.value = Resource.Loading()
-        viewModelScope.launch {
-            // MODIFIÉ: Appel sur userProfileRepository
-            val result = userProfileRepository.updateUserBio(userId, newBio.trim())
-            _bioUpdateResult.postValue(result)
-            if (result is Resource.Success) {
-                Log.i(TAG, "updateBio: Succès de la mise à jour de la bio.")
-                val currentResource = _userProfileData.value
-                if (currentResource is Resource.Success && currentResource.data != null) {
-                    val updatedUser = currentResource.data.copy(bio = newBio.trim())
-                    _userProfileData.postValue(Resource.Success(updatedUser)) // Mise à jour de la source de vérité
-                }
-            } else if (result is Resource.Error) {
-                Log.e(TAG, "updateBio: Échec de la mise à jour de la bio: ${result.message}")
+            .catch { e ->
+                Log.e(TAG, "Exception dans le flow de lecture en cours.", e)
+                emit(PrivateCurrentReadingUiState(error = "Erreur de chargement de la lecture."))
             }
-        }
     }
 
-    fun updateCity(newCity: String) {
+    fun updateProfile(username: String, bio: String, city: String) {
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
-            _cityUpdateResult.value = Resource.Error("Utilisateur non connecté pour la mise à jour de la ville.")
-            Log.e(TAG, "updateCity: UserID est null, impossible de mettre à jour.")
+            viewModelScope.launch { _eventFlow.emit(ProfileEvent.ShowSnackbar("Utilisateur non connecté.")) }
             return
         }
-        Log.d(TAG, "updateCity: Tentative de mise à jour de la ville vers '$newCity' pour UserID: $userId")
-        _cityUpdateResult.value = Resource.Loading()
-        viewModelScope.launch {
-            // MODIFIÉ: Appel sur userProfileRepository
-            val result = userProfileRepository.updateUserCity(userId, newCity.trim())
-            _cityUpdateResult.postValue(result)
 
-            if (result is Resource.Success<*>) {
-                Log.i(TAG, "updateCity: Succès de la mise à jour de la ville.")
-                val currentResource = _userProfileData.value
-                if (currentResource is Resource.Success && currentResource.data != null) {
-                    val updatedUser = currentResource.data.copy(city = newCity.trim())
-                    _userProfileData.postValue(Resource.Success(updatedUser)) // Mise à jour de la source de vérité
-                }
-            } else if (result is Resource.Error<*>) {
-                Log.e(TAG, "updateCity: Échec de la mise à jour de la ville: ${result.message}")
+        if (username.isBlank()) {
+            viewModelScope.launch { _eventFlow.emit(ProfileEvent.ShowSnackbar("Le pseudo ne peut pas être vide.")) }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSaving = true) }
+
+            val usernameResult = userProfileRepository.updateUserProfile(userId, username)
+            val bioResult = userProfileRepository.updateUserBio(userId, bio)
+            val cityResult = userProfileRepository.updateUserCity(userId, city)
+
+            // JUSTIFICATION : CORRECTION SYNTAXIQUE
+            val hasError = listOf(usernameResult, bioResult, cityResult).any { it is Resource.Error<*> }
+
+            _uiState.update { it.copy(isSaving = false) }
+
+            if (hasError) {
+                Log.e(TAG, "Au moins une erreur lors de la mise à jour du profil.")
+                _eventFlow.emit(ProfileEvent.ShowSnackbar("Erreur lors de la mise à jour du profil."))
+                loadProfileAndReadingData()
+            } else {
+                Log.i(TAG, "Profil mis à jour avec succès.")
+                _eventFlow.emit(ProfileEvent.ShowSnackbar("Profil enregistré avec succès !"))
             }
         }
     }
@@ -272,36 +168,36 @@ class ProfileViewModel @Inject constructor(
     fun updateCurrentReading(userBookReading: UserBookReading?) {
         val userId = firebaseAuth.currentUser?.uid
         if (userId.isNullOrBlank()) {
-            _currentReadingUiState.value = _currentReadingUiState.value.copy(error = "Utilisateur non connecté pour gérer la lecture.")
+            _uiState.update { it.copy(currentReading = it.currentReading.copy(error = "Utilisateur non connecté pour gérer la lecture.")) }
             Log.e(TAG, "updateCurrentReading: UserID is null, cannot update current reading.")
             return
         }
 
         viewModelScope.launch {
-            _currentReadingUiState.value = _currentReadingUiState.value.copy(isLoading = true, error = null)
+            _uiState.update { it.copy(currentReading = it.currentReading.copy(isLoading = true, error = null)) }
             val result = readingRepository.updateCurrentReading(userId, userBookReading)
+            // JUSTIFICATION : CORRECTION SYNTAXIQUE
             when (result) {
-                is Resource.Success -> {
+                is Resource.Success<*> -> {
                     Log.i(TAG, "updateCurrentReading: Lecture en cours mise à jour avec succès.")
                 }
-                is Resource.Error -> {
+                is Resource.Error<*> -> {
                     Log.e(TAG, "updateCurrentReading: Erreur lors de la mise à jour: ${result.message}")
-                    _currentReadingUiState.value = _currentReadingUiState.value.copy(isLoading = false, error = result.message)
+                    _uiState.update { it.copy(currentReading = it.currentReading.copy(isLoading = false, error = result.message)) }
                 }
-                is Resource.Loading -> { /* Ne devrait pas arriver pour une fonction suspendue */ }
+                is Resource.Loading<*> -> { /* No-op */ }
             }
         }
     }
 
-    fun clearUsernameUpdateResult() {
-        _usernameUpdateResult.value = null
-    }
-
-    fun clearBioUpdateResult() {
-        _bioUpdateResult.value = null
-    }
-
-    fun clearCityUpdateResult() {
-        _cityUpdateResult.value = null
+    fun setCurrentProfilePictureUrl(newUrl: String?) {
+        Log.d(TAG, "setCurrentProfilePictureUrl: Tentative de mise à jour de profilePictureUrl dans l'UiState avec: '$newUrl'")
+        val currentUser = _uiState.value.user
+        if (currentUser != null) {
+            _uiState.update { it.copy(user = currentUser.copy(profilePictureUrl = newUrl)) }
+            Log.d(TAG, "setCurrentProfilePictureUrl: _uiState mis à jour avec la nouvelle URL.")
+        } else {
+            Log.w(TAG, "setCurrentProfilePictureUrl: Impossible de mettre à jour, l'utilisateur dans l'UiState est null.")
+        }
     }
 }

@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier FirebaseConstants.kt complet et MODIFIÉ
+// PRÊT À COLLER - Fichier FirebaseConstants.kt mis à jour
 package com.lesmangeursdurouleau.app.remote
 
 object FirebaseConstants {
@@ -17,19 +17,21 @@ object FirebaseConstants {
     // --- CHAMPS SPÉCIFIQUES ---
     const val FIELD_EDIT_READINGS_CODE = "edit_readings_code"
     const val FIELD_SECRET_CODE_LAST_UPDATED_TIMESTAMP = "lastSecretCodeUpdateTimestamp"
-    // AJOUT : Champ pour le compteur de likes sur un livre
     const val FIELD_LIKES_COUNT = "likesCount"
 
     // --- SOUS-COLLECTIONS ---
     const val SUBCOLLECTION_USER_READINGS = "user_readings"
     const val SUBCOLLECTION_COMPLETED_READINGS = "completed_readings"
     const val SUBCOLLECTION_COMMENTS = "comments"
-    const val SUBCOLLECTION_LIKES = "likes" // Gardé pour les "likes" de commentaires
+    const val SUBCOLLECTION_LIKES = "likes"
     const val SUBCOLLECTION_MESSAGES = "messages"
-    // AJOUT : Sous-collection pour les likes sur une lecture active
     const val SUBCOLLECTION_ACTIVE_READING_LIKES = "likes"
 
 
-    // AJOUT: CHEMINS FIREBASE STORAGE
+    // --- CHEMINS FIREBASE STORAGE ---
+    // JUSTIFICATION DE L'AJOUT : Centralisation des chemins de stockage pour éviter les erreurs
+    // de frappe et faciliter la maintenance. Chaque type d'image a son propre chemin racine.
+    const val STORAGE_PROFILE_PICTURES = "profile_pictures"
+    const val STORAGE_COVER_PICTURES = "cover_pictures"
     const val STORAGE_CHAT_IMAGES = "chat_images"
 }

@@ -1,6 +1,8 @@
+// PRÊT À COLLER - Fichier AuthViewModel.kt mis à jour et COMPLET
 package com.lesmangeursdurouleau.app.ui.auth
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -15,14 +17,16 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-// MODIFIÉ: Import de UserProfileRepository et suppression de UserRepository
 import com.lesmangeursdurouleau.app.data.repository.UserProfileRepository
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
-// AuthResultWrapper modifié pour gérer plus de cas et fournir plus de détails
 sealed class AuthResultWrapper {
     data class Success(val user: FirebaseUser? = null) : AuthResultWrapper()
     data class Error(val exception: Exception, val errorCode: String? = null) : AuthResultWrapper()
@@ -34,7 +38,6 @@ sealed class AuthResultWrapper {
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     application: Application,
-    // MODIFIÉ: Remplacement de UserRepository par UserProfileRepository
     private val userProfileRepository: UserProfileRepository,
     private val firebaseAuthInstance: FirebaseAuth,
     private val firestoreInstance: FirebaseFirestore
@@ -58,8 +61,11 @@ class AuthViewModel @Inject constructor(
     private val _profileUpdateResult = MutableLiveData<Resource<Unit>?>()
     val profileUpdateResult: LiveData<Resource<Unit>?> = _profileUpdateResult
 
-    private val _profilePictureUpdateResult = MutableLiveData<Resource<String>?>()
-    val profilePictureUpdateResult: LiveData<Resource<String>?> = _profilePictureUpdateResult
+    private val _profilePictureUpdateResult = MutableStateFlow<Resource<String>?>(null)
+    val profilePictureUpdateResult: StateFlow<Resource<String>?> = _profilePictureUpdateResult.asStateFlow()
+
+    private val _coverPictureUpdateResult = MutableStateFlow<Resource<String>?>(null)
+    val coverPictureUpdateResult: StateFlow<Resource<String>?> = _coverPictureUpdateResult.asStateFlow()
 
     private val _passwordResetResult = MutableLiveData<AuthResultWrapper?>()
     val passwordResetResult: LiveData<AuthResultWrapper?> = _passwordResetResult
@@ -113,26 +119,27 @@ class AuthViewModel @Inject constructor(
                         "username" to username,
                         "email" to email,
                         "profilePictureUrl" to null,
+                        "coverPictureUrl" to null,
                         "createdAt" to FieldValue.serverTimestamp(),
-                        "isEmailVerified" to false // Important: Initialement false
+                        "isEmailVerified" to false
                     )
                     firestoreInstance.collection("users").document(firebaseUser.uid)
                         .set(userDocument)
                         .addOnSuccessListener {
                             Log.d(TAG, "Profil utilisateur créé dans Firestore pour ${firebaseUser.uid}")
-                            _justRegistered.value = true // Indiquer qu'une inscription vient d'avoir lieu
-                            firebaseAuthInstance.signOut() // Déconnexion pour forcer la vérification d'email
-                            _currentUser.value = null // Mettre à jour le LiveData pour refléter la déconnexion
-                            _userDisplayName.value = null // Mettre à jour le LiveData
+                            _justRegistered.value = true
+                            firebaseAuthInstance.signOut()
+                            _currentUser.value = null
+                            _userDisplayName.value = null
                             _registrationResult.value = AuthResultWrapper.Success(firebaseUser)
                         }
                         .addOnFailureListener { e ->
                             Log.e(TAG, "Erreur création profil Firestore pour ${firebaseUser.uid}", e)
-                            _justRegistered.value = true // Indiquer qu'une inscription vient d'avoir lieu
-                            firebaseAuthInstance.signOut() // Déconnexion pour forcer la vérification d'email
-                            _currentUser.value = null // Mettre à jour le LiveData pour refléter la déconnexion
-                            _userDisplayName.value = null // Mettre à jour le LiveData
-                            _registrationResult.value = AuthResultWrapper.Success(firebaseUser) // L'inscription Auth a réussi
+                            _justRegistered.value = true
+                            firebaseAuthInstance.signOut()
+                            _currentUser.value = null
+                            _userDisplayName.value = null
+                            _registrationResult.value = AuthResultWrapper.Success(firebaseUser)
                         }
                 } else {
                     Log.e(TAG, "Échec inscription Firebase Auth.", task.exception)
@@ -195,6 +202,7 @@ class AuthViewModel @Inject constructor(
                             "username" to (firebaseUser.displayName ?: firebaseUser.email ?: "Utilisateur Google"),
                             "email" to firebaseUser.email,
                             "profilePictureUrl" to (firebaseUser.photoUrl?.toString()),
+                            "coverPictureUrl" to null,
                             "createdAt" to FieldValue.serverTimestamp(),
                             "isEmailVerified" to true
                         )
@@ -208,7 +216,7 @@ class AuthViewModel @Inject constructor(
                             }
                             .addOnFailureListener { e ->
                                 Log.e(TAG, "Erreur création profil Firestore Google ${firebaseUser.uid}", e)
-                                _loginResult.value = AuthResultWrapper.Success(firebaseUser) // Continue as success for Auth
+                                _loginResult.value = AuthResultWrapper.Success(firebaseUser)
                                 _currentUser.value = firebaseUser
                                 fetchUserDisplayName(firebaseUser.uid)
                             }
@@ -344,7 +352,6 @@ class AuthViewModel @Inject constructor(
         _profileUpdateResult.value = Resource.Loading()
         viewModelScope.launch {
             Log.d(TAG, "updateUserProfile: Lancement de la coroutine pour appeler userProfileRepository.updateUserProfile")
-            // MODIFIÉ: Appel sur userProfileRepository
             val result = userProfileRepository.updateUserProfile(userId, username)
             _profileUpdateResult.postValue(result)
 
@@ -357,19 +364,54 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun updateProfilePicture(userId: String, imageData: ByteArray) {
-        Log.d(TAG, "updateProfilePicture: Début pour UserID: $userId")
-        _profilePictureUpdateResult.value = Resource.Loading()
+    fun updateProfilePicture(uri: Uri) {
+        val userId = firebaseAuthInstance.currentUser?.uid
+        if (userId.isNullOrBlank()) {
+            _profilePictureUpdateResult.value = Resource.Error("Utilisateur non connecté.")
+            return
+        }
         viewModelScope.launch {
-            Log.d(TAG, "updateProfilePicture: Lancement de la coroutine pour appeler userProfileRepository.updateUserProfilePicture")
-            // MODIFIÉ: Appel sur userProfileRepository
-            val result = userProfileRepository.updateUserProfilePicture(userId, imageData)
-            _profilePictureUpdateResult.postValue(result)
+            _profilePictureUpdateResult.value = Resource.Loading()
+            try {
+                val imageData = getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (imageData != null) {
+                    updateProfilePicture(userId, imageData)
+                } else {
+                    _profilePictureUpdateResult.value = Resource.Error("Impossible de lire les données de l'image.")
+                }
+            } catch (e: IOException) {
+                _profilePictureUpdateResult.value = Resource.Error("Erreur lors de la lecture du fichier image: ${e.localizedMessage}")
+            }
+        }
+    }
 
-            if (result is Resource.Success) {
-                Log.i(TAG, "updateProfilePicture: Mise à jour de la photo de profil réussie. Nouvelle URL: ${result.data}")
-            } else if (result is Resource.Error) {
-                Log.e(TAG, "updateProfilePicture: Échec de la mise à jour de la photo de profil: ${result.message}")
+    private fun updateProfilePicture(userId: String, imageData: ByteArray) {
+        viewModelScope.launch {
+            _profilePictureUpdateResult.value = Resource.Loading()
+            val result = userProfileRepository.updateUserProfilePicture(userId, imageData)
+            _profilePictureUpdateResult.value = result
+        }
+    }
+
+    fun updateCoverPicture(uri: Uri) {
+        val userId = firebaseAuthInstance.currentUser?.uid
+        if (userId.isNullOrBlank()) {
+            _coverPictureUpdateResult.value = Resource.Error("Utilisateur non connecté.")
+            return
+        }
+
+        viewModelScope.launch {
+            _coverPictureUpdateResult.value = Resource.Loading()
+            try {
+                val imageData = getApplication<Application>().contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (imageData != null) {
+                    val result = userProfileRepository.updateUserCoverPicture(userId, imageData)
+                    _coverPictureUpdateResult.value = result
+                } else {
+                    _coverPictureUpdateResult.value = Resource.Error("Impossible de lire les données de l'image.")
+                }
+            } catch (e: IOException) {
+                _coverPictureUpdateResult.value = Resource.Error("Erreur lors de la lecture du fichier image: ${e.localizedMessage}")
             }
         }
     }
@@ -385,6 +427,7 @@ class AuthViewModel @Inject constructor(
         _profileUpdateResult.value = null
         _profilePictureUpdateResult.value = null
         _passwordResetResult.value = null
+        _coverPictureUpdateResult.value = null
     }
 
     fun consumeJustRegisteredEvent() {
