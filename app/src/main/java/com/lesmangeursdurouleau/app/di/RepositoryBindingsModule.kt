@@ -1,7 +1,7 @@
-// PRÊT À COLLER - Fichier RepositoryBindingsModule.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier RepositoryBindingsModule.kt
 package com.lesmangeursdurouleau.app.di
 
-import com.lesmangeursdurouleau.app.data.repository.* // Import générique pour inclure le nouveau repository
+import com.lesmangeursdurouleau.app.data.repository.*
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -11,6 +11,17 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryBindingsModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+
+    // JUSTIFICATION DE L'AJOUT : Liaison du nouveau repository d'administration.
+    // Hilt saura désormais comment injecter une instance de `AdminRepositoryImpl`
+    // partout où `AdminRepository` est requis.
+    @Binds
+    @Singleton
+    abstract fun bindAdminRepository(impl: AdminRepositoryImpl): AdminRepository
 
     @Binds
     @Singleton
@@ -44,7 +55,6 @@ abstract class RepositoryBindingsModule {
     @Singleton
     abstract fun bindDictionaryRepository(impl: DictionaryRepositoryImpl): DictionaryRepository
 
-    // NOUVELLE LIAISON POUR LE REPOSITORY DES NOTIFICATIONS
     @Binds
     @Singleton
     abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository

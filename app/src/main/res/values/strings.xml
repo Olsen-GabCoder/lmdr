@@ -17,7 +17,16 @@
     <string name="cover_photo_updated_success">Photo de couverture mise à jour avec succès</string>
     <string name="error_updating_cover_photo">Échec de la mise à jour de la photo de couverture</string>
     <string name="error_cropping_image">Une erreur est survenue lors du recadrage de l’image.</string>
+    <string name="view_my_library_button">Voir ma bibliothèque</string>
 
+    <!-- PRÊT À AJOUTER - Ajoutez ces lignes à votre fichier res/values/strings.xml -->
+    <string name="my_library_title">Ma Bibliothèque</string>
+    <string name="my_library_empty">Votre bibliothèque est vide. Ajoutez des livres pour commencer !</string>
+    <string name="action_favorite">Marquer comme favori</string>
+    <string name="action_history">Voir l\'historique</string>
+    <string name="action_mark_as_read">Marquer comme lu</string>
+    <string name="action_collections">Ajouter à une collection</string>
+    <string name="action_more_options">Plus d\'options</string>
     <string name="completed_on_date">Terminé le %1$s</string>
     <!-- Strings pour le nouveau design du Profil Public -->
     <string name="profile_cover_image_description">Image de couverture du profil</string>
@@ -26,8 +35,6 @@
     <string name="section_title_affinity_partner">Partenaire d\'Affinité</string>
     <string name="section_title_recent_library">Sur son étagère</string>
     <string name="section_title_recent_activity">Activité Récente</string>
-    <!-- Pour le sous-titre dynamique -->
-    <!-- Strings pour la barre d'actions -->
     <string name="action_like">J\'aime</string>
     <string name="action_comment">Commenter</string>
     <string name="join_meeting_button">Rejoindre</string>
@@ -467,17 +474,37 @@
     <string name="cover_photo_description">Photo de couverture de l\'utilisateur</string>
     <string name="change_cover_photo_description">Changer la photo de couverture</string>
     <string name="change_cover_photo">Changer la photo de couverture</string>
-    <!-- =================================================================== -->
-    <!-- AJOUTS POUR LA REFONTE DU PROFIL PUBLIC - 2023-10-27                  -->
-    <!-- =================================================================== -->
+    <!-- PRÊT À AJOUTER - Ajoutez ces lignes à votre fichier res/values/strings.xml -->
+    <string name="admin_panel_title">Panneau d\'Administration</string>
+    <string name="admin_promote_user_title">Promouvoir un utilisateur</string>
+    <string name="admin_promote_user_description">Saisissez l\'adresse e-mail de l\'utilisateur pour lui accorder les droits d\'administrateur.</string>
+    <string name="admin_user_email_hint">E-mail de l\'utilisateur</string>
+    <string name="admin_promote_button">Rendre Administrateur</string>
+    <string name="admin_manage_readings_description">Ajouter, modifier ou supprimer les lectures du mois.</string>
+    <!-- PRÊT À AJOUTER - Ajoutez ces lignes à votre fichier res/values/strings.xml -->
+    <string name="admin_user_management_title">Gestion des Utilisateurs</string>
+    <string name="admin_content_management_title">Gestion du Contenu</string>
+    <string name="admin_manage_readings_button">Gérer les lectures du mois</string>
     <string name="no_members_found_for_search">Aucun membre trouvé pour cette recherche</string>
     <string name="search_members_hint">Rechercher un membre...</string>
     <string name="action_rate">Noter</string>
+    <string name="selection_icon_description">Icône de sélection</string>
+    <string name="admin_manage_books_title">Gérer le Catalogue de Livres</string>
+    <string name="admin_create_new_book">créer un nouveau livre</string>
+    <string name="cover_preview_description">Aperçu de la couverture</string>
+    <string name="upload_cover_button">Couv. du livre</string>
+    <string name="pdf_preview_description">Icône de fichier PDF</string>
+    <string name="upload_pdf_button">Uploader le PDF</string>
+    <string name="no_pdf_selected">Aucun fichier PDF sélectionné.</string>
+    <string name="save_new_book_button">Enregistrer ce nouveau livre</string>
+    <string name="admin_manage_readings_title">Gestion des lectures</string>
+    <!-- PRÊT À AJOUTER - Ajoutez cette ligne à votre fichier res/values/strings.xml -->
+    <string name="admin_no_readings_found">Aucune lecture mensuelle trouvée.</string>
     <string name="action_bookmark">Ajouter aux favoris</string>
     <string name="action_recommend">Recommander</string>
     <string name="action_share">Partager</string>
     <string name="current_reading_post_header_template">Lisez avec %1$s...</string>
-    <string name="literary_accomplice_template">✨ Complice Littéraire avec @%1$s</string>
+    <string name="literary_accomplice_template">Complice Littéraire avec @%1$s</string>
     <!-- AJOUT: Description pour l'indicateur de statut du message pour l'accessibilité -->
     <string name="message_status_indicator">Indicateur de statut du message</string>
     <string name="club_name">Nom du club</string>

@@ -1,6 +1,7 @@
-// PRÊT À COLLER - Fichier User.kt mis à jour
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier User.kt
 package com.lesmangeursdurouleau.app.data.model
 
+import com.google.firebase.firestore.Exclude
 import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
@@ -16,13 +17,6 @@ data class User(
     val username: String = "",
     val email: String = "",
     val profilePictureUrl: String? = null,
-
-    /**
-     * JUSTIFICATION DE L'AJOUT : Ajout du champ pour la photo de couverture.
-     * Ce champ de type `String?` stockera l'URL de l'image de couverture de l'utilisateur dans Firestore.
-     * Il est nullable pour gérer le cas où un utilisateur n'a pas encore défini de couverture.
-     * C'est l'étape fondamentale qui permet d'intégrer cette nouvelle fonctionnalité dans notre modèle de données.
-     */
     val coverPictureUrl: String? = null,
 
     @ServerTimestamp
@@ -30,6 +24,9 @@ data class User(
 
     val bio: String? = null,
     val city: String? = null,
+
+    // DÉPRÉCIÉ : Ce champ est remplacé par le nouveau système de rôles.
+    // Nous le conservons temporairement pour la compatibilité le temps de la transition.
     val canEditReadings: Boolean = false,
     val lastPermissionGrantedTimestamp: Long? = null,
 
@@ -49,7 +46,14 @@ data class User(
     val highestAffinityTierName: String? = null,
 
     val isEmailVerified: Boolean = false,
-
     val fcmToken: String? = null,
-    val isTypingInGeneralChat: Boolean = false
+    val isTypingInGeneralChat: Boolean = false,
+
+    // JUSTIFICATION DE L'AJOUT : Ce champ stockera le rôle de l'utilisateur.
+    // Il est lu depuis les "custom claims" du token d'authentification et non depuis Firestore,
+    // c'est pourquoi il est annoté avec @get:Exclude. Cela l'empêche d'être écrit dans la
+    // base de données Firestore lors des mises à jour du profil, ce qui est crucial pour la sécurité.
+    // Le rôle est la source de vérité pour les permissions d'administration.
+    @get:Exclude
+    var role: Role = Role.USER
 )

@@ -1,8 +1,8 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier BookRepositoryImpl.kt par ceci.
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.ReadingStatus
 import com.lesmangeursdurouleau.app.data.model.UserLibraryEntry
@@ -20,12 +20,13 @@ class BookRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "BookRepositoryImpl"
-        private const val COLLECTION_LIBRARY = "library"
+        private const val SUBCOLLECTION_LIBRARY = "library"
     }
 
     private val booksCollection = firestore.collection(FirebaseConstants.COLLECTION_BOOKS)
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
+    // ... (les fonctions getAllBooks, getBookById, addBook, updateBook restent inchangées)
     override fun getAllBooks(): Flow<Resource<List<Book>>> = callbackFlow {
         trySend(Resource.Loading())
         val listenerRegistration = booksCollection
@@ -38,7 +39,6 @@ class BookRepositoryImpl @Inject constructor(
                 if (snapshot != null) {
                     try {
                         val books = snapshot.documents.mapNotNull { document ->
-                            // Désérialiser chaque document individuellement pour une meilleure gestion des erreurs.
                             document.toObject(Book::class.java)?.apply { id = document.id }
                         }
                         trySend(Resource.Success(books))
@@ -64,7 +64,6 @@ class BookRepositoryImpl @Inject constructor(
             }
             if (documentSnapshot != null && documentSnapshot.exists()) {
                 try {
-                    // La conversion se fait ici, avec le nouveau modèle `Book.kt` synchronisé.
                     val book = documentSnapshot.toObject(Book::class.java)?.apply { id = documentSnapshot.id }
                     trySend(Resource.Success(book))
                 } catch (e: Exception) {
@@ -80,7 +79,7 @@ class BookRepositoryImpl @Inject constructor(
 
     override suspend fun addBook(book: Book): Resource<String> {
         return try {
-            val bookToAdd = book.copy(id = "") // S'assurer que l'ID n'est pas envoyé
+            val bookToAdd = book.copy(id = "")
             val documentRef = booksCollection.add(bookToAdd).await()
             Resource.Success(documentRef.id)
         } catch (e: Exception) {
@@ -94,7 +93,6 @@ class BookRepositoryImpl @Inject constructor(
             return Resource.Error("L'ID du livre est requis pour la mise à jour.")
         }
         return try {
-            // L'objet Book est directement sérialisé par Firestore.
             booksCollection.document(book.id).set(book).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
@@ -102,6 +100,7 @@ class BookRepositoryImpl @Inject constructor(
             Resource.Error("Erreur lors de la mise à jour du livre: ${e.localizedMessage}")
         }
     }
+
 
     override suspend fun addBookToUserLibrary(userId: String, book: Book): Resource<Unit> {
         if (userId.isBlank() || book.id.isBlank()) {
@@ -111,13 +110,13 @@ class BookRepositoryImpl @Inject constructor(
             val libraryEntry = UserLibraryEntry(
                 bookId = book.id,
                 userId = userId,
-                status = ReadingStatus.TO_READ,
+                status = ReadingStatus.TO_READ, // Par défaut, un livre ajouté est "à lire"
                 currentPage = 0,
                 totalPages = book.totalPages
             )
             usersCollection.document(userId)
-                .collection(COLLECTION_LIBRARY)
-                .document(book.id)
+                .collection(SUBCOLLECTION_LIBRARY)
+                .document(book.id) // On utilise l'ID du livre comme ID de document pour éviter les doublons
                 .set(libraryEntry)
                 .await()
             Resource.Success(Unit)
@@ -134,7 +133,7 @@ class BookRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         trySend(Resource.Loading())
-        val docRef = usersCollection.document(userId).collection(COLLECTION_LIBRARY).document(bookId)
+        val docRef = usersCollection.document(userId).collection(SUBCOLLECTION_LIBRARY).document(bookId)
         val listener = docRef.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage}"))
@@ -144,5 +143,50 @@ class BookRepositoryImpl @Inject constructor(
             trySend(Resource.Success(snapshot != null && snapshot.exists()))
         }
         awaitClose { listener.remove() }
+    }
+
+    // IMPLÉMENTATION DE LA NOUVELLE FONCTION
+    override fun getLibraryEntriesForUser(userId: String): Flow<Resource<List<UserLibraryEntry>>> = callbackFlow {
+        if (userId.isBlank()) {
+            trySend(Resource.Error("User ID cannot be blank."))
+            close()
+            return@callbackFlow
+        }
+        trySend(Resource.Loading())
+
+        val query = usersCollection.document(userId)
+            .collection(SUBCOLLECTION_LIBRARY)
+            .orderBy("lastReadDate", Query.Direction.DESCENDING) // Trier par activité récente
+
+        val listener = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage}"))
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val entries = snapshot.documents.mapNotNull { it.toObject(UserLibraryEntry::class.java) }
+                trySend(Resource.Success(entries))
+            }
+        }
+        awaitClose { listener.remove() }
+    }
+
+    // IMPLÉMENTATION DE LA NOUVELLE FONCTION
+    override suspend fun updateLibraryEntry(userId: String, entry: UserLibraryEntry): Resource<Unit> {
+        if (userId.isBlank() || entry.bookId.isBlank()) {
+            return Resource.Error("User ID and Book ID cannot be blank.")
+        }
+        return try {
+            usersCollection.document(userId)
+                .collection(SUBCOLLECTION_LIBRARY)
+                .document(entry.bookId)
+                .set(entry) // .set() fait un "upsert" : il crée le document s'il n'existe pas, ou le remplace s'il existe.
+                .await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating library entry ${entry.bookId} for user $userId", e)
+            Resource.Error("Erreur de mise à jour: ${e.localizedMessage}")
+        }
     }
 }

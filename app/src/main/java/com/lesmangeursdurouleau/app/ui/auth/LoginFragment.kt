@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier LoginFragment.kt
 package com.lesmangeursdurouleau.app.ui.auth
 
 import android.app.Activity
@@ -14,7 +15,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.navigation.fragment.findNavController // Gardé au cas où vous l'utilisiez pour d'autres navigations
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -23,8 +26,9 @@ import com.google.firebase.auth.AuthCredential
 import com.lesmangeursdurouleau.app.MainActivity
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.databinding.FragmentLoginBinding
-import com.lesmangeursdurouleau.app.utils.auth.AuthErrorConverter // <-- NOUVEL IMPORT
+import com.lesmangeursdurouleau.app.utils.auth.AuthErrorConverter
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class LoginFragment : Fragment() {
@@ -36,9 +40,6 @@ class LoginFragment : Fragment() {
 
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
-
-    // isResetPasswordMode et la logique associée sont supprimés
-    // car la réinitialisation de mot de passe est maintenant gérée exclusivement par ForgotPasswordDialog.
 
     companion object {
         private const val TAG = "LoginFragment"
@@ -76,10 +77,10 @@ class LoginFragment : Fragment() {
                 }
             } else {
                 Log.w(TAG, "Google Sign-In annulé/échoué, resultCode: ${result.resultCode}")
-                if (result.resultCode != Activity.RESULT_CANCELED) { // Ne pas afficher de toast si l'utilisateur a annulé
+                if (result.resultCode != Activity.RESULT_CANCELED) {
                     Toast.makeText(requireContext(), getString(R.string.error_google_signin_failed), Toast.LENGTH_SHORT).show()
                 }
-                setUiLoadingState(false) // Assurer la réinitialisation de l'UI
+                setUiLoadingState(false)
             }
         }
     }
@@ -95,7 +96,6 @@ class LoginFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Afficher un message si l'utilisateur vient juste de s'inscrire
         if (authViewModel.justRegistered.value == true) {
             Toast.makeText(requireContext(), getString(R.string.registration_successful_check_email), Toast.LENGTH_LONG).show()
             authViewModel.consumeJustRegisteredEvent()
@@ -103,18 +103,6 @@ class LoginFragment : Fragment() {
 
         setupObservers()
         setupClickListeners()
-        // updateUiForMode() est supprimé car la logique de mode n'existe plus
-
-        // Observer currentUser pour déconnecter GoogleSignInClient si l'utilisateur se déconnecte
-        authViewModel.currentUser.observe(viewLifecycleOwner) { firebaseUser ->
-            if (firebaseUser == null) {
-                // Si l'utilisateur est déconnecté de Firebase, s'assurer qu'il est aussi déconnecté de Google
-                // pour permettre un nouveau choix de compte Google la prochaine fois.
-                googleSignInClient.signOut().addOnCompleteListener {
-                    Log.d(TAG, "GoogleSignInClient déconnecté suite à la déconnexion Firebase.")
-                }
-            }
-        }
     }
 
     private fun setupClickListeners() {
@@ -143,9 +131,8 @@ class LoginFragment : Fragment() {
         }
 
         binding.tvGoToRegister.setOnClickListener {
-            // Utilise replace pour naviguer vers RegisterFragment et addToBackStack pour le retour
             parentFragmentManager.beginTransaction()
-                .replace(R.id.auth_fragment_container, RegisterFragment()) // Vérifiez cet ID si besoin
+                .replace(R.id.auth_fragment_container, RegisterFragment())
                 .addToBackStack(null)
                 .commit()
         }
@@ -158,18 +145,14 @@ class LoginFragment : Fragment() {
         }
 
         binding.tvForgotPassword.setOnClickListener {
-            Log.d(TAG, "Lien 'Mot de passe oublié ?' cliqué. Lancement du dialogue de réinitialisation.")
-            // Lancement du ForgotPasswordDialog directement
             ForgotPasswordDialog.newInstance().show(parentFragmentManager, ForgotPasswordDialog.TAG)
         }
-
-        // Les listeners pour btnSendResetEmail et tvBackToLogin sont supprimés
-        // car la logique de réinitialisation est déplacée vers ForgotPasswordDialog.
     }
 
     private fun setupObservers() {
+        // Observer pour le résultat de la connexion (reste inchangé car c'est un LiveData)
         authViewModel.loginResult.observe(viewLifecycleOwner) { result ->
-            result ?: return@observe // Ignorer si null (après consommation par exemple)
+            result ?: return@observe
 
             when (result) {
                 is AuthResultWrapper.Loading -> setUiLoadingState(true)
@@ -182,7 +165,6 @@ class LoginFragment : Fragment() {
                 }
                 is AuthResultWrapper.Error -> {
                     setUiLoadingState(false)
-                    // Utilise AuthErrorConverter pour obtenir le message d'erreur
                     val errorMessage = AuthErrorConverter.getFirebaseAuthErrorMessage(requireContext(), result.exception, result.errorCode)
                     Toast.makeText(requireContext(), errorMessage, Toast.LENGTH_LONG).show()
                     authViewModel.consumeLoginResult()
@@ -196,13 +178,25 @@ class LoginFragment : Fragment() {
                     setUiLoadingState(false)
                     Log.i(TAG, "Collision de compte détectée pour ${result.email}. Demande de liaison.")
                     showLinkAccountDialog(result.email, result.pendingCredential)
-                    // Ne pas consommer ici, car le dialogue peut mener à une autre action sur loginResult
                 }
             }
         }
 
-        // L'observation de authViewModel.passwordResetResult est supprimée de LoginFragment.
-        // Elle est maintenant gérée exclusivement par ForgotPasswordDialog.
+        // JUSTIFICATION DE LA MODIFICATION : Le `LiveData` a été remplacé par un `StateFlow`.
+        // On utilise maintenant `lifecycleScope.launch` et `repeatOnLifecycle` pour observer
+        // ce Flow de manière sécurisée par rapport au cycle de vie du Fragment. C'est la méthode moderne et recommandée.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                authViewModel.currentUser.collect { user ->
+                    if (user == null) {
+                        // Si l'utilisateur est déconnecté de Firebase, s'assurer qu'il est aussi déconnecté de Google.
+                        googleSignInClient.signOut().addOnCompleteListener {
+                            Log.d(TAG, "GoogleSignInClient déconnecté suite à la déconnexion Firebase.")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun showLinkAccountDialog(email: String, pendingCredential: AuthCredential) {
@@ -234,12 +228,6 @@ class LoginFragment : Fragment() {
             .show()
     }
 
-
-    // updateUiForMode() est supprimé car la logique de mode n'existe plus dans ce fragment.
-    // Le titre est maintenant statique dans le layout ou peut être mis à jour au besoin.
-    // Si vous souhaitez changer dynamiquement le titre "Connexion", cela peut être fait directement dans onViewCreated
-    // binding.tvLoginTitle.text = getString(R.string.login_title)
-
     private fun navigateToMainActivity() {
         val intent = Intent(requireActivity(), MainActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -249,16 +237,11 @@ class LoginFragment : Fragment() {
 
     private fun setUiLoadingState(isLoading: Boolean) {
         binding.progressBarLogin.visibility = if (isLoading) View.VISIBLE else View.GONE
-
-        // Désactiver/Réactiver tous les éléments interactifs en fonction de l'état de chargement
         val enableInteractions = !isLoading
-
-        // Tous les éléments de l'UI sont gérés ensemble sans distinction de mode
         binding.etEmailLogin.isEnabled = enableInteractions
         binding.tilEmailLogin.isEnabled = enableInteractions
         binding.etPasswordLogin.isEnabled = enableInteractions
         binding.tilPasswordLogin.isEnabled = enableInteractions
-
         binding.btnLogin.isEnabled = enableInteractions
         binding.btnGoogleSignIn.isEnabled = enableInteractions
         binding.tvGoToRegister.isClickable = enableInteractions

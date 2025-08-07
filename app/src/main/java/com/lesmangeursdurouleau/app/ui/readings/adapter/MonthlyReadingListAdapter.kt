@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier MonthlyReadingListAdapter.kt par ceci.
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier MonthlyReadingListAdapter.kt
 package com.lesmangeursdurouleau.app.ui.readings.adapter
 
 import android.annotation.SuppressLint
@@ -14,7 +14,7 @@ import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.MonthlyReading
 import com.lesmangeursdurouleau.app.data.model.Phase
-import com.lesmangeursdurouleau.app.data.model.PhaseStatus // NOUVEL IMPORT
+import com.lesmangeursdurouleau.app.data.model.PhaseStatus
 import com.lesmangeursdurouleau.app.databinding.ItemMonthlyReadingBinding
 import com.lesmangeursdurouleau.app.databinding.ItemPhaseDetailBinding
 import java.text.SimpleDateFormat
@@ -32,7 +32,8 @@ enum class PhaseDisplayStatus {
 }
 
 class MonthlyReadingListAdapter(
-    private val onEditClicked: (MonthlyReadingWithBook) -> Unit,
+    // JUSTIFICATION DE LA SUPPRESSION : La lambda `onEditClicked` est retirée du constructeur.
+    // L'adaptateur n'a plus la responsabilité de gérer les actions d'administration.
     private val onLikeClicked: (MonthlyReadingWithBook) -> Unit,
     private val onCommentClicked: (MonthlyReadingWithBook) -> Unit,
     private val onJoinClicked: (meetingLink: String) -> Unit,
@@ -60,6 +61,10 @@ class MonthlyReadingListAdapter(
             val book = data.book
             val context = itemView.context
 
+            // JUSTIFICATION DE LA MODIFICATION : Le bouton d'édition est maintenant toujours caché.
+            // L'interface de consultation est désormais complètement séparée des actions d'administration.
+            binding.btnEditMonthlyReading.visibility = View.GONE
+
             binding.tvClubName.text = context.getString(R.string.club_name)
             binding.tvHeaderSubtitle.text = context.getString(
                 R.string.post_subtitle_template,
@@ -69,6 +74,11 @@ class MonthlyReadingListAdapter(
             binding.tvAnimatorQuote.visibility = if (monthlyReading.customDescription.isNullOrBlank()) View.GONE else View.VISIBLE
             binding.tvBookTitle.text = book?.title ?: context.getString(R.string.unknown_book_title)
             binding.tvBookAuthor.text = book?.author ?: context.getString(R.string.unknown_author)
+
+            binding.ivBookCover.contentDescription = context.getString(
+                R.string.book_cover_of_title_description,
+                book?.title ?: context.getString(R.string.unknown_book_title)
+            )
 
             if (!book?.coverImageUrl.isNullOrEmpty()) {
                 if (book != null) {
@@ -103,7 +113,8 @@ class MonthlyReadingListAdapter(
 
             binding.btnJoinMeetingMain.visibility = if (isAnalysisJoinable || isDebateJoinable) View.VISIBLE else View.GONE
 
-            binding.btnEditMonthlyReading.setOnClickListener { onEditClicked(data) }
+            // JUSTIFICATION DE LA SUPPRESSION : Le listener pour le bouton d'édition est retiré.
+            // binding.btnEditMonthlyReading.setOnClickListener { onEditClicked(data) }
             binding.btnActionLike.setOnClickListener { onLikeClicked(data) }
             binding.btnActionComment.setOnClickListener { onCommentClicked(data) }
 
@@ -142,7 +153,6 @@ class MonthlyReadingListAdapter(
                 Calendar.getInstance().apply { time = it; set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
             }
 
-            // MODIFIÉ: La logique de comparaison utilise maintenant l'enum PhaseStatus.
             val displayStatus = when {
                 phase.status == PhaseStatus.COMPLETED -> PhaseDisplayStatus.COMPLETED
                 phase.status == PhaseStatus.IN_PROGRESS -> PhaseDisplayStatus.IN_PROGRESS

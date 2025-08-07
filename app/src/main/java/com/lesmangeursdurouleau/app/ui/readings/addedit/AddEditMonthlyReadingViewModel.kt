@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez le contenu de votre fichier AddEditMonthlyReadingViewModel.kt
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier AddEditMonthlyReadingViewModel.kt
 package com.lesmangeursdurouleau.app.ui.readings.addedit
 
 import androidx.lifecycle.SavedStateHandle
@@ -7,7 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.MonthlyReading
 import com.lesmangeursdurouleau.app.data.model.PhaseStatus
-import com.lesmangeursdurouleau.app.domain.usecase.books.GetBooksUseCase
+import com.lesmangeursdurouleau.app.domain.usecase.books.GetBookByIdUseCase
 import com.lesmangeursdurouleau.app.domain.usecase.monthlyreadings.GetMonthlyReadingByIdUseCase
 import com.lesmangeursdurouleau.app.domain.usecase.monthlyreadings.SaveMonthlyReadingUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
@@ -19,66 +19,81 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AddEditMonthlyReadingViewModel @Inject constructor(
-    private val getBooksUseCase: GetBooksUseCase,
+    private val getBookByIdUseCase: GetBookByIdUseCase,
     private val getMonthlyReadingByIdUseCase: GetMonthlyReadingByIdUseCase,
     private val saveMonthlyReadingUseCase: SaveMonthlyReadingUseCase,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val monthlyReadingId: String? = savedStateHandle.get("monthlyReadingId")
+    private val newBookId: String? = savedStateHandle.get("bookId")
 
-    private val _allBooks = MutableStateFlow<Resource<List<Book>>>(Resource.Loading())
-    val allBooks: StateFlow<Resource<List<Book>>> = _allBooks.asStateFlow()
-
-    private val _monthlyReadingAndBookForEdit = MutableStateFlow<Resource<Pair<MonthlyReading?, Book?>>>(Resource.Loading())
-    val monthlyReadingAndBookForEdit: StateFlow<Resource<Pair<MonthlyReading?, Book?>>> = _monthlyReadingAndBookForEdit.asStateFlow()
+    private val _uiState = MutableStateFlow<Resource<Pair<MonthlyReading?, Book?>>>(Resource.Loading())
+    val uiState: StateFlow<Resource<Pair<MonthlyReading?, Book?>>> = _uiState.asStateFlow()
 
     private val _saveResult = MutableStateFlow<Resource<Unit>?>(null)
     val saveResult: StateFlow<Resource<Unit>?> = _saveResult.asStateFlow()
 
     init {
-        loadAllBooks()
-        monthlyReadingId?.let { loadMonthlyReadingForEdit(it) }
+        loadInitialData()
     }
 
-    private fun loadAllBooks() {
+    private fun loadInitialData() {
         viewModelScope.launch {
-            getBooksUseCase().collect { _allBooks.value = it }
-        }
-    }
-
-    private fun loadMonthlyReadingForEdit(readingId: String) {
-        viewModelScope.launch {
-            val monthlyReadingFlow = getMonthlyReadingByIdUseCase(readingId)
-
-            combine(monthlyReadingFlow, allBooks.filterIsInstance<Resource.Success<List<Book>>>()) { readingResource, booksResource ->
-                when (readingResource) {
-                    is Resource.Success -> {
-                        val reading = readingResource.data
-                        val book = reading?.let { r -> booksResource.data?.find { it.id == r.bookId } }
-                        Resource.Success(Pair(reading, book))
+            _uiState.value = Resource.Loading()
+            if (monthlyReadingId != null) {
+                // Cas 1 : On MODIFIE une lecture existante.
+                // JUSTIFICATION DE LA CORRECTION : Nous utilisons `collect` pour nous assurer de traiter
+                // tous les états du Flow, et pas seulement le premier (`Resource.Loading`).
+                getMonthlyReadingByIdUseCase(monthlyReadingId).collect { readingResource ->
+                    when (readingResource) {
+                        is Resource.Success -> {
+                            val reading = readingResource.data
+                            if (reading?.bookId != null) {
+                                // Une fois la lecture obtenue, on récupère le livre associé.
+                                getBookByIdUseCase(reading.bookId).collect { bookResource ->
+                                    if (bookResource !is Resource.Loading) {
+                                        _uiState.value = Resource.Success(Pair(reading, bookResource.data))
+                                    }
+                                }
+                            } else {
+                                _uiState.value = Resource.Error("Lecture trouvée mais sans ID de livre associé.")
+                            }
+                        }
+                        is Resource.Error -> {
+                            _uiState.value = Resource.Error(readingResource.message ?: "Lecture non trouvée")
+                        }
+                        is Resource.Loading -> {
+                            // On reste en état de chargement global.
+                        }
                     }
-                    is Resource.Error -> Resource.Error(readingResource.message.toString())
-                    is Resource.Loading -> Resource.Loading()
                 }
-            }.collect { result ->
-                _monthlyReadingAndBookForEdit.value = result
+            } else if (newBookId != null) {
+                // Cas 2 : On CRÉE une nouvelle lecture pour un livre existant.
+                getBookByIdUseCase(newBookId).collect { bookResource ->
+                    if (bookResource !is Resource.Loading) {
+                        _uiState.value = when (bookResource) {
+                            is Resource.Success -> Resource.Success(Pair(null, bookResource.data))
+                            is Resource.Error -> Resource.Error(bookResource.message ?: "Impossible de charger le livre")
+                            is Resource.Loading -> Resource.Loading() // Théoriquement inatteignable
+                        }
+                    }
+                }
+            } else {
+                _uiState.value = Resource.Error("Aucun identifiant de livre ou de lecture fourni.")
             }
         }
     }
 
     fun save(
-        bookFromForm: Book,
+        book: Book,
         year: Int,
         month: Int,
         analysisDate: Date,
         analysisStatus: PhaseStatus,
-        analysisLink: String?,
         debateDate: Date,
         debateStatus: PhaseStatus,
-        debateLink: String?,
-        customDescription: String?,
-        existingBookId: String?
+        customDescription: String?
     ) {
         viewModelScope.launch {
             _saveResult.value = Resource.Loading()
@@ -88,15 +103,19 @@ class AddEditMonthlyReadingViewModel @Inject constructor(
                 month = month,
                 analysisDate = analysisDate,
                 analysisStatus = analysisStatus,
-                analysisMeetingLink = analysisLink,
+                analysisMeetingLink = null,
                 debateDate = debateDate,
                 debateStatus = debateStatus,
-                debateMeetingLink = debateLink,
+                debateMeetingLink = null,
                 customDescription = customDescription,
-                bookFromForm = bookFromForm,
-                existingBookId = existingBookId
+                bookFromForm = book,
+                existingBookId = book.id
             )
             _saveResult.value = result
         }
+    }
+
+    fun consumeSaveResult() {
+        _saveResult.value = null
     }
 }

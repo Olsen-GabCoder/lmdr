@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier Book.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier Book.kt par ceci.
 package com.lesmangeursdurouleau.app.data.model
 
 import android.os.Parcelable
@@ -20,15 +20,11 @@ data class Book(
     val publicationDate: String? = null,
     val isbn: String? = null,
     val genre: String? = null,
-    @JvmField
-    val stability: Long? = 0,
 
-    // CORRECTION : Champs ajoutés pour correspondre à Firestore
     val likesCount: Int = 0,
     val favoritesCount: Int = 0,
     val recommendationsCount: Int = 0,
 
     @ServerTimestamp
     val proposedAt: Date? = null
-
 ) : Parcelable

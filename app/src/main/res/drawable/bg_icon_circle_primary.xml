@@ -1,0 +1,5 @@
+<!-- PRÊT À COLLER - Créez un nouveau fichier bg_icon_circle_primary.xml dans res/drawable -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="?attr/colorPrimary" />
+</shape>

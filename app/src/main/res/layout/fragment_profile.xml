@@ -25,10 +25,6 @@
             app:contentScrim="?attr/colorPrimary"
             app:statusBarScrim="?attr/colorPrimaryVariant">
 
-            <!-- JUSTIFICATION DE L'AJOUT : ImageView pour la photo de couverture.
-                 - Il est placé comme premier enfant pour servir de fond.
-                 - `scaleType="centerCrop"` assure que l'image remplit l'espace sans déformation.
-                 - `layout_collapseMode="parallax"` crée un effet de défilement immersif. -->
             <ImageView
                 android:id="@+id/iv_cover_photo"
                 android:layout_width="match_parent"
@@ -39,16 +35,12 @@
                 app:layout_collapseParallaxMultiplier="0.7"
                 tools:src="@tools:sample/backgrounds/scenic"/>
 
-            <!-- JUSTIFICATION : Ce `View` est conservé pour appliquer un dégradé par-dessus
-                 la photo de couverture, assurant la lisibilité du contenu qui pourrait
-                 être placé dessus et ajoutant une touche esthétique. -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:background="@drawable/profile_header_gradient"
                 app:layout_collapseMode="pin"/>
 
-            <!-- Conteneur pour la photo de profil -->
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
@@ -93,10 +85,6 @@
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <!-- JUSTIFICATION DE L'AJOUT : Bouton flottant pour modifier la photo de couverture.
-                 - `layout_anchor` le lie à la barre d'outils.
-                 - `layout_anchorGravity` le positionne en bas à droite.
-                 - Il est visuellement distinct du bouton de la photo de profil. -->
             <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/fab_edit_cover"
                 android:layout_width="wrap_content"
@@ -111,7 +99,6 @@
         </com.google.android.material.appbar.CollapsingToolbarLayout>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Le NestedScrollView et son contenu restent inchangés. -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -132,9 +119,6 @@
             android:orientation="vertical"
             android:paddingTop="40dp"
             android:paddingBottom="0dp">
-
-            <!-- Toutes les MaterialCardView existantes (infos perso, lecture en cours, actions)
-                 restent ici, sans modification. -->
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -501,6 +485,22 @@
                             android:textStyle="bold" />
 
                     </LinearLayout>
+
+                    <!-- JUSTIFICATION DE L'AJOUT : Ce bouton est le point d'entrée vers le backoffice.
+                         Il est stylisé comme les autres boutons d'action pour la cohérence
+                         et sera rendu visible ou non par le code du Fragment. -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_admin_panel"
+                        style="@style/Widget.Material3.Button.TextButton.Icon"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/admin_panel_title"
+                        android:gravity="start|center_vertical"
+                        android:textColor="?attr/colorPrimary"
+                        app:icon="@drawable/ic_admin_panel"
+                        app:iconTint="?attr/colorPrimary"
+                        android:visibility="gone"
+                        tools:visibility="visible"/>
 
                     <LinearLayout
                         android:layout_width="match_parent"

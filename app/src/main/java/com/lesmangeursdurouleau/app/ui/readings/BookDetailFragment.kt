@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier BookDetailFragment.kt par ceci.
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier BookDetailFragment.kt
 package com.lesmangeursdurouleau.app.ui.readings
 
 import android.os.Bundle
@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.lesmangeursdurouleau.app.R
@@ -55,6 +56,13 @@ class BookDetailFragment : Fragment() {
         binding.btnAddToLibrary.setOnClickListener {
             viewModel.addBookToLibrary()
         }
+
+        // JUSTIFICATION DE L'AJOUT : Ajout du listener pour le nouveau bouton.
+        // Il déclenchera la navigation vers le MyLibraryFragment.
+        binding.btnGoToLibrary.setOnClickListener {
+            // L'ID de l'action devra être défini dans le graphe de navigation.
+            findNavController().navigate(R.id.action_bookDetailFragment_to_myLibraryFragment)
+        }
     }
 
     private fun setupObservers() {
@@ -65,6 +73,7 @@ class BookDetailFragment : Fragment() {
                     binding.ivBookDetailCover.visibility = View.INVISIBLE
                     binding.tvBookDetailTitle.visibility = View.INVISIBLE
                     binding.btnAddToLibrary.visibility = View.GONE
+                    binding.btnGoToLibrary.visibility = View.GONE // Cacher pendant le chargement
                 }
                 is Resource.Success -> {
                     binding.progressBarBookDetail.visibility = View.GONE
@@ -89,6 +98,7 @@ class BookDetailFragment : Fragment() {
                     binding.btnAddToLibrary.visibility = View.VISIBLE
                     binding.btnAddToLibrary.isEnabled = false
                     binding.btnAddToLibrary.text = "Vérification..."
+                    binding.btnGoToLibrary.visibility = View.GONE
                 }
                 is Resource.Success -> {
                     binding.btnAddToLibrary.visibility = View.VISIBLE
@@ -97,14 +107,19 @@ class BookDetailFragment : Fragment() {
                         binding.btnAddToLibrary.isEnabled = false
                         binding.btnAddToLibrary.text = "Dans ma bibliothèque"
                         binding.btnAddToLibrary.icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_check_single)
+                        // MODIFICATION : Rendre le bouton de navigation visible
+                        binding.btnGoToLibrary.visibility = View.VISIBLE
                     } else {
                         binding.btnAddToLibrary.isEnabled = true
                         binding.btnAddToLibrary.text = getString(R.string.add_to_my_library)
                         binding.btnAddToLibrary.icon = null
+                        // MODIFICATION : S'assurer que le bouton de navigation est caché
+                        binding.btnGoToLibrary.visibility = View.GONE
                     }
                 }
                 is Resource.Error -> {
                     binding.btnAddToLibrary.visibility = View.GONE
+                    binding.btnGoToLibrary.visibility = View.GONE
                     Toast.makeText(context, resource.message, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -118,6 +133,8 @@ class BookDetailFragment : Fragment() {
                 }
                 is Resource.Success -> {
                     Toast.makeText(context, "Livre ajouté avec succès !", Toast.LENGTH_SHORT).show()
+                    // MODIFICATION : Rendre le bouton de navigation visible après un ajout réussi.
+                    binding.btnGoToLibrary.visibility = View.VISIBLE
                 }
                 is Resource.Error -> {
                     Toast.makeText(context, "Erreur : ${resource.message}", Toast.LENGTH_LONG).show()
@@ -133,12 +150,10 @@ class BookDetailFragment : Fragment() {
         binding.tvBookDetailAuthor.text = book.author
         binding.tvBookDetailSynopsis.text = book.synopsis ?: getString(R.string.no_synopsis_available)
 
-        // === DÉBUT DE LA MODIFICATION ===
         binding.ivBookDetailCover.contentDescription = getString(
             R.string.book_cover_of_title_description,
             book.title.ifBlank { getString(R.string.unknown_book_title) }
         )
-        // === FIN DE LA MODIFICATION ===
 
         if (!book.coverImageUrl.isNullOrEmpty()) {
             Glide.with(this)

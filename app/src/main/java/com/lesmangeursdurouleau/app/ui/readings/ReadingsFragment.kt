@@ -1,19 +1,16 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier ReadingsFragment.kt par ceci.
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier ReadingsFragment.kt
 package com.lesmangeursdurouleau.app.ui.readings
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.net.toUri
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -38,20 +35,6 @@ class ReadingsFragment : Fragment() {
     private val readingsViewModel: ReadingsViewModel by viewModels()
     private lateinit var monthlyReadingListAdapter: MonthlyReadingListAdapter
 
-    private val handler = Handler(Looper.getMainLooper())
-    private val refreshRunnable = object : Runnable {
-        override fun run() {
-            monthlyReadingListAdapter.notifyDataSetChanged()
-            Log.d("ReadingsFragment", "Refreshing monthly readings list for status updates.")
-            // CORRIGÉ : Utilisation du nom de variable correct
-            handler.postDelayed(this, refreshIntervalMillis)
-        }
-    }
-
-    private val refreshIntervalMillis = 60 * 60 * 1000L
-
-    private var pendingMonthlyReadingId: String? = null
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -65,24 +48,13 @@ class ReadingsFragment : Fragment() {
         setupRecyclerView()
         setupClickListeners()
         setupObservers()
-        setupSecretCodeResultListener()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        handler.postDelayed(refreshRunnable, refreshIntervalMillis)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        handler.removeCallbacks(refreshRunnable)
     }
 
     private fun setupRecyclerView() {
         monthlyReadingListAdapter = MonthlyReadingListAdapter(
-            onEditClicked = { selectedMonthlyReadingWithBook ->
-                checkEditPermissionAndNavigate(selectedMonthlyReadingWithBook.monthlyReading.id)
-            },
+            // JUSTIFICATION DE LA MODIFICATION : La lambda `onEditClicked` est supprimée.
+            // L'édition est une action administrative qui n'a plus sa place dans cette interface de consultation.
+            // Elle sera ré-implémentée dans le backoffice.
             onLikeClicked = {
                 Toast.makeText(requireContext(), "Fonctionnalité 'J'aime' à venir", Toast.LENGTH_SHORT).show()
             },
@@ -117,72 +89,49 @@ class ReadingsFragment : Fragment() {
         }
     }
 
-    private fun checkEditPermissionAndNavigate(monthlyReadingId: String?) {
-        if (readingsViewModel.canEditReadings.value) {
-            Log.d("ReadingsFragment", "User has active edit permission, navigating...")
-            navigateToAddEditMonthlyReading(monthlyReadingId)
-        } else {
-            Log.d("ReadingsFragment", "User does NOT have active edit permission, showing secret code dialog.")
-            pendingMonthlyReadingId = monthlyReadingId
-            if (childFragmentManager.findFragmentByTag("SecretCodeDialog") == null) {
-                EnterSecretCodeDialogFragment().show(childFragmentManager, "SecretCodeDialog")
-            }
-        }
-    }
-
-    private fun navigateToAddEditMonthlyReading(monthlyReadingId: String?) {
-        val action = ReadingsFragmentDirections.actionReadingsFragmentToAddEditMonthlyReadingFragment(monthlyReadingId)
-        findNavController().navigate(action)
-        pendingMonthlyReadingId = null
-    }
-
-    private fun setupSecretCodeResultListener() {
-        setFragmentResultListener(EnterSecretCodeDialogFragment.REQUEST_KEY) { _, bundle ->
-            val permissionGranted = bundle.getBoolean(EnterSecretCodeDialogFragment.BUNDLE_KEY_PERMISSION_GRANTED, false)
-            if (permissionGranted) {
-                Log.d("ReadingsFragment", "Permission granted from dialog. Pending ID: $pendingMonthlyReadingId")
-                pendingMonthlyReadingId?.let { id ->
-                    navigateToAddEditMonthlyReading(id)
-                }
-            } else {
-                Log.d("ReadingsFragment", "Permission NOT granted or dialog cancelled.")
-                pendingMonthlyReadingId = null
-            }
-        }
-    }
+    // JUSTIFICATION DE LA SUPPRESSION : Ces méthodes étaient liées à la logique de permission
+    // et de navigation vers l'écran d'édition. Cette responsabilité est entièrement retirée
+    // de ce fragment pour être déplacée dans le backoffice.
+    // private fun checkEditPermissionAndNavigate(...) { ... }
+    // private fun navigateToAddEditMonthlyReading(...) { ... }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     readingsViewModel.monthlyReadingsWithBooks.collect { resource ->
+                        binding.progressBarReadings.isVisible = resource is Resource.Loading
+                        binding.recyclerViewMonthlyReadings.isVisible = resource is Resource.Success
+                        binding.tvErrorReadings.isVisible = resource is Resource.Error
+
                         when (resource) {
-                            is Resource.Loading -> {
-                                binding.progressBarReadings.visibility = View.VISIBLE
-                                binding.recyclerViewMonthlyReadings.visibility = View.GONE
-                                binding.tvErrorReadings.visibility = View.GONE
-                            }
                             is Resource.Success -> {
-                                binding.progressBarReadings.visibility = View.GONE
                                 val data = resource.data ?: emptyList()
                                 monthlyReadingListAdapter.submitList(data)
-                                updateEmptyStateView(data.isEmpty(), null)
+                                // Logique pour afficher "Aucune lecture" si la liste est vide.
+                                binding.tvErrorReadings.isVisible = data.isEmpty()
+                                binding.tvErrorReadings.text = getString(R.string.no_monthly_readings_available)
                             }
                             is Resource.Error -> {
-                                binding.progressBarReadings.visibility = View.GONE
-                                monthlyReadingListAdapter.submitList(emptyList())
-                                updateEmptyStateView(true, resource.message ?: getString(R.string.error_loading_monthly_readings, "inconnu"))
+                                binding.tvErrorReadings.text = resource.message ?: getString(R.string.error_loading_monthly_readings, "inconnu")
+                            }
+                            is Resource.Loading -> {
+                                binding.tvErrorReadings.isVisible = false
                             }
                         }
                     }
                 }
 
+                // JUSTIFICATION DE LA SUPPRESSION : L'observation de `canEditReadings` est retirée
+                // car le FAB a été supprimé de la vue.
+                /*
                 launch {
                     readingsViewModel.canEditReadings.collect { canEdit ->
-                        binding.fabAddMonthlyReading.visibility = if (canEdit) View.VISIBLE else View.GONE
-                        Log.d("ReadingsFragment", "User can edit readings (observed): $canEdit")
+                        binding.fabAddMonthlyReading.isVisible = canEdit
+                        Log.d("ReadingsFragment", "Visibilité FAB admin mise à jour: $canEdit")
                     }
                 }
+                */
 
                 launch {
                     readingsViewModel.currentMonthYear.collect { calendar ->
@@ -192,12 +141,6 @@ class ReadingsFragment : Fragment() {
                 }
             }
         }
-    }
-
-    private fun updateEmptyStateView(isEmpty: Boolean, errorMessage: String?) {
-        binding.recyclerViewMonthlyReadings.visibility = if (isEmpty) View.GONE else View.VISIBLE
-        binding.tvErrorReadings.visibility = if (isEmpty) View.VISIBLE else View.GONE
-        binding.tvErrorReadings.text = errorMessage ?: getString(R.string.no_monthly_readings_available)
     }
 
     private fun setupClickListeners() {
@@ -213,15 +156,17 @@ class ReadingsFragment : Fragment() {
             }
             readingsViewModel.setFilter(filter)
         }
+        // JUSTIFICATION DE LA SUPPRESSION : Le listener pour le FAB est retiré car le FAB n'existe plus.
+        /*
         binding.fabAddMonthlyReading.setOnClickListener {
             checkEditPermissionAndNavigate(null)
         }
+        */
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         binding.recyclerViewMonthlyReadings.adapter = null
         _binding = null
-        handler.removeCallbacks(refreshRunnable)
     }
 }

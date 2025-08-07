@@ -1,5 +1,3 @@
-// Fichier Modifié : functions/src/index.ts
-
 import * as admin from "firebase-admin";
 
 // Initialisation globale de l'SDK Admin.
@@ -13,7 +11,8 @@ try {
 export * from "./monthlyReadings";
 export * from "./privateMessaging";
 export * from "./socialInteractions";
-
-// JUSTIFICATION DE L'AJOUT : La nouvelle fonction de migration est exportée
-// ici pour qu'elle soit reconnue et déployée par Firebase.
 export * from "./migration";
+
+// JUSTIFICATION DE L'AJOUT : Nous exportons les fonctions du nouveau fichier `users.ts`.
+// Cela rendra notre nouvelle fonction `setUserRole` disponible et déployable sur Firebase.
+export * from "./users";

@@ -42,7 +42,6 @@
             app:destination="@id/publicProfileFragmentDestination" />
     </fragment>
 
-
     <!-- Réunions -->
     <fragment
         android:id="@+id/navigation_meetings"
@@ -59,7 +58,6 @@
         <action
             android:id="@+id/action_profileFragment_to_membersFragment"
             app:destination="@id/membersFragmentDestination" />
-        <!-- L'action vers chatFragmentDestination a été supprimée. -->
         <action
             android:id="@+id/action_navigation_members_profile_to_editCurrentReadingFragment"
             app:destination="@id/editCurrentReadingFragment"
@@ -73,6 +71,13 @@
         <action
             android:id="@+id/action_navigation_members_profile_to_notificationsDestination"
             app:destination="@id/notificationsDestination" />
+        <action
+            android:id="@+id/action_navigation_members_profile_to_adminPanelFragment"
+            app:destination="@id/adminPanelFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
 
     <!-- Liste des Membres -->
@@ -114,6 +119,13 @@
             app:argType="string"
             app:nullable="true"
             android:defaultValue="Détails du Livre" />
+        <action
+            android:id="@+id/action_bookDetailFragment_to_myLibraryFragment"
+            app:destination="@id/myLibraryFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <!-- Profil public (d'un autre membre) -->
@@ -170,8 +182,6 @@
             app:uri="https://lesmangeursdurouleau.com/comment?targetUserId={userId}&amp;highlightedCommentId={highlightedCommentId}" />
     </fragment>
 
-    <!-- Le fragment "Discussion générale" (chatFragmentDestination) a été supprimé. -->
-
     <!-- Ajout/Modification de Lecture Mensuelle -->
     <fragment
         android:id="@+id/addEditMonthlyReadingFragment"
@@ -186,7 +196,13 @@
         <argument
             android:name="title"
             app:argType="string"
-            android:defaultValue="Ajouter une Lecture Mensuelle" />
+            android:defaultValue="Planifier la lecture" />
+        <!-- Argument ajouté pour le workflow wizard de création -->
+        <argument
+            android:name="bookId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
     </fragment>
 
     <!-- FRAGMENT D'ÉDITION DE LA LECTURE EN COURS -->
@@ -240,17 +256,12 @@
         <argument android:name="bookTitle" defaultValue="Détails de la lecture" app:argType="string" app:nullable="true" />
     </fragment>
 
-    <!-- ====================================================== -->
-    <!-- ==== NOUVELLES DESTINATIONS POUR LA MESSAGERIE PRIVÉE ==== -->
-    <!-- ====================================================== -->
-
     <!-- FRAGMENT: Liste des conversations privées -->
     <fragment
         android:id="@+id/conversationsListFragmentDestination"
         android:name="com.lesmangeursdurouleau.app.ui.members.ConversationsListFragment"
         android:label="Mes Messages"
         tools:layout="@layout/fragment_conversations_list">
-        <!-- Action pour ouvrir une conversation spécifique -->
         <action
             android:id="@+id/action_conversationsListFragmentDestination_to_privateChatFragmentDestination"
             app:destination="@id/privateChatFragmentDestination" />
@@ -262,18 +273,14 @@
         android:name="com.lesmangeursdurouleau.app.ui.members.PrivateChatFragment"
         android:label="Message"
         tools:layout="@layout/fragment_private_chat">
-        <!-- Argument pour savoir avec qui on chat -->
         <argument
             android:name="targetUserId"
             app:argType="string" />
-        <!-- Argument optionnel, pourrait être utile plus tard -->
         <argument
             android:name="conversationId"
             app:argType="string"
             app:nullable="true"
             android:defaultValue="@null" />
-
-        <!-- MODIFICATION: Action vers le profil public ajoutée -->
         <action
             android:id="@+id/action_privateChatFragment_to_publicProfileFragmentDestination"
             app:destination="@id/publicProfileFragmentDestination"
@@ -281,17 +288,11 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
-
-        <!-- AJOUT : Action vers la vue plein écran de l'image -->
         <action
             android:id="@+id/action_privateChatFragment_to_fullScreenImageFragment"
             app:destination="@id/fullScreenImageFragmentDestination"
             app:enterAnim="@android:anim/fade_in"
             app:popExitAnim="@android:anim/fade_out" />
-
-        <!-- ====================================================== -->
-        <!-- ==== NOUVELLE ACTION VERS LE CLASSEMENT (SEUL AJOUT) ==== -->
-        <!-- ====================================================== -->
         <action
             android:id="@+id/action_privateChatFragment_to_leaderboardFragment"
             app:destination="@id/leaderboardFragment"
@@ -301,7 +302,7 @@
             app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
-    <!-- AJOUT : FRAGMENT pour l'affichage plein écran d'une image -->
+    <!-- FRAGMENT pour l'affichage plein écran d'une image -->
     <fragment
         android:id="@+id/fullScreenImageFragmentDestination"
         android:name="com.lesmangeursdurouleau.app.ui.members.FullScreenImageFragment"
@@ -318,5 +319,63 @@
         android:name="com.lesmangeursdurouleau.app.ui.members.LeaderboardFragment"
         android:label="Classement des Affinités"
         tools:layout="@layout/fragment_leaderboard" />
+
+    <fragment
+        android:id="@+id/myLibraryFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.library.MyLibraryFragment"
+        android:label="@string/my_library_title"
+        tools:layout="@layout/fragment_my_library" />
+
+    <!-- ===== SECTION BACKOFFICE ===== -->
+
+    <fragment
+        android:id="@+id/adminPanelFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.admin.AdminPanelFragment"
+        android:label="@string/admin_panel_title"
+        tools:layout="@layout/fragment_admin_panel">
+        <action
+            android:id="@+id/action_adminPanelFragment_to_manageReadingsFragment"
+            app:destination="@id/manageReadingsFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/manageReadingsFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.admin.ManageReadingsFragment"
+        android:label="@string/admin_manage_readings_title"
+        tools:layout="@layout/fragment_manage_readings">
+        <action
+            android:id="@+id/action_manageReadingsFragment_to_addEditMonthlyReadingFragment"
+            app:destination="@id/addEditMonthlyReadingFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+        <action
+            android:id="@+id/action_manageReadingsFragment_to_manageBookFragment"
+            app:destination="@id/manageBookFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
+
+    <fragment
+        android:id="@+id/manageBookFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.admin.ManageBookFragment"
+        android:label="@string/admin_manage_books_title"
+        tools:layout="@layout/fragment_manage_book">
+        <!-- Action pour le workflow wizard : création de livre -> planification de lecture -->
+        <action
+            android:id="@+id/action_manageBookFragment_to_addEditMonthlyReadingFragment"
+            app:destination="@id/addEditMonthlyReadingFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+    </fragment>
 
 </navigation>

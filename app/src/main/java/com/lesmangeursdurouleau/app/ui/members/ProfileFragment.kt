@@ -1,7 +1,7 @@
-// PRÊT À COLLER - Fichier ProfileFragment.kt mis à jour par ajout, sans régression.
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier ProfileFragment.kt
 package com.lesmangeursdurouleau.app.ui.members
 
-import android.app.Activity // IMPORT AJOUTÉ
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -9,8 +9,9 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.ActivityResultLauncher // IMPORT AJOUTÉ
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -25,7 +26,7 @@ import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.databinding.FragmentProfileBinding
 import com.lesmangeursdurouleau.app.ui.auth.AuthActivity
 import com.lesmangeursdurouleau.app.ui.auth.AuthViewModel
-import com.lesmangeursdurouleau.app.ui.cropper.CropperActivity // IMPORT AJOUTÉ
+import com.lesmangeursdurouleau.app.ui.cropper.CropperActivity
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -42,15 +43,12 @@ class ProfileFragment : Fragment() {
 
     companion object {
         private const val TAG = "ProfileFragment"
-        // CONSTANTES AJOUTÉES
         private const val CROP_TYPE_PROFILE = "CROP_TYPE_PROFILE"
         private const val CROP_TYPE_COVER = "CROP_TYPE_COVER"
     }
 
-    // VARIABLE AJOUTÉE
     private var currentCropType: String? = null
 
-    // MODIFICATION : Le launcher existant est modifié pour lancer l'activité de recadrage au lieu de l'upload.
     private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { sourceUri ->
             when (currentCropType) {
@@ -60,7 +58,6 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    // AJOUT : Nouveau launcher pour gérer le résultat de CropperActivity.
     private val cropResultLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -79,9 +76,6 @@ class ProfileFragment : Fragment() {
             }
         }
 
-    // Le launcher `pickCoverImageLauncher` est maintenant redondant et est supprimé,
-    // car `pickImageLauncher` gère les deux cas. Le code ci-dessous est votre code original inchangé.
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -96,7 +90,6 @@ class ProfileFragment : Fragment() {
         setupClickListeners()
     }
 
-    // AJOUT : Nouvelle fonction helper pour lancer CropperActivity.
     private fun startCropActivity(sourceUri: Uri, isCircle: Boolean, aspectRatioX: Float, aspectRatioY: Float) {
         val intent = Intent(requireContext(), CropperActivity::class.java).apply {
             putExtra(CropperActivity.EXTRA_INPUT_URI, sourceUri.toString())
@@ -134,7 +127,7 @@ class ProfileFragment : Fragment() {
                             is Resource.Error<*> -> {
                                 Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_profile_picture), Snackbar.LENGTH_LONG).show()
                             }
-                            is Resource.Loading<*>, null -> { /* No-op */ }
+                            else -> { /* No-op */ }
                         }
                     }
                 }
@@ -149,7 +142,7 @@ class ProfileFragment : Fragment() {
                             is Resource.Error<*> -> {
                                 Snackbar.make(binding.root, result.message ?: getString(R.string.error_updating_cover_photo), Snackbar.LENGTH_LONG).show()
                             }
-                            is Resource.Loading<*>, null -> { /* No-op */ }
+                            else -> { /* No-op */ }
                         }
                     }
                 }
@@ -159,10 +152,13 @@ class ProfileFragment : Fragment() {
 
     private fun updateUi(state: ProfileUiState) {
         binding.buttonSaveProfile.isEnabled = !state.isSaving
-        if (state.isSaving) {
-            binding.fabSelectPicture.isEnabled = false
-            binding.fabEditCover.isEnabled = false
-        }
+        binding.fabSelectPicture.isEnabled = !state.isSaving
+        binding.fabEditCover.isEnabled = !state.isSaving
+
+        // JUSTIFICATION DE LA MODIFICATION : Contrôle de la visibilité du bouton admin.
+        // La vue est mise à jour en fonction de la propriété `isAdmin` de l'UiState,
+        // qui est elle-même alimentée par le rôle de l'utilisateur.
+        binding.buttonAdminPanel.isVisible = state.isAdmin
 
         state.screenError?.let {
             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
@@ -196,15 +192,13 @@ class ProfileFragment : Fragment() {
                 .transition(DrawableTransitionOptions.withCrossFade())
                 .into(binding.ivCoverPhoto)
 
-        } else {
-            if (!state.isLoading) {
-                binding.tvProfileEmail.text = getString(R.string.email_not_available)
-                binding.etProfileUsername.setText(getString(R.string.username_not_defined))
-                binding.etProfileBio.setText("")
-                binding.etProfileCity.setText("")
-                binding.ivProfilePicture.setImageResource(R.drawable.ic_profile_placeholder)
-                binding.ivCoverPhoto.setImageResource(R.drawable.profile_header_gradient)
-            }
+        } else if (!state.isLoading) {
+            binding.tvProfileEmail.text = getString(R.string.email_not_available)
+            binding.etProfileUsername.setText(getString(R.string.username_not_defined))
+            binding.etProfileBio.setText("")
+            binding.etProfileCity.setText("")
+            binding.ivProfilePicture.setImageResource(R.drawable.ic_profile_placeholder)
+            binding.ivCoverPhoto.setImageResource(R.drawable.profile_header_gradient)
         }
 
         updateCurrentReadingUi(state.currentReading)
@@ -290,13 +284,11 @@ class ProfileFragment : Fragment() {
             navigateToAuthActivity()
         }
 
-        // MODIFICATION : Le listener définit maintenant le type de recadrage et lance le launcher générique.
         binding.fabSelectPicture.setOnClickListener {
             currentCropType = CROP_TYPE_PROFILE
             pickImageLauncher.launch("image/*")
         }
 
-        // MODIFICATION : Le listener définit maintenant le type de recadrage et lance le launcher générique.
         binding.fabEditCover.setOnClickListener {
             currentCropType = CROP_TYPE_COVER
             pickImageLauncher.launch("image/*")
@@ -329,6 +321,13 @@ class ProfileFragment : Fragment() {
         binding.btnManageCurrentReading.setOnClickListener {
             Log.d(TAG, "Bouton 'Gérer la lecture' cliqué. Navigation vers l'écran d'édition.")
             val action = ProfileFragmentDirections.actionNavigationMembersProfileToEditCurrentReadingFragment()
+            findNavController().navigate(action)
+        }
+
+        // JUSTIFICATION DE L'AJOUT : Ajout du listener pour le nouveau bouton.
+        // Il déclenchera la navigation vers le AdminPanelFragment.
+        binding.buttonAdminPanel.setOnClickListener {
+            val action = ProfileFragmentDirections.actionNavigationMembersProfileToAdminPanelFragment()
             findNavController().navigate(action)
         }
     }

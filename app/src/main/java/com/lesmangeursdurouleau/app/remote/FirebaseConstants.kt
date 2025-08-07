@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier FirebaseConstants.kt mis à jour
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier FirebaseConstants.kt
 package com.lesmangeursdurouleau.app.remote
 
 object FirebaseConstants {
@@ -29,9 +29,12 @@ object FirebaseConstants {
 
 
     // --- CHEMINS FIREBASE STORAGE ---
-    // JUSTIFICATION DE L'AJOUT : Centralisation des chemins de stockage pour éviter les erreurs
-    // de frappe et faciliter la maintenance. Chaque type d'image a son propre chemin racine.
     const val STORAGE_PROFILE_PICTURES = "profile_pictures"
     const val STORAGE_COVER_PICTURES = "cover_pictures"
     const val STORAGE_CHAT_IMAGES = "chat_images"
+    // JUSTIFICATION DE L'AJOUT : Nouveaux chemins dédiés pour les ressources des livres.
+    // Cela permet de structurer proprement les fichiers dans Firebase Storage et de définir
+    // des règles de sécurité spécifiques si nécessaire.
+    const val STORAGE_BOOK_COVERS = "book_covers"
+    const val STORAGE_BOOK_PDFS = "book_pdfs"
 }

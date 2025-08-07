@@ -13,10 +13,13 @@ import java.util.Date
  * @param userId L'ID de l'utilisateur qui a terminé ce livre.
  * @param completionDate La date à laquelle la lecture a été marquée comme terminée. Sera générée par le serveur.
  */
+@Deprecated(
+    message = "Ce modèle est obsolète. Utilisez UserLibraryEntry avec le statut ReadingStatus.FINISHED à la place.",
+    replaceWith = ReplaceWith("UserLibraryEntry", "com.lesmangeursdurouleau.app.data.model.UserLibraryEntry")
+)
 data class CompletedReading(
     var bookId: String = "",
     var userId: String = "",
     @ServerTimestamp
     var completionDate: Date? = null
-    // SUPPRIMÉ: title, author, coverImageUrl, totalPages. Ces champs provoquaient une duplication de données.
 )
