@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier EditCurrentReadingViewModel.kt
 package com.lesmangeursdurouleau.app.ui.readings
 
 import androidx.lifecycle.SavedStateHandle
@@ -9,7 +10,6 @@ import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.ReadingStatus
 import com.lesmangeursdurouleau.app.data.model.UserLibraryEntry
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
-// CORRECTION : Importation du UseCase correct (au singulier).
 import com.lesmangeursdurouleau.app.domain.usecase.library.GetLibraryEntryUseCase
 import com.lesmangeursdurouleau.app.domain.usecase.library.UpdateLibraryEntryUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
@@ -34,12 +34,11 @@ data class EditReadingUiState(
 
 @HiltViewModel
 class EditCurrentReadingViewModel @Inject constructor(
-    private val bookRepository: BookRepository, // Conservé pour la suppression
-    // CORRECTION : Injection du UseCase correct (au singulier) pour récupérer une seule entrée.
+    private val bookRepository: BookRepository,
     private val getLibraryEntryUseCase: GetLibraryEntryUseCase,
     private val updateLibraryEntryUseCase: UpdateLibraryEntryUseCase,
     private val firebaseAuth: FirebaseAuth,
-    private val savedStateHandle: SavedStateHandle
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val bookIdFromNav: String? = savedStateHandle.get("bookId")
@@ -58,50 +57,39 @@ class EditCurrentReadingViewModel @Inject constructor(
 
     private fun loadReadingEntry() {
         val userId = currentUserId
-        val bookId = bookIdFromNav
-
         if (userId.isNullOrBlank()) {
             _uiState.update { it.copy(isLoading = false, error = "Utilisateur non connecté.") }
             return
         }
 
+        val bookId = bookIdFromNav
         if (bookId.isNullOrBlank()) {
-            _uiState.update { it.copy(isLoading = false, error = null) }
+            _uiState.update { it.copy(isLoading = false) }
             return
         }
 
         viewModelScope.launch {
-            // CORRECTION : Appel du UseCase correct, qui prend bien userId et bookId.
-            // Il retourne bien un Flow<Resource<UserLibraryEntry?>>, ce qui correspond au reste du code.
             getLibraryEntryUseCase(userId, bookId)
                 .flatMapLatest { entryResource ->
                     when (entryResource) {
                         is Resource.Success -> {
-                            // La logique ici est maintenant correcte car entryResource.data est bien un UserLibraryEntry?
                             val entry = entryResource.data
                             val bookIdToFetch = entry?.bookId ?: bookId
                             bookRepository.getBookById(bookIdToFetch).map { bookResource ->
                                 Pair(entryResource, bookResource)
                             }
                         }
-                        is Resource.Loading -> flowOf(Pair(entryResource, Resource.Loading<Book?>()))
                         is Resource.Error -> flowOf(Pair(entryResource,
                             entryResource.message?.let { Resource.Error<Book?>(it) }))
+                        is Resource.Loading -> flowOf(Pair(entryResource, Resource.Loading<Book?>()))
                     }
                 }
                 .catch { e ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message ?: "Une erreur inattendue est survenue."
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, error = e.message ?: "Une erreur est survenue.") }
                 }
                 .collect { (entryResource, bookResource) ->
                     _uiState.update { currentState ->
-                        val newError = (entryResource as? Resource.Error)?.message
-                            ?: (bookResource as? Resource.Error)?.message
-
+                        val newError = (entryResource as? Resource.Error)?.message ?: (bookResource as? Resource.Error)?.message
                         currentState.copy(
                             isLoading = entryResource is Resource.Loading || bookResource is Resource.Loading,
                             libraryEntry = (entryResource as? Resource.Success)?.data,
@@ -123,27 +111,23 @@ class EditCurrentReadingViewModel @Inject constructor(
         }
     }
 
-    fun saveReadingEntry(currentPageStr: String, totalPagesStr: String) {
-        val userId = currentUserId
-        if (userId.isNullOrBlank()) {
-            sendEvent(EditReadingEvent.ShowToast("Utilisateur non connecté."))
-            return
-        }
-
+    fun saveReadingEntry(
+        currentPageStr: String,
+        totalPagesStr: String,
+        favoriteQuote: String,
+        personalReflection: String
+    ) {
+        val userId = currentUserId ?: return
         val currentState = _uiState.value
+
         val bookForEntry = currentState.selectedBook ?: currentState.bookDetails
         if (bookForEntry == null || bookForEntry.id.isBlank()) {
-            sendEvent(EditReadingEvent.ShowToast("Aucun livre sélectionné ou ID de livre invalide."))
+            sendEvent(EditReadingEvent.ShowToast("Aucun livre sélectionné ou ID invalide."))
             return
         }
 
         val currentPage = currentPageStr.toIntOrNull() ?: currentState.libraryEntry?.currentPage ?: 0
-
-        // AMÉLIORATION : Logique de totalPages plus robuste.
-        // Priorité : 1. Nouvelle valeur entrée | 2. Ancienne valeur de l'entrée | 3. Valeur par défaut du livre.
-        val totalPages = totalPagesStr.toIntOrNull()
-            ?: currentState.libraryEntry?.totalPages?.takeIf { it > 0 }
-            ?: bookForEntry.totalPages
+        val totalPages = totalPagesStr.toIntOrNull() ?: bookForEntry.totalPages
 
         if (totalPages <= 0 || currentPage < 0 || currentPage > totalPages) {
             sendEvent(EditReadingEvent.ShowToast("Les numéros de pages sont invalides."))
@@ -167,7 +151,9 @@ class EditCurrentReadingViewModel @Inject constructor(
                 currentPage = currentPage,
                 totalPages = totalPages,
                 status = newStatus,
-                lastReadDate = Timestamp.now()
+                lastReadDate = Timestamp.now(),
+                favoriteQuote = favoriteQuote.takeIf { it.isNotBlank() },
+                personalReflection = personalReflection.takeIf { it.isNotBlank() }
             )
 
             val result = updateLibraryEntryUseCase(userId, entryToSave)
@@ -188,15 +174,8 @@ class EditCurrentReadingViewModel @Inject constructor(
         sendEvent(EditReadingEvent.ShowDeleteConfirmationDialog)
     }
 
-
-
     fun removeReadingEntry() {
-        val userId = currentUserId
-        if (userId.isNullOrBlank()) {
-            sendEvent(EditReadingEvent.ShowToast("Utilisateur non connecté."))
-            return
-        }
-
+        val userId = currentUserId ?: return
         val bookToRemoveId = _uiState.value.selectedBook?.id ?: _uiState.value.bookDetails?.id
 
         if (bookToRemoveId.isNullOrBlank()) {

@@ -511,4 +511,5 @@
     <string name="add_to_my_library">Ajout dans la librairie</string>
     <string name="book_details_default_title">Ceci est un string par défaut</string>
     <string name="pdf_page_content_description">12</string>
+    <string name="loading">Chargement...\n</string>
 </resources>

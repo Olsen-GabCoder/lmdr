@@ -211,6 +211,13 @@
         android:name="com.lesmangeursdurouleau.app.ui.readings.EditCurrentReadingFragment"
         android:label="@string/edit_reading_title"
         tools:layout="@layout/fragment_edit_current_reading">
+
+        <argument
+            android:name="bookId"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+
         <action
             android:id="@+id/action_editCurrentReadingFragment_to_bookSelectionFragment"
             app:destination="@id/bookSelectionFragment"

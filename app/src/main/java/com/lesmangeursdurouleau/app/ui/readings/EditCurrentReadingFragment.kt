@@ -3,7 +3,6 @@ package com.lesmangeursdurouleau.app.ui.readings
 
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -35,10 +34,6 @@ class EditCurrentReadingFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: EditCurrentReadingViewModel by viewModels()
-
-    companion object {
-        private const val TAG = "EditCurrentReadingFragment"
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -121,9 +116,10 @@ class EditCurrentReadingFragment : Fragment() {
         binding.btnSaveReading.setOnClickListener {
             val currentPageText = binding.etCurrentPageInput.text.toString()
             val totalPagesText = binding.etTotalPagesInput.text.toString()
-            // NOTE: Les champs 'favoriteQuote' et 'personalReflection' ont été retirés du modèle UserLibraryEntry pour le moment.
-            // Si besoin, ils devront être ajoutés au modèle et gérés ici.
-            viewModel.saveReadingEntry(currentPageText, totalPagesText)
+            val favoriteQuote = binding.etFavoriteQuoteInput.text.toString()
+            val personalReflection = binding.etPersonalReflectionInput.text.toString()
+
+            viewModel.saveReadingEntry(currentPageText, totalPagesText, favoriteQuote, personalReflection)
         }
 
         binding.btnRemoveReading.setOnClickListener {
@@ -149,10 +145,8 @@ class EditCurrentReadingFragment : Fragment() {
         binding.btnSelectBook.isEnabled = enable
         binding.etCurrentPageInput.isEnabled = enable
         binding.etTotalPagesInput.isEnabled = enable
-        // Les champs 'favoriteQuote' et 'personalReflection' n'existent plus dans le layout par défaut.
-        // Si vous les avez, leurs lignes correspondantes seraient ici:
-        // binding.etFavoriteQuoteInput.isEnabled = enable
-        // binding.etPersonalReflectionInput.isEnabled = enable
+        binding.etFavoriteQuoteInput.isEnabled = enable
+        binding.etPersonalReflectionInput.isEnabled = enable
     }
 
     private fun populateForm(uiState: EditReadingUiState) {
@@ -176,15 +170,17 @@ class EditCurrentReadingFragment : Fragment() {
             binding.btnSelectBook.text = getString(R.string.select_book_button)
         }
 
-        // Pré-remplir les champs de progression
         val libraryEntry = uiState.libraryEntry
         if (uiState.selectedBook == null && libraryEntry != null) {
             binding.etCurrentPageInput.setText(libraryEntry.currentPage.toString())
             binding.etTotalPagesInput.setText(libraryEntry.totalPages.toString())
+            binding.etFavoriteQuoteInput.setText(libraryEntry.favoriteQuote ?: "")
+            binding.etPersonalReflectionInput.setText(libraryEntry.personalReflection ?: "")
         } else {
-            // Si un nouveau livre est sélectionné ou s'il n'y a pas d'entrée, on vide les champs.
             binding.etCurrentPageInput.setText("")
             binding.etTotalPagesInput.setText("")
+            binding.etFavoriteQuoteInput.setText("")
+            binding.etPersonalReflectionInput.setText("")
         }
     }
 

@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier UserProfileRepositoryImpl.kt mis à jour
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier UserProfileRepositoryImpl.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -84,29 +84,17 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * JUSTIFICATION DE L'AJOUT : Implémentation de la nouvelle méthode pour la mise à jour de la photo de couverture.
-     * La structure est symétrique à `updateUserProfilePicture` pour maintenir la cohérence.
-     * 1. Vérifie l'authentification.
-     * 2. Appelle une méthode dédiée `uploadCoverPicture` dans `FirebaseStorageService`. (NOTE : Cette méthode est supposée exister et doit être créée).
-     * 3. Si l'upload réussit, met à jour le champ `coverPictureUrl` dans le document Firestore de l'utilisateur.
-     * 4. Ne met PAS à jour le `photoUri` du profil Auth de Firebase, car il n'y a pas de champ pour une photo de couverture.
-     * 5. Retourne le `Resource<String>` avec l'URL de la nouvelle couverture.
-     */
     override suspend fun updateUserCoverPicture(userId: String, imageData: ByteArray): Resource<String> {
         return try {
             val user = firebaseAuth.currentUser
             if (user == null || user.uid != userId) return Resource.Error("Erreur d'authentification.")
 
-            // ATTENTION : Ce code suppose l'existence de la méthode `uploadCoverPicture` dans le service.
-            // Il ne compilera pas tant que cette méthode ne sera pas ajoutée à `FirebaseStorageService`.
             val uploadResult = firebaseStorageService.uploadCoverPicture(userId, imageData)
 
             if (uploadResult is Resource.Success) {
                 val coverUrl = uploadResult.data
                 if (coverUrl.isNullOrBlank()) return Resource.Error("L'URL de l'image de couverture est vide.")
 
-                // Met à jour le champ `coverPictureUrl` dans Firestore.
                 usersCollection.document(userId).set(mapOf("coverPictureUrl" to coverUrl), SetOptions.merge()).await()
 
                 Resource.Success(coverUrl)
@@ -209,15 +197,6 @@ class UserProfileRepositoryImpl @Inject constructor(
         return try {
             if (firebaseAuth.currentUser?.uid != userId) return Resource.Error("Erreur d'authentification.")
             usersCollection.document(userId).update("city", city).await()
-            Resource.Success(Unit)
-        } catch (e: Exception) {
-            Resource.Error("Erreur: ${e.localizedMessage}")
-        }
-    }
-
-    override suspend fun updateUserEditPermission(userId: String, canEdit: Boolean): Resource<Unit> {
-        return try {
-            usersCollection.document(userId).update("canEditReadings", canEdit).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
             Resource.Error("Erreur: ${e.localizedMessage}")

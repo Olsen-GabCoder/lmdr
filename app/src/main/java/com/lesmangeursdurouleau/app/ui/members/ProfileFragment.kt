@@ -155,9 +155,6 @@ class ProfileFragment : Fragment() {
         binding.fabSelectPicture.isEnabled = !state.isSaving
         binding.fabEditCover.isEnabled = !state.isSaving
 
-        // JUSTIFICATION DE LA MODIFICATION : Contrôle de la visibilité du bouton admin.
-        // La vue est mise à jour en fonction de la propriété `isAdmin` de l'UiState,
-        // qui est elle-même alimentée par le rôle de l'utilisateur.
         binding.buttonAdminPanel.isVisible = state.isAdmin
 
         state.screenError?.let {
@@ -166,9 +163,9 @@ class ProfileFragment : Fragment() {
 
         if (state.user != null) {
             val user = state.user
-            binding.tvProfileEmail.text = user.email ?: getString(R.string.email_not_available)
+            binding.tvProfileEmail.text = user.email
             if (!binding.etProfileUsername.isFocused) {
-                binding.etProfileUsername.setText(user.username ?: getString(R.string.username_not_defined))
+                binding.etProfileUsername.setText(user.username)
             }
             if (!binding.etProfileBio.isFocused) {
                 binding.etProfileBio.setText(user.bio ?: "")
@@ -212,67 +209,68 @@ class ProfileFragment : Fragment() {
         }
     }
 
-    private fun updateCurrentReadingUi(uiState: PrivateCurrentReadingUiState) {
-        binding.cardPrivateCurrentReading.visibility = View.VISIBLE
-        binding.btnManageCurrentReading.visibility = View.VISIBLE
-        binding.btnManageCurrentReading.isEnabled = !uiState.isLoading
+    private fun updateCurrentReadingUi(readingState: PrivateCurrentReadingUiState) {
+        binding.cardPrivateCurrentReading.isVisible = true
+        binding.btnManageCurrentReading.isVisible = true
+        binding.btnManageCurrentReading.isEnabled = !readingState.isLoading
+
+        val libraryEntry = readingState.libraryEntry
+        val bookDetails = readingState.bookDetails
 
         when {
-            uiState.isLoading -> {
-                binding.tvPrivateCurrentReadingBookTitle.text = ""
+            readingState.isLoading -> {
+                binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.loading)
                 binding.tvPrivateCurrentReadingBookAuthor.text = ""
                 binding.ivPrivateCurrentReadingBookCover.setImageResource(android.R.color.transparent)
-                binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
-                binding.progressBarPrivateCurrentReading.visibility = View.GONE
-                binding.llPrivatePersonalReflectionSection.visibility = View.GONE
+                binding.tvPrivateCurrentReadingProgressText.isVisible = false
+                binding.progressBarPrivateCurrentReading.isVisible = false
+                binding.llPrivatePersonalReflectionSection.isVisible = false
                 binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
             }
-            uiState.error != null -> {
+            readingState.error != null -> {
                 binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.error_loading_data)
-                binding.tvPrivateCurrentReadingBookAuthor.text = uiState.error
-                binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_error)
+                binding.tvPrivateCurrentReadingBookAuthor.text = readingState.error
+                binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_book_placeholder_error)
             }
-            uiState.bookReading == null || uiState.bookDetails == null -> {
+            libraryEntry == null || bookDetails == null -> {
                 binding.tvPrivateCurrentReadingBookTitle.text = getString(R.string.no_current_reading_title)
                 binding.tvPrivateCurrentReadingBookAuthor.text = getString(R.string.tap_to_add_reading)
                 binding.ivPrivateCurrentReadingBookCover.setImageResource(R.drawable.ic_add_book_placeholder)
-                binding.tvPrivateCurrentReadingProgressText.visibility = View.GONE
-                binding.progressBarPrivateCurrentReading.visibility = View.GONE
-                binding.llPrivatePersonalReflectionSection.visibility = View.GONE
+                binding.tvPrivateCurrentReadingProgressText.isVisible = false
+                binding.progressBarPrivateCurrentReading.isVisible = false
+                binding.llPrivatePersonalReflectionSection.isVisible = false
                 binding.btnManageCurrentReading.setText(R.string.add_reading_button)
             }
             else -> {
-                binding.tvPrivateCurrentReadingProgressText.visibility = View.VISIBLE
-                binding.progressBarPrivateCurrentReading.visibility = View.VISIBLE
+                binding.tvPrivateCurrentReadingProgressText.isVisible = true
+                binding.progressBarPrivateCurrentReading.isVisible = true
                 binding.btnManageCurrentReading.setText(R.string.manage_reading_button)
 
-                val reading = uiState.bookReading
-                val book = uiState.bookDetails
-
                 Glide.with(this@ProfileFragment)
-                    .load(book.coverImageUrl)
+                    .load(bookDetails.coverImageUrl)
                     .placeholder(R.drawable.ic_book_placeholder)
-                    .error(R.drawable.ic_book_placeholder)
+                    .error(R.drawable.ic_book_placeholder_error)
                     .transition(DrawableTransitionOptions.withCrossFade())
                     .into(binding.ivPrivateCurrentReadingBookCover)
 
-                binding.tvPrivateCurrentReadingBookTitle.text = book.title
-                binding.tvPrivateCurrentReadingBookAuthor.text = book.author
+                binding.tvPrivateCurrentReadingBookTitle.text = bookDetails.title
+                binding.tvPrivateCurrentReadingBookAuthor.text = bookDetails.author
 
-                if (reading.totalPages > 0) {
-                    binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_format, reading.currentPage, reading.totalPages)
-                    binding.progressBarPrivateCurrentReading.progress = (reading.currentPage.toFloat() / reading.totalPages.toFloat() * 100).toInt()
+                if (libraryEntry.totalPages > 0) {
+                    binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_format, libraryEntry.currentPage, libraryEntry.totalPages)
+                    binding.progressBarPrivateCurrentReading.progress = (libraryEntry.currentPage.toFloat() / libraryEntry.totalPages * 100).toInt()
                 } else {
                     binding.tvPrivateCurrentReadingProgressText.text = getString(R.string.page_progress_unknown)
                     binding.progressBarPrivateCurrentReading.progress = 0
                 }
 
-                val personalNote = reading.favoriteQuote?.takeIf { it.isNotBlank() } ?: reading.personalReflection?.takeIf { it.isNotBlank() }
-                if (!personalNote.isNullOrBlank()) {
-                    binding.llPrivatePersonalReflectionSection.visibility = View.VISIBLE
+                // CORRECTION : On affiche la note personnelle (privée) et non la citation (publique).
+                val personalNote = libraryEntry.personalReflection?.takeIf { it.isNotBlank() }
+                if (personalNote != null) {
+                    binding.llPrivatePersonalReflectionSection.isVisible = true
                     binding.tvPrivateCurrentReadingPersonalNote.text = personalNote
                 } else {
-                    binding.llPrivatePersonalReflectionSection.visibility = View.GONE
+                    binding.llPrivatePersonalReflectionSection.isVisible = false
                 }
             }
         }
@@ -298,8 +296,6 @@ class ProfileFragment : Fragment() {
             val newUsername = binding.etProfileUsername.text.toString().trim()
             val newBio = binding.etProfileBio.text.toString().trim()
             val newCity = binding.etProfileCity.text.toString().trim()
-
-            Log.d(TAG, "Clic sur Enregistrer. Transmission des données au ViewModel.")
             profileViewModel.updateProfile(newUsername, newBio, newCity)
         }
 
@@ -319,13 +315,11 @@ class ProfileFragment : Fragment() {
         }
 
         binding.btnManageCurrentReading.setOnClickListener {
-            Log.d(TAG, "Bouton 'Gérer la lecture' cliqué. Navigation vers l'écran d'édition.")
-            val action = ProfileFragmentDirections.actionNavigationMembersProfileToEditCurrentReadingFragment()
+            val bookId = profileViewModel.uiState.value.currentReading.libraryEntry?.bookId
+            val action = ProfileFragmentDirections.actionNavigationMembersProfileToEditCurrentReadingFragment(bookId)
             findNavController().navigate(action)
         }
 
-        // JUSTIFICATION DE L'AJOUT : Ajout du listener pour le nouveau bouton.
-        // Il déclenchera la navigation vers le AdminPanelFragment.
         binding.buttonAdminPanel.setOnClickListener {
             val action = ProfileFragmentDirections.actionNavigationMembersProfileToAdminPanelFragment()
             findNavController().navigate(action)
@@ -343,6 +337,5 @@ class ProfileFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-        Log.d(TAG, "onDestroyView: Binding nulifié.")
     }
 }

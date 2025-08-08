@@ -9,10 +9,11 @@ import com.lesmangeursdurouleau.app.data.model.Book
 import com.lesmangeursdurouleau.app.data.model.Role
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.data.model.UserBookReading
+import com.lesmangeursdurouleau.app.data.model.UserLibraryEntry
 import com.lesmangeursdurouleau.app.data.repository.AuthRepository
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
-import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
 import com.lesmangeursdurouleau.app.data.repository.UserProfileRepository
+import com.lesmangeursdurouleau.app.domain.usecase.library.GetCurrentlyReadingEntryUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -29,16 +30,15 @@ data class ProfileUiState(
     val user: User? = null,
     val currentReading: PrivateCurrentReadingUiState = PrivateCurrentReadingUiState(),
     val screenError: String? = null,
-    // JUSTIFICATION DE L'AJOUT : Ce booléen expose directement à l'UI si l'utilisateur
-    // est un administrateur. Le Fragment n'aura plus qu'à observer cette valeur
-    // pour afficher ou cacher les options d'administration.
     val isAdmin: Boolean = false
 )
 
+// MODIFIÉ : Ajout de libraryEntry pour la nouvelle logique, tout en conservant bookReading pour la compatibilité.
 data class PrivateCurrentReadingUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
-    val bookReading: UserBookReading? = null,
+    val bookReading: UserBookReading? = null, // Conservé pour le Fragment
+    val libraryEntry: UserLibraryEntry? = null, // La nouvelle source de vérité
     val bookDetails: Book? = null
 )
 
@@ -46,12 +46,8 @@ data class PrivateCurrentReadingUiState(
 class ProfileViewModel @Inject constructor(
     private val userProfileRepository: UserProfileRepository,
     private val bookRepository: BookRepository,
-    private val readingRepository: ReadingRepository,
-    // JUSTIFICATION DE L'AJOUT : Injection du AuthRepository pour accéder
-    // à l'état d'authentification et au rôle de l'utilisateur.
     private val authRepository: AuthRepository,
-    // Note : FirebaseAuth pourrait être supprimé si toutes ses utilisations sont remplacées par AuthRepository.
-    // Pour l'instant, nous le gardons pour une transition en douceur.
+    private val getCurrentlyReadingEntryUseCase: GetCurrentlyReadingEntryUseCase, // NOUVELLE DÉPENDANCE
     internal val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
@@ -108,20 +104,37 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun getCurrentReadingFlow(userId: String): Flow<PrivateCurrentReadingUiState> {
-        return readingRepository.getCurrentReading(userId)
-            .flatMapLatest { readingResource ->
-                when (readingResource) {
+        return getCurrentlyReadingEntryUseCase(userId)
+            .flatMapLatest { entryResource ->
+                when (entryResource) {
                     is Resource.Loading<*> -> flowOf(PrivateCurrentReadingUiState(isLoading = true))
-                    is Resource.Error<*> -> flowOf(PrivateCurrentReadingUiState(isLoading = false, error = readingResource.message))
+                    is Resource.Error<*> -> flowOf(PrivateCurrentReadingUiState(isLoading = false, error = entryResource.message))
                     is Resource.Success<*> -> {
-                        val reading = readingResource.data
-                        if (reading != null) {
-                            bookRepository.getBookById(reading.bookId).map { bookResource ->
+                        val entry = entryResource.data
+                        if (entry != null) {
+                            bookRepository.getBookById(entry.bookId).map { bookResource ->
+                                val bookDetails = (bookResource as? Resource.Success)?.data
+
+                                // Reconstruire le modèle "legacy" UserBookReading pour la compatibilité avec le Fragment
+                                val legacyBookReading = bookDetails?.let {
+                                    UserBookReading(
+                                        bookId = entry.bookId,
+                                        title = it.title,
+                                        author = it.author,
+                                        coverImageUrl = it.coverImageUrl,
+                                        currentPage = entry.currentPage,
+                                        totalPages = entry.totalPages,
+                                        favoriteQuote = entry.favoriteQuote,
+                                        personalReflection = entry.personalReflection
+                                    )
+                                }
+
                                 PrivateCurrentReadingUiState(
                                     isLoading = bookResource is Resource.Loading<*>,
                                     error = if (bookResource is Resource.Error<*>) bookResource.message else null,
-                                    bookReading = reading,
-                                    bookDetails = if (bookResource is Resource.Success<*>) bookResource.data else null
+                                    bookReading = legacyBookReading, // On peuple l'ancien champ
+                                    libraryEntry = entry,           // On peuple le nouveau champ
+                                    bookDetails = bookDetails
                                 )
                             }
                         } else {
@@ -165,30 +178,6 @@ class ProfileViewModel @Inject constructor(
             } else {
                 Log.i(TAG, "Profil mis à jour avec succès.")
                 _eventFlow.emit(ProfileEvent.ShowSnackbar("Profil enregistré avec succès !"))
-            }
-        }
-    }
-
-    fun updateCurrentReading(userBookReading: UserBookReading?) {
-        val userId = firebaseAuth.currentUser?.uid
-        if (userId.isNullOrBlank()) {
-            _uiState.update { it.copy(currentReading = it.currentReading.copy(error = "Utilisateur non connecté pour gérer la lecture.")) }
-            Log.e(TAG, "updateCurrentReading: UserID is null, cannot update current reading.")
-            return
-        }
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(currentReading = it.currentReading.copy(isLoading = true, error = null)) }
-            val result = readingRepository.updateCurrentReading(userId, userBookReading)
-            when (result) {
-                is Resource.Success<*> -> {
-                    Log.i(TAG, "updateCurrentReading: Lecture en cours mise à jour avec succès.")
-                }
-                is Resource.Error<*> -> {
-                    Log.e(TAG, "updateCurrentReading: Erreur lors de la mise à jour: ${result.message}")
-                    _uiState.update { it.copy(currentReading = it.currentReading.copy(isLoading = false, error = result.message)) }
-                }
-                is Resource.Loading<*> -> { /* No-op */ }
             }
         }
     }
