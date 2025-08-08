@@ -1,7 +1,10 @@
-// app/src/main/java/com/lesmangeursdurouleau/app/domain/usecase/book/AddBookToLibraryUseCase.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier AddBookToLibraryUseCase.kt
 package com.lesmangeursdurouleau.app.domain.usecase.books
 
+import com.google.firebase.Timestamp
 import com.lesmangeursdurouleau.app.data.model.Book
+import com.lesmangeursdurouleau.app.data.model.ReadingStatus
+import com.lesmangeursdurouleau.app.data.model.UserLibraryEntry
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
 import com.lesmangeursdurouleau.app.utils.Resource
 import javax.inject.Inject
@@ -21,8 +24,21 @@ class AddBookToLibraryUseCase @Inject constructor(
      * @return Un [Resource] indiquant le résultat de l'opération.
      */
     suspend operator fun invoke(userId: String, book: Book): Resource<Unit> {
-        // Valider les entrées ici si nécessaire, bien que le repository le fasse déjà.
-        // Pour ce cas simple, on délègue directement l'appel au repository.
-        return bookRepository.addBookToUserLibrary(userId, book)
+        if (userId.isBlank() || book.id.isBlank()) {
+            return Resource.Error("L'ID de l'utilisateur et du livre sont requis.")
+        }
+
+        // Création de l'entrée de bibliothèque initiale.
+        val newLibraryEntry = UserLibraryEntry(
+            bookId = book.id,
+            userId = userId,
+            status = ReadingStatus.TO_READ, // Statut par défaut à l'ajout
+            currentPage = 0,
+            totalPages = book.totalPages,
+            lastReadDate = Timestamp.now() // Initialise la date pour le tri
+        )
+
+        // Utilise la méthode unifiée de mise à jour/création.
+        return bookRepository.updateLibraryEntry(userId, newLibraryEntry)
     }
 }

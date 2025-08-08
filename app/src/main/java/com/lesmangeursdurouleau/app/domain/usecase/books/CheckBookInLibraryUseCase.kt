@@ -1,9 +1,10 @@
-// app/src/main/java/com/lesmangeursdurouleau/app/domain/usecase/book/CheckBookInLibraryUseCase.kt
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier CheckBookInLibraryUseCase.kt
 package com.lesmangeursdurouleau.app.domain.usecase.books
 
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
 import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /**
@@ -23,6 +24,14 @@ class CheckBookInLibraryUseCase @Inject constructor(
      * `false` sinon, et gère les états de chargement et d'erreur.
      */
     operator fun invoke(userId: String, bookId: String): Flow<Resource<Boolean>> {
-        return bookRepository.isBookInUserLibrary(userId, bookId)
+        // Appelle la nouvelle méthode du repository qui retourne l'entrée complète.
+        return bookRepository.getLibraryEntry(userId, bookId).map { resource ->
+            // Transforme le résultat pour correspondre au contrat du Use Case.
+            when (resource) {
+                is Resource.Success -> Resource.Success(resource.data != null)
+                is Resource.Error -> Resource.Error(resource.message ?: "Erreur inconnue")
+                is Resource.Loading -> Resource.Loading()
+            }
+        }
     }
 }

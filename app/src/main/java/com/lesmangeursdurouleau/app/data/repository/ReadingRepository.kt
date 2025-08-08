@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier ReadingRepository.kt par ceci.
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier ReadingRepository.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import com.google.firebase.firestore.Query
@@ -12,6 +12,10 @@ import kotlinx.coroutines.flow.Flow
  * (lecture active et historique des lectures terminées).
  * La logique sociale (commentaires, likes) a été déplacée dans un repository dédié.
  */
+@Deprecated(
+    message = "Ce repository est obsolète. La logique de gestion de la bibliothèque personnelle a été unifiée dans BookRepository en utilisant le modèle UserLibraryEntry.",
+    replaceWith = ReplaceWith("BookRepository", "com.lesmangeursdurouleau.app.data.repository.BookRepository")
+)
 interface ReadingRepository {
 
     /**

@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier CompletedReadingsFragment.kt par ceci.
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier CompletedReadingsFragment.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.os.Bundle
@@ -19,7 +19,6 @@ import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.Query
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.databinding.FragmentCompletedReadingsBinding
 import com.lesmangeursdurouleau.app.utils.Resource
@@ -60,7 +59,6 @@ class CompletedReadingsFragment : Fragment() {
 
     private fun setupRecyclerView() {
         val currentUserId = firebaseAuth.currentUser?.uid
-        // MODIFIÉ: Initialisation du nouvel adaptateur
         completedReadingsAdapter = CompletedReadingsAdapter(
             currentUserId = currentUserId,
             profileOwnerId = args.userId,
@@ -90,22 +88,22 @@ class CompletedReadingsFragment : Fragment() {
     private fun setupSortChips() {
         binding.sortChipGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
-                R.id.chip_sort_date_desc -> viewModel.setSortOption("completionDate", Query.Direction.DESCENDING)
-                R.id.chip_sort_date_asc -> viewModel.setSortOption("completionDate", Query.Direction.ASCENDING)
-                R.id.chip_sort_title_asc -> viewModel.setSortOption("title", Query.Direction.ASCENDING)
-                R.id.chip_sort_author_asc -> viewModel.setSortOption("author", Query.Direction.ASCENDING)
+                R.id.chip_sort_date_desc -> viewModel.setSortOption("lastReadDate", SortDirection.DESCENDING)
+                R.id.chip_sort_date_asc -> viewModel.setSortOption("lastReadDate", SortDirection.ASCENDING)
+                R.id.chip_sort_title_asc -> viewModel.setSortOption("title", SortDirection.ASCENDING)
+                R.id.chip_sort_author_asc -> viewModel.setSortOption("author", SortDirection.ASCENDING)
             }
         }
     }
 
-    private fun showDeleteConfirmationDialog(item: CompletedReadingWithBook) {
+    private fun showDeleteConfirmationDialog(item: CompletedReadingUiModel) {
         val bookTitle = item.book?.title ?: getString(R.string.unknown_book_title)
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.delete_reading_dialog_title)
             .setMessage(getString(R.string.delete_reading_dialog_message, bookTitle))
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.delete) { _, _ ->
-                viewModel.deleteCompletedReading(item.completedReading.bookId)
+                viewModel.removeReadingFromLibrary(item.libraryEntry.bookId)
             }
             .show()
     }
@@ -114,8 +112,7 @@ class CompletedReadingsFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    // MODIFIÉ: Observation du nouveau flow de données combinées
-                    viewModel.completedReadingsWithBooks.collectLatest { resource ->
+                    viewModel.completedReadings.collectLatest { resource ->
                         val showToolbar = resource is Resource.Success && !resource.data.isNullOrEmpty()
                         binding.sortToolbar.isVisible = showToolbar
                         binding.divider.isVisible = showToolbar
@@ -125,7 +122,7 @@ class CompletedReadingsFragment : Fragment() {
 
                         val isSuccessAndEmpty = resource is Resource.Success && resource.data.isNullOrEmpty()
                         binding.tvNoCompletedReadings.isVisible = isSuccessAndEmpty
-                        if(isSuccessAndEmpty) {
+                        if (isSuccessAndEmpty) {
                             binding.tvNoCompletedReadings.text = getString(R.string.no_completed_readings_yet, args.username ?: "cet utilisateur")
                         }
 
@@ -145,7 +142,7 @@ class CompletedReadingsFragment : Fragment() {
 
                 launch {
                     viewModel.deleteStatus.collectLatest { resource ->
-                        when(resource) {
+                        when (resource) {
                             is Resource.Success -> Toast.makeText(context, R.string.reading_deleted_successfully, Toast.LENGTH_SHORT).show()
                             is Resource.Error -> Toast.makeText(context, resource.message, Toast.LENGTH_LONG).show()
                             else -> { /* No-op */ }

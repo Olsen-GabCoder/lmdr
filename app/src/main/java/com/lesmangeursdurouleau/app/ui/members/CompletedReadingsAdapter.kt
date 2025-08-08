@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Nouveau Fichier
+// PRÊT À COLLER - Remplacez tout le contenu de votre fichier CompletedReadingsAdapter.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.view.LayoutInflater
@@ -10,24 +10,16 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.lesmangeursdurouleau.app.R
-import com.lesmangeursdurouleau.app.data.model.Book
-import com.lesmangeursdurouleau.app.data.model.CompletedReading
 import com.lesmangeursdurouleau.app.databinding.ItemCompletedReadingBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// NOUVELLE data class pour la couche UI, combinant les données.
-data class CompletedReadingWithBook(
-    val completedReading: CompletedReading,
-    val book: Book? // Peut être null si le livre a été supprimé
-)
-
 class CompletedReadingsAdapter(
     private val currentUserId: String?,
     private val profileOwnerId: String,
-    private val onItemClickListener: (CompletedReadingWithBook, ImageView) -> Unit,
-    private val onDeleteClickListener: (CompletedReadingWithBook) -> Unit
-) : ListAdapter<CompletedReadingWithBook, CompletedReadingsAdapter.ViewHolder>(DiffCallback()) {
+    private val onItemClickListener: (CompletedReadingUiModel, ImageView) -> Unit,
+    private val onDeleteClickListener: (CompletedReadingUiModel) -> Unit
+) : ListAdapter<CompletedReadingUiModel, CompletedReadingsAdapter.ViewHolder>(DiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemCompletedReadingBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -52,12 +44,11 @@ class CompletedReadingsAdapter(
             }
         }
 
-        fun bind(item: CompletedReadingWithBook) {
+        fun bind(item: CompletedReadingUiModel) {
             binding.btnDeleteReading.isVisible = currentUserId == profileOwnerId
 
             val book = item.book
             if (book != null) {
-                // Si le livre existe, on affiche ses informations
                 binding.tvBookTitle.text = book.title
                 binding.tvBookAuthor.text = book.author
                 Glide.with(itemView.context)
@@ -66,13 +57,13 @@ class CompletedReadingsAdapter(
                     .error(R.drawable.ic_book_placeholder_error)
                     .into(binding.ivBookCover)
             } else {
-                // Si le livre a été supprimé, on affiche un état de fallback
                 binding.tvBookTitle.text = itemView.context.getString(R.string.unknown_book_title)
                 binding.tvBookAuthor.text = itemView.context.getString(R.string.unknown_author)
                 binding.ivBookCover.setImageResource(R.drawable.ic_book_placeholder_error)
             }
 
-            item.completedReading.completionDate?.let { date ->
+            // Utilise la date de la nouvelle UserLibraryEntry
+            item.libraryEntry.lastReadDate?.toDate()?.let { date ->
                 val format = SimpleDateFormat("d MMMM yyyy", Locale.FRENCH)
                 binding.tvCompletionDate.text = itemView.context.getString(R.string.completed_on_date, format.format(date))
             } ?: run {
@@ -81,14 +72,13 @@ class CompletedReadingsAdapter(
         }
     }
 
-    class DiffCallback : DiffUtil.ItemCallback<CompletedReadingWithBook>() {
-        override fun areItemsTheSame(oldItem: CompletedReadingWithBook, newItem: CompletedReadingWithBook): Boolean {
-            // La clé unique est l'ID du livre dans le contexte de l'historique d'un utilisateur.
-            return oldItem.completedReading.bookId == newItem.completedReading.bookId
+    class DiffCallback : DiffUtil.ItemCallback<CompletedReadingUiModel>() {
+        override fun areItemsTheSame(oldItem: CompletedReadingUiModel, newItem: CompletedReadingUiModel): Boolean {
+            // La clé unique est l'ID du livre dans l'entrée de la bibliothèque
+            return oldItem.libraryEntry.bookId == newItem.libraryEntry.bookId
         }
 
-        override fun areContentsTheSame(oldItem: CompletedReadingWithBook, newItem: CompletedReadingWithBook): Boolean {
-            // On compare l'objet complet. Si le livre ou la date changent, l'item est redessiné.
+        override fun areContentsTheSame(oldItem: CompletedReadingUiModel, newItem: CompletedReadingUiModel): Boolean {
             return oldItem == newItem
         }
     }

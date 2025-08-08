@@ -1,30 +1,42 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier CompletedReadingsViewModel.kt par ceci.
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.firestore.Query
+import com.lesmangeursdurouleau.app.data.model.Book
+import com.lesmangeursdurouleau.app.data.model.UserLibraryEntry
 import com.lesmangeursdurouleau.app.data.repository.BookRepository
-import com.lesmangeursdurouleau.app.data.repository.ReadingRepository
+import com.lesmangeursdurouleau.app.domain.usecase.books.GetBooksByIdsUseCase
+import com.lesmangeursdurouleau.app.domain.usecase.library.GetCompletedLibraryEntriesUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.util.*
 import javax.inject.Inject
 
-data class SortOptions(
-    val orderBy: String = "completionDate",
-    val direction: Query.Direction = Query.Direction.DESCENDING
+data class CompletedReadingUiModel(
+    val libraryEntry: UserLibraryEntry,
+    val book: Book?
 )
+
+data class SortOptions(
+    val orderBy: String = "lastReadDate",
+    val direction: SortDirection = SortDirection.DESCENDING
+)
+
+enum class SortDirection {
+    ASCENDING, DESCENDING
+}
 
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class CompletedReadingsViewModel @Inject constructor(
-    private val readingRepository: ReadingRepository,
-    private val bookRepository: BookRepository, // NOUVELLE INJECTION
+    private val bookRepository: BookRepository, // Conservé pour la fonction de suppression
+    private val getCompletedLibraryEntriesUseCase: GetCompletedLibraryEntriesUseCase, // NOUVEAU et CORRECT
+    private val getBooksByIdsUseCase: GetBooksByIdsUseCase, // NOUVEAU et OPTIMISÉ
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -37,82 +49,96 @@ class CompletedReadingsViewModel @Inject constructor(
 
     private val _sortOptions = MutableStateFlow(SortOptions())
 
-    // NOUVELLE logique de flow combiné
-    val completedReadingsWithBooks: StateFlow<Resource<List<CompletedReadingWithBook>>> = _sortOptions
-        .flatMapLatest { options ->
-            // Étape 1: Récupérer la liste des lectures terminées (qui ne contiennent que des ID)
-            val completedReadingsFlow = readingRepository.getCompletedReadings(userId, options.orderBy, options.direction)
-            // Étape 2: Récupérer la liste de tous les livres
-            val allBooksFlow = bookRepository.getAllBooks()
-
-            // Étape 3: Combiner les deux flux
-            completedReadingsFlow.combine(allBooksFlow) { readingsResource, booksResource ->
-                // Gérer les états de chargement et d'erreur des deux flux
-                if (readingsResource is Resource.Loading || booksResource is Resource.Loading) {
-                    return@combine Resource.Loading()
-                }
-                if (readingsResource is Resource.Error) {
-                    return@combine Resource.Error(readingsResource.message ?: "Erreur lectures")
-                }
-                if (booksResource is Resource.Error) {
-                    return@combine Resource.Error(booksResource.message ?: "Erreur livres")
-                }
-
-                // Si les deux flux sont en succès, on procède à la "jointure"
-                if (readingsResource is Resource.Success && booksResource is Resource.Success) {
-                    val readings = readingsResource.data ?: emptyList()
-                    val books = booksResource.data ?: emptyList()
-
-                    // Créer une map pour une recherche rapide (O(1) en moyenne)
-                    val booksMap = books.associateBy { it.id }
-
-                    // Mapper chaque lecture terminée à son livre correspondant
-                    val combinedList = readings.map { reading ->
-                        CompletedReadingWithBook(
-                            completedReading = reading,
-                            book = booksMap[reading.bookId] // Peut être null si le livre a été supprimé
-                        )
+    val completedReadings: StateFlow<Resource<List<CompletedReadingUiModel>>> =
+        _sortOptions.flatMapLatest { options ->
+            // Étape 1: Récupérer uniquement les entrées de bibliothèque terminées (léger et rapide)
+            getCompletedLibraryEntriesUseCase(userId, options).flatMapLatest { entriesResource ->
+                when (entriesResource) {
+                    is Resource.Loading -> {
+                        flowOf(Resource.Loading())
                     }
-                    Log.d(TAG, "Successfully combined ${combinedList.size} readings with their book details.")
-                    Resource.Success(combinedList)
-                } else {
-                    Resource.Error("État inattendu des ressources.")
+                    is Resource.Error -> {
+                        flowOf(Resource.Error(entriesResource.message ?: "Erreur lectures"))
+                    }
+                    is Resource.Success -> {
+                        val completedEntries = entriesResource.data ?: emptyList()
+                        if (completedEntries.isEmpty()) {
+                            // Si pas de livres lus, inutile de continuer, on renvoie une liste vide.
+                            flowOf(Resource.Success(emptyList()))
+                        } else {
+                            val bookIds = completedEntries.map { it.bookId }.distinct()
+
+                            // Étape 2: Récupérer les détails UNIQUEMENT des livres nécessaires (très performant)
+                            getBooksByIdsUseCase(bookIds).map { booksResource ->
+                                when (booksResource) {
+                                    is Resource.Loading -> Resource.Loading()
+                                    is Resource.Error -> Resource.Error(booksResource.message ?: "Erreur livres")
+                                    is Resource.Success -> {
+                                        val booksMap = booksResource.data?.associateBy { it.id } ?: emptyMap()
+
+                                        // Étape 3: Combiner les deux listes de données
+                                        val combinedList = completedEntries.map { entry ->
+                                            CompletedReadingUiModel(
+                                                libraryEntry = entry,
+                                                book = booksMap[entry.bookId]
+                                            )
+                                        }
+
+                                        // Étape 4: Trier en mémoire (obligatoire pour trier par titre/auteur)
+                                        val sortedList = sortInMemory(combinedList, options)
+
+                                        Log.d(TAG, "Affichage de ${sortedList.size} lectures terminées.")
+                                        Resource.Success(sortedList)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        }
-        .catch { e ->
-            Log.e(TAG, "Erreur dans le flow combiné: ${e.message}", e)
-            emit(Resource.Error("Erreur de chargement: ${e.localizedMessage}"))
-        }
-        .stateIn(
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = Resource.Loading()
         )
 
+    private fun sortInMemory(list: List<CompletedReadingUiModel>, options: SortOptions): List<CompletedReadingUiModel> {
+        val comparator = compareBy<CompletedReadingUiModel> {
+            when (options.orderBy) {
+                "title" -> it.book?.title?.lowercase(Locale.ROOT)
+                "author" -> it.book?.author?.lowercase(Locale.ROOT)
+                else -> null // Pour lastReadDate, le tri est déjà fait par Firestore
+            }
+        }
+
+        // Le tri par date est déjà géré par la requête Firestore, qui est plus efficace.
+        // On ne trie ici que si l'option est titre ou auteur.
+        val sortedList = if (options.orderBy == "title" || options.orderBy == "author") {
+            list.sortedWith(comparator)
+        } else {
+            list
+        }
+
+        return if (options.direction == SortDirection.DESCENDING) {
+            sortedList.reversed() // `List.reversed()` est compatible avec toutes les versions d'API
+        } else {
+            sortedList
+        }
+    }
+
     private val _deleteStatus = MutableSharedFlow<Resource<Unit>>()
     val deleteStatus: SharedFlow<Resource<Unit>> = _deleteStatus.asSharedFlow()
 
-    init {
-        Log.d(TAG, "ViewModel initialisé pour userId: $userId")
+    fun setSortOption(orderBy: String, direction: SortDirection) {
+        // Le tri par titre et auteur ne peut pas être fait sur Firestore car les
+        // données ne sont pas dans la même collection. On les fera en mémoire.
+        // Le tri par date sera fait par Firestore pour plus d'efficacité.
+        _sortOptions.value = SortOptions(orderBy, direction)
     }
 
-    fun setSortOption(orderBy: String, direction: Query.Direction) {
-        val newOptions = when (orderBy) {
-            "title", "author" -> {
-                Log.w(TAG, "Le tri par '$orderBy' n'est plus supporté directement par Firestore sur la collection 'completed_readings'. Le tri sera appliqué après la jointure.")
-                // Pour l'instant on garde le tri par défaut et on pourrait trier en mémoire ici.
-                // Pour la simplicité de ce commit, on garde le tri par date.
-                SortOptions(orderBy = "completionDate", direction = direction)
-            }
-            else -> SortOptions(orderBy, direction)
-        }
-        _sortOptions.value = newOptions
-    }
-
-    fun deleteCompletedReading(bookId: String) {
+    fun removeReadingFromLibrary(bookId: String) {
         viewModelScope.launch {
-            val result = readingRepository.removeCompletedReading(userId, bookId)
+            val result = bookRepository.removeBookFromUserLibrary(userId, bookId)
             _deleteStatus.emit(result)
         }
     }
