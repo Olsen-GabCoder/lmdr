@@ -48,7 +48,7 @@ class BookListAdapter(private val onItemClicked: (Book) -> Unit) :
                 Glide.with(context)
                     .load(book.coverImageUrl)
                     .placeholder(R.drawable.ic_book_placeholder)
-                    .error(R.drawable.ic_book_placeholder_error)
+                    .error(R.drawable.ic_book_placeholder)
                     .into(binding.ivBookCoverPlaceholder)
             } else {
                 binding.ivBookCoverPlaceholder.setImageResource(R.drawable.ic_book_placeholder)

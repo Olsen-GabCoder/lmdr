@@ -1,9 +1,8 @@
-// app/src/main/java/com/lesmangeursdurouleau/app/ui/readings/detail/BookDetailViewModel.kt
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier BookDetailViewModel.kt
 package com.lesmangeursdurouleau.app.ui.readings
 
+
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -13,83 +12,87 @@ import com.lesmangeursdurouleau.app.domain.usecase.books.CheckBookInLibraryUseCa
 import com.lesmangeursdurouleau.app.domain.usecase.books.GetBookByIdUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+// === DÉBUT DE LA MODIFICATION ===
+/**
+ * JUSTIFICATION: La classe d'état est enrichie avec `canBeRead`.
+ * Cette propriété encapsule la logique métier (dans la bibliothèque ET a un lien de contenu)
+ * directement dans l'état, ce qui simplifie grandement la logique d'affichage dans le Fragment.
+ */
+data class BookDetailUiState(
+    val book: Book? = null,
+    val isInLibrary: Boolean = false,
+    val canBeRead: Boolean = false, // NOUVELLE PROPRIÉTÉ
+    val isLoading: Boolean = true,
+    val error: String? = null
+)
+// === FIN DE LA MODIFICATION ===
 
 @HiltViewModel
 class BookDetailViewModel @Inject constructor(
     private val getBookByIdUseCase: GetBookByIdUseCase,
     private val addBookToLibraryUseCase: AddBookToLibraryUseCase,
     private val checkBookInLibraryUseCase: CheckBookInLibraryUseCase,
-    private val firebaseAuth: FirebaseAuth // Injecter FirebaseAuth pour obtenir l'UID
+    private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
-    private val _bookDetails = MutableLiveData<Resource<Book?>>()
-    val bookDetails: LiveData<Resource<Book?>> = _bookDetails
+    private val _uiState = MutableStateFlow(BookDetailUiState())
+    val uiState: StateFlow<BookDetailUiState> = _uiState.asStateFlow()
 
-    // LiveData pour l'état de présence du livre dans la bibliothèque
-    private val _isBookInLibrary = MutableLiveData<Resource<Boolean>>()
-    val isBookInLibrary: LiveData<Resource<Boolean>> = _isBookInLibrary
+    private val _addBookEvent = MutableSharedFlow<Resource<Unit>>()
+    val addBookEvent: SharedFlow<Resource<Unit>> = _addBookEvent.asSharedFlow()
 
-    // LiveData pour le résultat de l'ajout du livre
-    private val _addBookToLibraryResult = MutableLiveData<Resource<Unit>>()
-    val addBookToLibraryResult: LiveData<Resource<Unit>> = _addBookToLibraryResult
-
-    private var checkInLibraryJob: Job? = null
-
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun loadBookDetails(bookId: String) {
         if (bookId.isBlank()) {
-            _bookDetails.value = Resource.Error("ID du livre invalide.")
-            Log.w("BookDetailViewModel", "loadBookDetails called with blank bookId.")
+            _uiState.value = BookDetailUiState(isLoading = false, error = "ID du livre invalide.")
             return
         }
 
-        Log.d("BookDetailViewModel", "Loading details for book ID: $bookId")
-        viewModelScope.launch {
-            getBookByIdUseCase(bookId)
-                .catch { e ->
-                    Log.e("BookDetailViewModel", "Exception in book detail flow for ID $bookId", e)
-                    _bookDetails.postValue(Resource.Error("Erreur technique: ${e.localizedMessage}"))
-                }
-                .collectLatest { resource ->
-                    _bookDetails.value = resource
-                    when(resource) {
-                        is Resource.Success -> {
-                            if (resource.data != null) {
-                                Log.d("BookDetailViewModel", "Book ID $bookId loaded: ${resource.data.title}")
-                                // Une fois le livre chargé, on vérifie s'il est dans la bibliothèque
-                                checkIfBookIsInLibrary(resource.data.id)
-                            } else {
-                                Log.d("BookDetailViewModel", "Book ID $bookId not found or data is null.")
-                            }
-                        }
-                        is Resource.Error -> Log.e("BookDetailViewModel", "Error loading book ID $bookId: ${resource.message}")
-                        is Resource.Loading -> Log.d("BookDetailViewModel", "Loading book ID $bookId...")
-                    }
-                }
-        }
-    }
-
-    private fun checkIfBookIsInLibrary(bookId: String) {
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
-            _isBookInLibrary.value = Resource.Error("Utilisateur non authentifié.")
+            _uiState.value = BookDetailUiState(isLoading = false, error = "Utilisateur non authentifié.")
             return
         }
 
-        // Annuler la coroutine précédente si elle existe pour éviter les écoutes multiples
-        checkInLibraryJob?.cancel()
-        checkInLibraryJob = viewModelScope.launch {
-            checkBookInLibraryUseCase(userId, bookId)
-                .catch { e ->
-                    Log.e("BookDetailViewModel", "Exception checking if book is in library", e)
-                    _isBookInLibrary.postValue(Resource.Error("Erreur technique: ${e.localizedMessage}"))
+        viewModelScope.launch {
+            getBookByIdUseCase(bookId)
+                .flatMapLatest { bookResource ->
+                    when (bookResource) {
+                        is Resource.Success -> {
+                            val book = bookResource.data
+                            if (book != null) {
+                                checkBookInLibraryUseCase(userId, book.id).map { libraryResource ->
+                                    val isInLibrary = libraryResource.data ?: false
+                                    // === DÉBUT DE LA MODIFICATION ===
+                                    // La logique de `canBeRead` est calculée ici
+                                    BookDetailUiState(
+                                        book = book,
+                                        isInLibrary = isInLibrary,
+                                        canBeRead = isInLibrary && !book.contentUrl.isNullOrBlank(), // La condition est ici
+                                        isLoading = false,
+                                        error = libraryResource.message
+                                    )
+                                    // === FIN DE LA MODIFICATION ===
+                                }
+                            } else {
+                                flowOf(BookDetailUiState(isLoading = false, error = "Livre non trouvé."))
+                            }
+                        }
+                        is Resource.Error -> flowOf(BookDetailUiState(isLoading = false, error = bookResource.message))
+                        is Resource.Loading -> flowOf(BookDetailUiState(isLoading = true))
+                    }
                 }
-                .collectLatest { resource ->
-                    _isBookInLibrary.value = resource
+                .catch { e ->
+                    Log.e("BookDetailViewModel", "Exception dans le flux de chargement", e)
+                    emit(BookDetailUiState(isLoading = false, error = "Erreur technique: ${e.localizedMessage}"))
+                }
+                .collect { state ->
+                    _uiState.value = state
                 }
         }
     }
@@ -97,22 +100,20 @@ class BookDetailViewModel @Inject constructor(
     fun addBookToLibrary() {
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
-            _addBookToLibraryResult.value = Resource.Error("Vous devez être connecté pour ajouter un livre.")
+            viewModelScope.launch { _addBookEvent.emit(Resource.Error("Vous devez être connecté.")) }
             return
         }
 
-        val book = (_bookDetails.value as? Resource.Success)?.data
-        if (book == null) {
-            _addBookToLibraryResult.value = Resource.Error("Les détails du livre n'ont pas pu être chargés.")
+        val currentBook = _uiState.value.book
+        if (currentBook == null) {
+            viewModelScope.launch { _addBookEvent.emit(Resource.Error("Détails du livre non disponibles.")) }
             return
         }
-
-        // Indiquer que l'opération est en cours
-        _addBookToLibraryResult.value = Resource.Loading()
 
         viewModelScope.launch {
-            val result = addBookToLibraryUseCase(userId, book)
-            _addBookToLibraryResult.value = result
+            _addBookEvent.emit(Resource.Loading())
+            val result = addBookToLibraryUseCase(userId, currentBook)
+            _addBookEvent.emit(result)
         }
     }
 }

@@ -4,66 +4,22 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/profile_background"
+    android:background="?attr/colorSurfaceContainerLowest"
     tools:context=".ui.readings.ReadingsFragment">
 
-    <!-- Header avec la barre de navigation temporelle -->
-    <LinearLayout
-        android:id="@+id/layout_month_navigation"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingTop="12dp"
-        android:paddingBottom="12dp"
-        android:background="@color/white"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <ImageButton
-            android:id="@+id/btn_previous_month"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_arrow_back"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="16dp"
-            android:contentDescription="@string/previous_month"
-            app:tint="@color/icon_tint" />
-
-        <TextView
-            android:id="@+id/tv_current_month_year"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:textAppearance="?attr/textAppearanceHeadline6"
-            tools:text="Mars 2024" />
-
-        <ImageButton
-            android:id="@+id/btn_next_month"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_arrow_forward"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:padding="16dp"
-            android:contentDescription="@string/next_month"
-            app:tint="@color/icon_tint" />
-
-    </LinearLayout>
-
-    <!-- Chips de filtrage -->
+    <!-- JUSTIFICATION: L'en-tête ne contient plus que les puces de filtrage,
+         conformément à la décision de retirer la navigation par mois et la barre de recherche. -->
     <HorizontalScrollView
         android:id="@+id/scroll_view_filters"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
-        android:background="@color/white"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:clipToPadding="false"
+        android:background="?attr/colorSurface"
+        android:elevation="2dp"
         android:scrollbars="none"
-        app:layout_constraintTop_toBottomOf="@id/layout_month_navigation"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -71,51 +27,42 @@
             android:id="@+id/chip_group_filters"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            app:singleLine="true"
             app:selectionRequired="true"
             app:singleSelection="true">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_filter_all"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/filter_all"
-                app:chipBackgroundColor="@color/chip_background_selector"
-                app:chipStrokeColor="@color/chip_stroke_color_selector"
-                app:checkedIconVisible="false" />
+                android:checked="true" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_filter_in_progress"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/filter_in_progress"
-                app:chipBackgroundColor="@color/chip_background_selector"
-                app:chipStrokeColor="@color/chip_stroke_color_selector"
-                app:checkedIconVisible="false" />
+                android:text="@string/filter_in_progress" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_filter_planned"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/filter_planned"
-                app:chipBackgroundColor="@color/chip_background_selector"
-                app:chipStrokeColor="@color/chip_stroke_color_selector"
-                app:checkedIconVisible="false" />
+                android:text="@string/filter_planned" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_filter_past"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/filter_past"
-                app:chipBackgroundColor="@color/chip_background_selector"
-                app:chipStrokeColor="@color/chip_stroke_color_selector"
-                app:checkedIconVisible="false" />
+                android:text="@string/filter_past" />
 
         </com.google.android.material.chip.ChipGroup>
-
     </HorizontalScrollView>
 
     <!-- RecyclerView pour afficher les lectures mensuelles -->
@@ -150,13 +97,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:gravity="center"
-        android:text="@string/no_monthly_readings_available"
         android:textAppearance="?attr/textAppearanceSubtitle1"
-        android:textColor="@color/text_secondary"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/scroll_view_filters"
-        tools:visibility="visible" />
+        tools:text="@string/no_monthly_readings_available" />
 </androidx.constraintlayout.widget.ConstraintLayout>

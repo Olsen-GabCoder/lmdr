@@ -50,7 +50,7 @@ class ManageReadingsAdapter(
             Glide.with(context)
                 .load(item.book?.coverImageUrl)
                 .placeholder(R.drawable.ic_book_placeholder)
-                .error(R.drawable.ic_book_placeholder_error)
+                .error(R.drawable.ic_book_placeholder)
                 .into(binding.ivBookCover)
         }
     }

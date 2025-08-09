@@ -9,6 +9,11 @@
     <string name="unknown_error">Une erreur inconnue est survenue.</string>
     <string name="cancel">Annuler</string>
     <string name="na">N/A</string>
+    <string name="author_label">Auteur :</string>
+    <string name="synopsis_label">Synopsis</string>
+    <string name="read_the_book">Lire le livre</string>
+    <string name="in_my_library">Dans ma bibliothèque</string>
+    <string name="no_search_results">Aucune lecture ne correspond à vos critères.</string>
     <string name="title_crop_image">Recadrer l\'image</string>
     <string name="comment_hidden_placeholder">Ce commentaire est masqué.</string>
     <string name="action_unhide">Afficher</string>
@@ -18,7 +23,7 @@
     <string name="error_updating_cover_photo">Échec de la mise à jour de la photo de couverture</string>
     <string name="error_cropping_image">Une erreur est survenue lors du recadrage de l’image.</string>
     <string name="view_my_library_button">Voir ma bibliothèque</string>
-
+    <string name="search_readings_hint">Rechercher par titre, auteur, mois...</string>
     <!-- PRÊT À AJOUTER - Ajoutez ces lignes à votre fichier res/values/strings.xml -->
     <string name="my_library_title">Ma Bibliothèque</string>
     <string name="my_library_empty">Votre bibliothèque est vide. Ajoutez des livres pour commencer !</string>
