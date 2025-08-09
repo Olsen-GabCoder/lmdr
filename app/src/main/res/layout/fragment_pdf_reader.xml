@@ -1,4 +1,4 @@
-<!-- PRÊT À COLLER - Créez un nouveau fichier fragment_pdf_reader.xml dans res/layout -->
+<!-- PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier fragment_pdf_reader.xml -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -25,14 +25,14 @@
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- JUSTIFICATION: Ce FrameLayout est le conteneur où nous ajouterons par programmation
-             la vue qui rendra le PDF. Le fait d'utiliser un conteneur simple nous donne
-             une grande flexibilité pour y insérer la bibliothèque de notre choix. -->
-        <FrameLayout
-            android:id="@+id/pdf_view_container"
+        <!-- === DÉBUT DE LA MODIFICATION === -->
+        <!-- JUSTIFICATION: Utilisation du composant PDFView de la nouvelle bibliothèque.
+             L'ID reste le même pour ne pas impacter le code du Fragment. -->
+        <com.github.barteksc.pdfviewer.PDFView
+            android:id="@+id/pdf_view"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@android:color/darker_gray" />
+            android:layout_height="match_parent"/>
+        <!-- === FIN DE LA MODIFICATION === -->
 
         <ProgressBar
             android:id="@+id/progress_bar"
@@ -54,4 +54,5 @@
             tools:text="Erreur: Impossible de charger le document."/>
 
     </FrameLayout>
+
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -1,11 +1,16 @@
-# PRÊT À COLLER - Remplacez tout le contenu de votre fichier libs.versions.toml par ceci.
+# PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier libs.versions.toml
 [versions]
 agp = "8.2.2"
 kotlin = "1.9.22"
 coreKtx = "1.12.0"
 appcompat = "1.6.1"
 material = "1.11.0"
-activityKtx = "1.8.2"
+# === DÉBUT DE LA MODIFICATION ===
+# JUSTIFICATION: Rétrogradation de `activity` à 1.8.2. C'est la dernière version
+# majeure compatible avec le SDK 34, ce qui résout le conflit de build.
+# `activityKtx` a été fusionné sous le même alias pour la cohérence.
+activity = "1.8.2"
+# === FIN DE LA MODIFICATION ===
 constraintlayout = "2.1.4"
 fragmentKtx = "1.6.2"
 glide = "4.16.0"
@@ -30,21 +35,25 @@ espressoCore = "3.5.1"
 hilt = "2.51.1"
 playServicesFido = "20.1.0"
 leanback = "1.0.0"
-materialVersion = "1.12.0"
-pagingCommonAndroid = "3.3.6"
-pagingRuntimeKtx = "3.3.6"
-activity = "1.10.1"
+materialVersion = "1.11.0"
+pagingCommonAndroid = "3.3.0" # Alignement sur une version stable
+pagingRuntimeKtx = "3.3.0"    # Alignement sur une version stable
+
 
 [libraries]
 # AndroidX Core & UI
-# PDF Viewer
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activityKtx" }
+# === DÉBUT DE LA MODIFICATION ===
+# JUSTIFICATION: Les deux dépendances utilisent maintenant le même alias de version `activity`
+# pour garantir qu'elles sont toujours compatibles entre elles.
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "activity" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+# === FIN DE LA MODIFICATION ===
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
 androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
@@ -57,7 +66,6 @@ firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx" 
 firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-storage-ktx = { group = "com.google.firebase", name = "firebase-storage-ktx" }
 firebase-messaging-ktx = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
-# CORRECTION : La version explicite est supprimée de la déclaration de la librairie. C'était la seule modification nécessaire.
 firebase-functions-ktx = { group = "com.google.firebase", name = "firebase-functions-ktx" }
 
 # Navigation
@@ -82,10 +90,9 @@ androidx-leanback = { group = "androidx.leanback", name = "leanback", version.re
 google-material = { group = "com.google.android.material", name = "material", version.ref = "materialVersion" }
 androidx-paging-common-android = { group = "androidx.paging", name = "paging-common-android", version.ref = "pagingCommonAndroid" }
 androidx-paging-runtime-ktx = { group = "androidx.paging", name = "paging-runtime-ktx", version.ref = "pagingRuntimeKtx" }
-androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+
 
 [plugins]
-# CORRECTION : Mise à jour des versions des plugins pour une meilleure compatibilité et stabilité.
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 googleGmsServices = { id = "com.google.gms.google-services", version.ref = "googleGmsServicesPlugin" }

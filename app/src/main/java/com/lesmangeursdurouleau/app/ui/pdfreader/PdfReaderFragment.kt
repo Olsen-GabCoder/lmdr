@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Créez un nouveau fichier PdfReaderFragment.kt dans le même package que son ViewModel
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PdfReaderFragment.kt
 package com.lesmangeursdurouleau.app.ui.pdfreader
 
 import android.os.Bundle
@@ -54,10 +54,18 @@ class PdfReaderFragment : Fragment() {
                         binding.toolbar.title = state.bookTitle
                     }
 
-                    // C'est ici que nous appellerons la fonction pour afficher le PDF plus tard
-                    if (state.pdfUrl != null && !state.isLoading && state.error == null) {
-                        // displayPdfFromUrl(state.pdfUrl)
+                    // === DÉBUT DE LA MODIFICATION ===
+                    // JUSTIFICATION: Lorsque le ViewModel nous fournit le flux de données du PDF,
+                    // nous le passons à la vue PDFView pour qu'elle l'affiche.
+                    if (state.pdfInputStream != null) {
+                        binding.pdfView.fromStream(state.pdfInputStream)
+                            .enableSwipe(true) // Activer le défilement par balayage
+                            .swipeHorizontal(false) // Défilement vertical par défaut
+                            .enableDoubletap(true) // Activer le zoom par double-tap
+                            .defaultPage(0) // Commencer à la première page
+                            .load() // Charger le document
                     }
+                    // === FIN DE LA MODIFICATION ===
                 }
             }
         }
@@ -67,4 +75,4 @@ class PdfReaderFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-}
+} 
