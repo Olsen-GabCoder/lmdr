@@ -1,3 +1,5 @@
+// PRÊT À COLLER - Modifiez votre fichier `index.ts`
+
 import * as admin from "firebase-admin";
 
 // Initialisation globale de l'SDK Admin.
@@ -12,7 +14,9 @@ export * from "./monthlyReadings";
 export * from "./privateMessaging";
 export * from "./socialInteractions";
 export * from "./migration";
-
-// JUSTIFICATION DE L'AJOUT : Nous exportons les fonctions du nouveau fichier `users.ts`.
-// Cela rendra notre nouvelle fonction `setUserRole` disponible et déployable sur Firebase.
 export * from "./users";
+
+
+// JUSTIFICATION: Nous exportons les fonctions du nouveau fichier `books.ts`.
+// Cela rendra notre nouvelle fonction `createBookWithFiles` disponible et déployable.
+export * from "./books";

@@ -36,10 +36,12 @@ class ManageBookFragment : Fragment() {
     private var selectedPdfUri: Uri? = null
 
     private val pickCoverImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            binding.ivCoverPreview.setImageURI(it)
+        uri?.let { imageUri ->
+            binding.ivCoverPreview.setImageURI(imageUri)
             try {
-                selectedCoverImage = requireContext().contentResolver.openInputStream(it)?.readBytes()
+                context?.contentResolver?.openInputStream(imageUri)?.use { inputStream ->
+                    selectedCoverImage = inputStream.readBytes()
+                }
             } catch (e: IOException) {
                 Toast.makeText(context, "Erreur de lecture de l'image", Toast.LENGTH_SHORT).show()
             }
@@ -47,14 +49,12 @@ class ManageBookFragment : Fragment() {
     }
 
     private val pickPdfLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let {
-            selectedPdfUri = it
-            val cursor = requireContext().contentResolver.query(it, null, null, null, null)
-            cursor?.use { c ->
-                val nameIndex = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (nameIndex != -1) {
-                    c.moveToFirst()
-                    binding.tvPdfName.text = c.getString(nameIndex)
+        uri?.let { pdfUri ->
+            selectedPdfUri = pdfUri
+            context?.contentResolver?.query(pdfUri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex != -1 && cursor.moveToFirst()) {
+                    binding.tvPdfName.text = cursor.getString(nameIndex)
                 }
             }
         }
@@ -72,8 +72,6 @@ class ManageBookFragment : Fragment() {
         observeViewModel()
     }
 
-
-
     private fun setupToolbar() {
         binding.toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
     }
@@ -82,8 +80,8 @@ class ManageBookFragment : Fragment() {
         binding.btnUploadCover.setOnClickListener { pickCoverImageLauncher.launch("image/*") }
         binding.btnUploadPdf.setOnClickListener { pickPdfLauncher.launch("application/pdf") }
         binding.btnSaveBook.setOnClickListener {
-            val title = binding.etBookTitle.text.toString()
-            val author = binding.etBookAuthor.text.toString()
+            val title = binding.etBookTitle.text.toString().trim()
+            val author = binding.etBookAuthor.text.toString().trim()
             val totalPages = binding.etTotalPages.text.toString().toIntOrNull() ?: 0
             val synopsis = binding.etBookSynopsis.text.toString()
 
@@ -91,45 +89,52 @@ class ManageBookFragment : Fragment() {
         }
     }
 
+    // === DÉBUT DE LA MODIFICATION ===
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    setLoading(state.saveResult is Resource.Loading)
 
-                    state.saveResult?.let { result ->
+                // Lancement d'une coroutine pour gérer l'état de l'interface (chargement)
+                launch {
+                    viewModel.isLoading.collect { isLoading ->
+                        setLoading(isLoading)
+                    }
+                }
+
+                // Lancement d'une coroutine parallèle pour gérer les événements
+                launch {
+                    viewModel.eventFlow.collect { result ->
                         when(result) {
                             is Resource.Success -> {
-                                Toast.makeText(context, "Livre créé avec succès !", Toast.LENGTH_SHORT).show()
                                 val newBookId = result.data
                                 if (newBookId != null) {
-                                    // JUSTIFICATION DE LA MODIFICATION : C'est le cœur de la nouvelle logique.
-                                    // Au lieu de simplement revenir en arrière, nous naviguons vers le formulaire de
-                                    // planification en lui passant l'ID du livre que nous venons de créer.
+                                    Toast.makeText(context, "Livre créé avec succès !", Toast.LENGTH_SHORT).show()
                                     val action = ManageBookFragmentDirections
                                         .actionManageBookFragmentToAddEditMonthlyReadingFragment(
-                                            monthlyReadingId = null, // C'est une NOUVELLE lecture
+                                            monthlyReadingId = null,
                                             bookId = newBookId,
                                             title = "Planifier : ${binding.etBookTitle.text}"
                                         )
                                     findNavController().navigate(action)
                                 } else {
-                                    // Cas de secours, ne devrait pas arriver
+                                    // Cas de secours, ne devrait pas arriver mais assure une navigation
+                                    Toast.makeText(context, "Erreur : ID du livre manquant.", Toast.LENGTH_LONG).show()
                                     findNavController().navigateUp()
                                 }
-                                viewModel.consumeSaveResult()
                             }
                             is Resource.Error -> {
                                 Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
-                                viewModel.consumeSaveResult()
                             }
-                            is Resource.Loading -> { /* Géré par setLoading */ }
+                            is Resource.Loading -> {
+                                // L'état de chargement est déjà géré par l'autre collecteur, rien à faire ici.
+                            }
                         }
                     }
                 }
             }
         }
     }
+    // === FIN DE LA MODIFICATION ===
 
     private fun setLoading(isLoading: Boolean) {
         binding.progressBarSave.isVisible = isLoading

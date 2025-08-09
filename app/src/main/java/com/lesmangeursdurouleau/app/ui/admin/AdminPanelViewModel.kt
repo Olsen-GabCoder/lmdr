@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Créez un nouveau fichier AdminPanelViewModel.kt (par ex. dans le package ui/admin)
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier AdminPanelViewModel.kt
 package com.lesmangeursdurouleau.app.ui.admin
 
 import androidx.lifecycle.ViewModel
@@ -6,9 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.lesmangeursdurouleau.app.domain.usecase.admin.SetUserAdminUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -17,9 +15,20 @@ class AdminPanelViewModel @Inject constructor(
     private val setUserAdminUseCase: SetUserAdminUseCase
 ) : ViewModel() {
 
-    // Ce StateFlow exposera le résultat de l'opération de promotion.
-    private val _setUserRoleResult = MutableStateFlow<Resource<String>?>(null)
-    val setUserRoleResult: StateFlow<Resource<String>?> = _setUserRoleResult.asStateFlow()
+    // === DÉBUT DE LA MODIFICATION ===
+
+    // JUSTIFICATION: Nous séparons l'état de l'UI (qui est persistant) des événements (qui sont à usage unique).
+    // `isLoading` est un état : l'UI doit toujours savoir si une opération est en cours.
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    // JUSTIFICATION: `_eventFlow` est un SharedFlow. Il est parfait pour diffuser des événements
+    // qui ne doivent être consommés qu'une seule fois (Toast, navigation...).
+    // Contrairement à un StateFlow, il ne retient pas la dernière valeur pour les nouveaux observateurs.
+    private val _eventFlow = MutableSharedFlow<Resource<String>>()
+    val eventFlow: SharedFlow<Resource<String>> = _eventFlow.asSharedFlow()
+
+    // L'ancien StateFlow `_setUserRoleResult` est maintenant remplacé par `_isLoading` et `_eventFlow`.
 
     /**
      * Tente de promouvoir un utilisateur au rang d'administrateur.
@@ -27,17 +36,18 @@ class AdminPanelViewModel @Inject constructor(
      */
     fun onSetUserAsAdminClicked(email: String) {
         viewModelScope.launch {
-            _setUserRoleResult.value = Resource.Loading()
+            _isLoading.value = true
             val result = setUserAdminUseCase(email)
-            _setUserRoleResult.value = result
+            _eventFlow.emit(result) // On émet le résultat comme un événement.
+            _isLoading.value = false
         }
     }
 
-    /**
-     * Permet à l'UI de réinitialiser l'état du résultat une fois le message affiché,
-     * pour éviter de le réafficher lors d'un changement de configuration.
-     */
-    fun consumeSetUserRoleResult() {
-        _setUserRoleResult.value = null
-    }
+    // JUSTIFICATION: La méthode `consume...` devient inutile car le SharedFlow gère
+    // nativement la non-persistance des événements. Le code est plus simple et plus sûr.
+    /*
+    fun consumeSetUserRoleResult() { ... }
+    */
+
+    // === FIN DE LA MODIFICATION ===
 }

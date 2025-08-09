@@ -1,52 +1,32 @@
-// PRÊT À COLLER - Créez un nouveau fichier ManageBookViewModel.kt dans un nouveau package (ex: ui/admin/managebook)
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier ManageBookViewModel.kt
 package com.lesmangeursdurouleau.app.ui.admin
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lesmangeursdurouleau.app.data.model.Book
+// import com.lesmangeursdurouleau.app.data.model.Book <-- N'est plus nécessaire ici
 import com.lesmangeursdurouleau.app.domain.usecase.books.CreateBookWithFilesUseCase
-import com.lesmangeursdurouleau.app.domain.usecase.books.GetBooksUseCase
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * État de l'interface utilisateur pour l'écran de gestion de livre.
- */
 data class ManageBookUiState(
-    val bookList: Resource<List<Book>> = Resource.Loading(),
-    val saveResult: Resource<String>? = null
+    val _placeholder: Boolean = true
 )
 
 @HiltViewModel
 class ManageBookViewModel @Inject constructor(
-    private val getBooksUseCase: GetBooksUseCase,
     private val createBookWithFilesUseCase: CreateBookWithFilesUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ManageBookUiState())
-    val uiState: StateFlow<ManageBookUiState> = _uiState.asStateFlow()
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    init {
-        loadBooks()
-    }
+    private val _eventFlow = MutableSharedFlow<Resource<String>>()
+    val eventFlow: SharedFlow<Resource<String>> = _eventFlow.asSharedFlow()
 
-    private fun loadBooks() {
-        viewModelScope.launch {
-            getBooksUseCase().collect { bookResource ->
-                _uiState.value = _uiState.value.copy(bookList = bookResource)
-            }
-        }
-    }
-
-    /**
-     * Lance la création d'un nouveau livre avec ses fichiers associés.
-     */
     fun createBook(
         title: String,
         author: String,
@@ -56,30 +36,29 @@ class ManageBookViewModel @Inject constructor(
         pdfUri: Uri?
     ) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(saveResult = Resource.Loading())
-
-            // Validation simple
             if (title.isBlank() || author.isBlank()) {
-                _uiState.value = _uiState.value.copy(saveResult = Resource.Error("Le titre et l'auteur sont obligatoires."))
+                _eventFlow.emit(Resource.Error("Le titre et l'auteur sont obligatoires."))
                 return@launch
             }
 
-            val newBook = Book(
+            _isLoading.value = true
+
+            // === DÉBUT DE LA MODIFICATION ===
+            // JUSTIFICATION: Le ViewModel n'a plus besoin de connaître l'objet `Book`.
+            // Il passe simplement les données brutes au UseCase, qui va les traiter.
+            // C'est un meilleur découplage des responsabilités.
+            val result = createBookWithFilesUseCase(
                 title = title,
                 author = author,
-                synopsis = synopsis.takeIf { it.isNotBlank() },
-                totalPages = totalPages
+                synopsis = synopsis,
+                totalPages = totalPages,
+                coverImage = coverImage,
+                pdfUri = pdfUri
             )
+            // === FIN DE LA MODIFICATION ===
 
-            val result = createBookWithFilesUseCase(newBook, coverImage, pdfUri)
-            _uiState.value = _uiState.value.copy(saveResult = result)
+            _eventFlow.emit(result)
+            _isLoading.value = false
         }
-    }
-
-    /**
-     * Réinitialise l'état du résultat de la sauvegarde pour l'UI.
-     */
-    fun consumeSaveResult() {
-        _uiState.value = _uiState.value.copy(saveResult = null)
     }
 }

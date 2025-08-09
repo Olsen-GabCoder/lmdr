@@ -17,7 +17,7 @@
         android:orientation="vertical"
         android:paddingBottom="32dp">
 
-        <!-- ... (Toute la partie A. EN-TÊTE DE PROFIL reste INCHANGÉE) ... -->
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content">

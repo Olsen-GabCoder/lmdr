@@ -52,43 +52,54 @@ class AdminPanelFragment : Fragment() {
     private fun setupListeners() {
         binding.btnSetAdmin.setOnClickListener {
             val email = binding.etUserEmail.text.toString().trim()
-            viewModel.onSetUserAsAdminClicked(email)
+            if (email.isNotBlank()) {
+                viewModel.onSetUserAsAdminClicked(email)
+            } else {
+                Toast.makeText(context, "Veuillez saisir un e-mail", Toast.LENGTH_SHORT).show()
+            }
         }
 
-        // JUSTIFICATION DE L'AJOUT : Ajout du listener pour le bouton de gestion des lectures.
-        // Il déclenchera une nouvelle action de navigation que nous définirons dans le graphe.
         binding.btnManageReadings.setOnClickListener {
             findNavController().navigate(R.id.action_adminPanelFragment_to_manageReadingsFragment)
         }
     }
 
+    // === DÉBUT DE LA MODIFICATION ===
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.setUserRoleResult.collect { result ->
-                    when (result) {
-                        is Resource.Loading -> {
-                            setUiLoadingState(true)
+                // JUSTIFICATION: Un premier `launch` est dédié à la collecte des états de l'UI.
+                // Ici, nous ne nous occupons que de l'état de chargement.
+                launch {
+                    viewModel.isLoading.collect { isLoading ->
+                        setUiLoadingState(isLoading)
+                    }
+                }
+
+                // JUSTIFICATION: Un second `launch`, parallèle, est dédié à la collecte des événements.
+                // Il gère les actions à usage unique comme l'affichage de Toasts.
+                launch {
+                    viewModel.eventFlow.collect { result ->
+                        when (result) {
+                            is Resource.Success -> {
+                                Toast.makeText(context, result.data, Toast.LENGTH_LONG).show()
+                                binding.etUserEmail.text?.clear()
+                            }
+                            is Resource.Error -> {
+                                Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                            }
+                            is Resource.Loading -> {
+                                // L'état de chargement est déjà géré par le premier collecteur,
+                                // donc il n'y a rien à faire ici.
+                            }
                         }
-                        is Resource.Success -> {
-                            setUiLoadingState(false)
-                            Toast.makeText(context, result.data, Toast.LENGTH_LONG).show()
-                            binding.etUserEmail.text?.clear()
-                            viewModel.consumeSetUserRoleResult()
-                        }
-                        is Resource.Error -> {
-                            setUiLoadingState(false)
-                            Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
-                            viewModel.consumeSetUserRoleResult()
-                        }
-                        null -> {
-                            setUiLoadingState(false)
-                        }
+                        // La méthode viewModel.consume...() est supprimée, ce qui rend le code plus propre.
                     }
                 }
             }
         }
     }
+    // === FIN DE LA MODIFICATION ===
 
     private fun setUiLoadingState(isLoading: Boolean) {
         binding.progressBar.isVisible = isLoading
