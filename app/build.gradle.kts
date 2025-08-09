@@ -1,6 +1,5 @@
-// PRÊT À COLLER - Fichier build.gradle (app) CORRIGÉ avec Room via le catalogue de versions
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier build.gradle (Module :app)
 plugins {
-
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
@@ -68,7 +67,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
-    // MODIFICATION : Ajout des dépendances Room via le catalogue
+    // Room & Paging
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.paging.common.android)
@@ -117,13 +116,11 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     kapt(libs.hilt.android.compiler)
-
     // Tests
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-
 
 kapt {
     correctErrorTypes = true

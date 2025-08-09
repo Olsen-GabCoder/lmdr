@@ -37,6 +37,7 @@ activity = "1.10.1"
 
 [libraries]
 # AndroidX Core & UI
+# PDF Viewer
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

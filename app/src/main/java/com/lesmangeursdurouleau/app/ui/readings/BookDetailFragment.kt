@@ -65,14 +65,18 @@ class BookDetailFragment : Fragment() {
         }
 
         // === DÉBUT DE LA MODIFICATION ===
-        // JUSTIFICATION: Ajout du listener pour le bouton de lecture.
-        // Pour l'instant, il affiche un Toast, mais il est prêt à déclencher la navigation
-        // vers le futur écran de lecture PDF.
+        // JUSTIFICATION: Le listener est mis à jour pour utiliser l'action de navigation
+        // que nous avons définie dans le graphe. Il passe tous les arguments nécessaires
+        // au `PdfReaderFragment` de manière sécurisée.
         binding.btnReadBook.setOnClickListener {
             val book = viewModel.uiState.value.book
-            if (book?.contentUrl != null) {
-                // Ici, nous naviguerons vers le PdfReaderFragment
-                Toast.makeText(context, "Lancement du lecteur PDF à venir...", Toast.LENGTH_SHORT).show()
+            if (book != null && book.contentUrl != null) {
+                val action = BookDetailFragmentDirections.actionBookDetailFragmentToPdfReaderFragment(
+                    bookId = book.id,
+                    bookTitle = book.title,
+                    pdfUrl = book.contentUrl
+                )
+                findNavController().navigate(action)
             } else {
                 Toast.makeText(context, "Le contenu de ce livre n'est pas disponible.", Toast.LENGTH_LONG).show()
             }
@@ -113,26 +117,18 @@ class BookDetailFragment : Fragment() {
             binding.tvBookDetailSynopsis.text = state.error
             binding.btnAddToLibrary.isVisible = false
             binding.btnGoToLibrary.isVisible = false
-            binding.btnReadBook.isVisible = false // Cacher en cas d'erreur
+            binding.btnReadBook.isVisible = false
         } else {
             binding.tvBookDetailSynopsis.text = state.book?.synopsis ?: getString(R.string.no_synopsis_available)
         }
 
         if (!state.isLoading && state.error == null) {
-            // === DÉBUT DE LA MODIFICATION ===
-            // JUSTIFICATION: La visibilité de tous les boutons est maintenant pilotée par l'état du ViewModel.
-            // Le bouton "Lire" n'apparaît que si `canBeRead` est vrai.
             binding.btnReadBook.isVisible = state.canBeRead
-
-            // Le bouton "Ajouter" est visible si le livre ne peut pas être lu (soit parce qu'il n'est
-            // pas dans la bibliothèque, soit parce qu'il n'a pas de contenu).
             binding.btnAddToLibrary.isVisible = !state.canBeRead
 
             if (state.isInLibrary) {
-                // Si le livre est dans la bibliothèque mais ne peut pas être lu (pas de contentUrl),
-                // on affiche quand même l'état "Dans ma bibliothèque".
                 binding.btnAddToLibrary.isEnabled = false
-                binding.btnAddToLibrary.text = getString(R.string.in_my_library) // Nouvelle chaîne pour la cohérence
+                binding.btnAddToLibrary.text = getString(R.string.in_my_library)
                 binding.btnAddToLibrary.icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_check_single)
                 binding.btnGoToLibrary.isVisible = true
             } else {
@@ -141,7 +137,6 @@ class BookDetailFragment : Fragment() {
                 binding.btnAddToLibrary.icon = null
                 binding.btnGoToLibrary.isVisible = false
             }
-            // === FIN DE LA MODIFICATION ===
         }
     }
 
