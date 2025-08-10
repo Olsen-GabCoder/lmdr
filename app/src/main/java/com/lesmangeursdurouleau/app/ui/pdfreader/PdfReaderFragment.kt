@@ -12,12 +12,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import com.github.barteksc.pdfviewer.listener.OnPageChangeListener
 import com.lesmangeursdurouleau.app.databinding.FragmentPdfReaderBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class PdfReaderFragment : Fragment() {
+class PdfReaderFragment : Fragment(), OnPageChangeListener { // MODIFIÉ: Implémente l'interface
 
     private var _binding: FragmentPdfReaderBinding? = null
     private val binding get() = _binding!!
@@ -54,25 +55,36 @@ class PdfReaderFragment : Fragment() {
                         binding.toolbar.title = state.bookTitle
                     }
 
-                    // === DÉBUT DE LA MODIFICATION ===
-                    // JUSTIFICATION: Lorsque le ViewModel nous fournit le flux de données du PDF,
-                    // nous le passons à la vue PDFView pour qu'elle l'affiche.
-                    if (state.pdfInputStream != null) {
-                        binding.pdfView.fromStream(state.pdfInputStream)
-                            .enableSwipe(true) // Activer le défilement par balayage
-                            .swipeHorizontal(false) // Défilement vertical par défaut
-                            .enableDoubletap(true) // Activer le zoom par double-tap
-                            .defaultPage(0) // Commencer à la première page
-                            .load() // Charger le document
+                    if (state.pdfFile != null && binding.pdfView.pageCount == 0) {
+                        binding.pdfView.fromFile(state.pdfFile)
+                            .enableSwipe(true)
+                            .swipeHorizontal(false)
+                            .enableDoubletap(true)
+                            // MODIFIÉ: Le lecteur s'ouvre à la page sauvegardée.
+                            .defaultPage(state.initialPage)
+                            // MODIFIÉ: Le fragment écoute les changements de page.
+                            .onPageChange(this@PdfReaderFragment)
+                            .load()
                     }
-                    // === FIN DE LA MODIFICATION ===
                 }
             }
         }
     }
 
+    // === DÉBUT DE LA MODIFICATION ===
+    /**
+     * NOUVEAU: Cette méthode est appelée à chaque fois que l'utilisateur change de page.
+     * Elle délègue la sauvegarde au ViewModel.
+     */
+    override fun onPageChanged(page: Int, pageCount: Int) {
+        viewModel.saveCurrentPage(page)
+    }
+    // === FIN DE LA MODIFICATION ===
+
+
     override fun onDestroyView() {
         super.onDestroyView()
+        binding.pdfView.recycle()
         _binding = null
     }
-} 
+}
