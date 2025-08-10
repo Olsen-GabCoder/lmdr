@@ -12,13 +12,21 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryBindingsModule {
 
+    // === DÉBUT DE LA MODIFICATION ===
+    /**
+     * NOUVEAU: Ajout de la liaison pour le repository de livres hors-ligne.
+     * Hilt saura désormais injecter une instance de OfflineBookRepositoryImpl
+     * partout où l'interface OfflineBookRepository est requise.
+     */
+    @Binds
+    @Singleton
+    abstract fun bindOfflineBookRepository(impl: OfflineBookRepositoryImpl): OfflineBookRepository
+    // === FIN DE LA MODIFICATION ===
+
     @Binds
     @Singleton
     abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
 
-    // JUSTIFICATION DE L'AJOUT : Liaison du nouveau repository d'administration.
-    // Hilt saura désormais comment injecter une instance de `AdminRepositoryImpl`
-    // partout où `AdminRepository` est requis.
     @Binds
     @Singleton
     abstract fun bindAdminRepository(impl: AdminRepositoryImpl): AdminRepository

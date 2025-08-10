@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lesmangeursdurouleau.app.data.repository.OfflineBookRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -19,21 +20,21 @@ import java.io.FileOutputStream
 import java.net.URL
 import javax.inject.Inject
 
-/**
- * MODIFIÉ: L'état de l'UI contient maintenant la page initiale à afficher,
- * qui sera chargée depuis les préférences.
- */
 data class PdfReaderUiState(
     val bookTitle: String? = null,
     val pdfFile: File? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
-    val initialPage: Int = 0 // NOUVEAU: La page sur laquelle le lecteur doit s'ouvrir.
+    val initialPage: Int = 0
 )
 
 @HiltViewModel
 class PdfReaderViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
+    // === DÉBUT DE LA MODIFICATION ===
+    // NOUVEAU: Injection de notre gestionnaire de fichiers hors-ligne.
+    private val offlineBookRepository: OfflineBookRepository,
+    // === FIN DE LA MODIFICATION ===
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -41,25 +42,25 @@ class PdfReaderViewModel @Inject constructor(
     private val bookTitle: String? = savedStateHandle.get("bookTitle")
     private val pdfUrl: String = savedStateHandle.get("pdfUrl") ?: ""
 
-    // === DÉBUT DE LA MODIFICATION ===
-
-    // Préférences pour stocker la dernière page lue par livre.
     private val sharedPreferences = context.getSharedPreferences("PdfReaderPrefs", Context.MODE_PRIVATE)
     private val lastPageKey = "last_page_$bookId"
 
     private val _uiState: MutableStateFlow<PdfReaderUiState>
+    val uiState: StateFlow<PdfReaderUiState> get() = _uiState
 
     init {
-        // On lit la dernière page sauvegardée AVANT toute chose.
         val lastSavedPage = sharedPreferences.getInt(lastPageKey, 0)
         _uiState = MutableStateFlow(PdfReaderUiState(bookTitle = bookTitle, initialPage = lastSavedPage))
         loadPdf()
     }
-    // === FIN DE LA MODIFICATION ===
 
-    val uiState: StateFlow<PdfReaderUiState> = _uiState.asStateFlow()
-
-
+    // === DÉBUT DE LA MODIFICATION ===
+    /**
+     * MODIFIÉ: La logique de chargement suit maintenant une hiérarchie claire :
+     * 1. Vérifie si le livre existe dans le stockage permanent (hors-ligne).
+     * 2. Sinon, vérifie s'il existe dans le cache temporaire.
+     * 3. Sinon, le télécharge depuis le réseau et le place dans le cache.
+     */
     private fun loadPdf() {
         if (pdfUrl.isBlank()) {
             _uiState.update { it.copy(isLoading = false, error = "L'URL du contenu PDF est manquante.") }
@@ -70,10 +71,19 @@ class PdfReaderViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val file = withContext(Dispatchers.IO) {
+                    // 1. Chercher dans le stockage permanent (hors-ligne)
+                    val offlineFile = offlineBookRepository.getBookFile(bookId)
+                    if (offlineFile != null) {
+                        return@withContext offlineFile
+                    }
+
+                    // 2. Chercher dans le cache temporaire
                     val cacheFile = File(context.cacheDir, "book_cache_$bookId.pdf")
                     if (cacheFile.exists()) {
                         return@withContext cacheFile
                     }
+
+                    // 3. Télécharger depuis le réseau vers le cache
                     URL(pdfUrl).openStream().use { input ->
                         FileOutputStream(cacheFile).use { output ->
                             input.copyTo(output)
@@ -87,16 +97,11 @@ class PdfReaderViewModel @Inject constructor(
             }
         }
     }
+    // === FIN DE LA MODIFICATION ===
 
-    // === DÉBUT DE LA MODIFICATION ===
-    /**
-     * NOUVEAU: Sauvegarde la page actuelle pour le livre en cours dans les SharedPreferences.
-     * Cette fonction est conçue pour être appelée depuis le Fragment.
-     */
     fun saveCurrentPage(page: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             sharedPreferences.edit().putInt(lastPageKey, page).apply()
         }
     }
-    // === FIN DE LA MODIFICATION ===
 }

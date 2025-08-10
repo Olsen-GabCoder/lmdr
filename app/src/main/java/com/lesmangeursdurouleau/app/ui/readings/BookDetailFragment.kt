@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -63,11 +64,6 @@ class BookDetailFragment : Fragment() {
         binding.btnGoToLibrary.setOnClickListener {
             findNavController().navigate(R.id.action_bookDetailFragment_to_myLibraryFragment)
         }
-
-        // === DÉBUT DE LA MODIFICATION ===
-        // JUSTIFICATION: Le listener est mis à jour pour utiliser l'action de navigation
-        // que nous avons définie dans le graphe. Il passe tous les arguments nécessaires
-        // au `PdfReaderFragment` de manière sécurisée.
         binding.btnReadBook.setOnClickListener {
             val book = viewModel.uiState.value.book
             if (book != null && book.contentUrl != null) {
@@ -79,6 +75,18 @@ class BookDetailFragment : Fragment() {
                 findNavController().navigate(action)
             } else {
                 Toast.makeText(context, "Le contenu de ce livre n'est pas disponible.", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        // === DÉBUT DE LA MODIFICATION ===
+        binding.btnDownloadBook.setOnClickListener {
+            val state = viewModel.uiState.value
+            if (state.isDownloaded) {
+                // Si déjà téléchargé, on propose de supprimer
+                showDeleteConfirmationDialog()
+            } else if (!state.isDownloading) {
+                // Sinon, on lance le téléchargement
+                viewModel.downloadBook()
             }
         }
         // === FIN DE LA MODIFICATION ===
@@ -102,7 +110,7 @@ class BookDetailFragment : Fragment() {
     }
 
     private fun updateUiState(state: BookDetailUiState) {
-        binding.progressBarBookDetail.isVisible = state.isLoading
+        binding.progressBarBookDetail.isVisible = state.isLoading && !state.isDownloading
 
         if (state.book != null) {
             populateBookDetails(state.book)
@@ -118,6 +126,7 @@ class BookDetailFragment : Fragment() {
             binding.btnAddToLibrary.isVisible = false
             binding.btnGoToLibrary.isVisible = false
             binding.btnReadBook.isVisible = false
+            binding.btnDownloadBook.isVisible = false
         } else {
             binding.tvBookDetailSynopsis.text = state.book?.synopsis ?: getString(R.string.no_synopsis_available)
         }
@@ -125,6 +134,32 @@ class BookDetailFragment : Fragment() {
         if (!state.isLoading && state.error == null) {
             binding.btnReadBook.isVisible = state.canBeRead
             binding.btnAddToLibrary.isVisible = !state.canBeRead
+
+            // === DÉBUT DE LA MODIFICATION ===
+            // Gère l'affichage et l'état du bouton de téléchargement
+            val canBeDownloaded = state.isInLibrary && !state.book?.contentUrl.isNullOrBlank()
+            binding.btnDownloadBook.isVisible = canBeDownloaded
+
+            if (canBeDownloaded) {
+                when {
+                    state.isDownloading -> {
+                        binding.btnDownloadBook.isEnabled = false
+                        binding.btnDownloadBook.text = getString(R.string.downloading)
+                        binding.btnDownloadBook.icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_download)
+                    }
+                    state.isDownloaded -> {
+                        binding.btnDownloadBook.isEnabled = true
+                        binding.btnDownloadBook.text = getString(R.string.delete_downloaded_version)
+                        binding.btnDownloadBook.icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_delete)
+                    }
+                    else -> {
+                        binding.btnDownloadBook.isEnabled = true
+                        binding.btnDownloadBook.text = getString(R.string.download_for_offline_reading)
+                        binding.btnDownloadBook.icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_download)
+                    }
+                }
+            }
+            // === FIN DE LA MODIFICATION ===
 
             if (state.isInLibrary) {
                 binding.btnAddToLibrary.isEnabled = false
@@ -160,20 +195,28 @@ class BookDetailFragment : Fragment() {
     private fun populateBookDetails(book: Book) {
         binding.tvBookDetailTitle.text = book.title
         binding.tvBookDetailAuthor.text = book.author
+        (activity as? AppCompatActivity)?.supportActionBar?.title = book.title
 
-        binding.ivBookDetailCover.contentDescription = getString(
-            R.string.book_cover_of_title_description,
-            book.title.ifBlank { getString(R.string.unknown_book_title) }
-        )
-
+        binding.ivBookDetailCover.contentDescription = getString(R.string.book_cover_of_title_description, book.title.ifBlank { getString(R.string.unknown_book_title) })
         Glide.with(this)
             .load(book.coverImageUrl)
             .placeholder(R.drawable.ic_book_placeholder)
             .error(R.drawable.ic_book_placeholder_error)
             .into(binding.ivBookDetailCover)
-
-        (activity as? AppCompatActivity)?.supportActionBar?.title = book.title
     }
+
+    // === DÉBUT DE LA MODIFICATION ===
+    private fun showDeleteConfirmationDialog() {
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.delete_downloaded_version)
+            .setMessage(R.string.delete_confirmation_message)
+            .setPositiveButton(R.string.delete) { _, _ ->
+                viewModel.deleteDownloadedBook()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+    // === FIN DE LA MODIFICATION ===
 
     override fun onDestroyView() {
         super.onDestroyView()

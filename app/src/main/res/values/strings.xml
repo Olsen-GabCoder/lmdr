@@ -8,6 +8,7 @@
     <string name="fill_all_fields">Veuillez remplir tous les champs.</string>
     <string name="unknown_error">Une erreur inconnue est survenue.</string>
     <string name="cancel">Annuler</string>
+    <string name="download_for_offline_reading">Télécharger pour lire hors-ligne</string>
     <string name="na">N/A</string>
     <string name="author_label">Auteur :</string>
     <string name="synopsis_label">Synopsis</string>
@@ -517,4 +518,7 @@
     <string name="book_details_default_title">Ceci est un string par défaut</string>
     <string name="pdf_page_content_description">12</string>
     <string name="loading">Chargement...\n</string>
+    <string name="downloading">Téléchargement…</string>
+    <string name="delete_downloaded_version">Supprimer la version téléchargée</string>
+    <string name="delete_confirmation_message">Voulez-vous vraiment supprimer la version locale de ce livre ? Vous pourrez le télécharger à nouveau plus tard.</string>
 </resources>

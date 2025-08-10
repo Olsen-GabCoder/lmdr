@@ -55,10 +55,6 @@
             app:layout_constraintStart_toEndOf="@id/tv_book_detail_author_label"
             tools:text="Nom de l'Auteur" />
 
-        <!-- === DÉBUT DE LA MODIFICATION === -->
-        <!-- JUSTIFICATION: Ajout du bouton "Lire le livre". Il a un style distinctif (le style par défaut
-             des boutons Material) pour en faire l'action principale lorsque disponible. Sa visibilité
-             sera entièrement contrôlée par le ViewModel. -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_read_book"
             android:layout_width="0dp"
@@ -71,7 +67,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             tools:visibility="visible"/>
-        <!-- === FIN DE LA MODIFICATION === -->
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_add_to_library"
@@ -84,6 +79,22 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <!-- === DÉBUT DE LA MODIFICATION === -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_download_book"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/download_for_offline_reading"
+            app:icon="@drawable/ic_download"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/btn_add_to_library"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:visibility="visible"/>
+        <!-- === FIN DE LA MODIFICATION === -->
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_go_to_library"
             style="?attr/materialButtonOutlinedStyle"
@@ -92,12 +103,11 @@
             android:layout_marginTop="8dp"
             android:text="@string/view_my_library_button"
             android:visibility="gone"
-            app:layout_constraintTop_toBottomOf="@id/btn_add_to_library"
+            app:layout_constraintTop_toBottomOf="@id/btn_download_book"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             tools:visibility="visible"/>
 
-        <!-- La contrainte du synopsis est mise à jour pour être sous le dernier bouton. -->
         <TextView
             android:id="@+id/tv_book_detail_synopsis_label"
             android:layout_width="wrap_content"
