@@ -6,6 +6,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthCredential
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.data.repository.AuthRepository
@@ -28,8 +29,9 @@ sealed class AuthResultWrapper {
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     application: Application,
-    private val authRepository: AuthRepository
-    // SUPPRIMÉ : Le UserProfileRepository n'est plus nécessaire ici.
+    private val authRepository: AuthRepository,
+    // NOUVELLE DÉPENDANCE : Nécessaire pour obtenir l'ID de l'utilisateur actuel.
+    private val firebaseAuth: FirebaseAuth
 ) : AndroidViewModel(application) {
 
     private val _registrationResult = MutableLiveData<AuthResultWrapper?>()
@@ -46,17 +48,6 @@ class AuthViewModel @Inject constructor(
 
     private val _passwordResetResult = MutableLiveData<AuthResultWrapper?>()
     val passwordResetResult: LiveData<AuthResultWrapper?> = _passwordResetResult
-
-    // === DÉBUT DE LA MODIFICATION ===
-    // SUPPRIMÉ : Tous les états et méthodes liés à la mise à jour du profil et des images
-    // ont été retirés. Ce ViewModel se concentre maintenant uniquement sur l'authentification.
-    // private val _profileUpdateResult = ...
-    // private val _profilePictureUpdateResult = ...
-    // private val _coverPictureUpdateResult = ...
-    // fun updateUserProfile(...)
-    // fun updateProfilePicture(...)
-    // fun updateCoverPicture(...)
-    // === FIN DE LA MODIFICATION ===
 
     init {
         viewModelScope.launch {
@@ -105,9 +96,16 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    // === DÉBUT DE LA MODIFICATION ===
+    // JUSTIFICATION : La méthode est maintenant asynchrone (suspend fun) et passe l'ID de l'utilisateur
+    // actuel au repository pour assurer la mise à jour du statut de présence avant la déconnexion.
     fun logoutUser() {
-        authRepository.logoutUser()
+        viewModelScope.launch {
+            val userId = firebaseAuth.currentUser?.uid
+            authRepository.logoutUser(userId)
+        }
     }
+    // === FIN DE LA MODIFICATION ===
 
     fun consumeLoginResult() {
         _loginResult.value = null

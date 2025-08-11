@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Créez un nouveau fichier AuthRepositoryImpl.kt dans le package data/repository
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -24,7 +23,8 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val userProfileRepository: UserProfileRepository
 ) : AuthRepository {
 
     private companion object {
@@ -37,15 +37,11 @@ class AuthRepositoryImpl @Inject constructor(
             if (firebaseUser == null) {
                 trySend(null)
             } else {
-                // Forcer le rafraîchissement du jeton pour obtenir les derniers custom claims
                 firebaseUser.getIdToken(true).addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         val isAdmin = task.result?.claims?.get("admin") as? Boolean ?: false
                         val userRole = if (isAdmin) Role.ADMIN else Role.USER
-
                         Log.d(TAG, "Rôle de l'utilisateur ${firebaseUser.uid} : $userRole")
-
-                        // Construire notre objet User avec le rôle
                         val user = User(
                             uid = firebaseUser.uid,
                             email = firebaseUser.email ?: "",
@@ -55,7 +51,6 @@ class AuthRepositoryImpl @Inject constructor(
                         trySend(user)
                     } else {
                         Log.e(TAG, "Échec de la récupération du jeton avec les claims.", task.exception)
-                        // En cas d'échec, envoyer l'utilisateur avec le rôle par défaut
                         trySend(User(uid = firebaseUser.uid, email = firebaseUser.email ?: "", username = firebaseUser.displayName ?: "", role = Role.USER))
                     }
                 }
@@ -149,7 +144,14 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun logoutUser() {
+    override suspend fun logoutUser(userId: String?) {
+        if (userId != null) {
+            try {
+                userProfileRepository.updateUserPresence(userId, isOnline = false)
+            } catch (e: Exception) {
+                Log.e(TAG, "Échec de la mise à jour du statut de présence lors de la déconnexion pour l'utilisateur $userId", e)
+            }
+        }
         firebaseAuth.signOut()
     }
 
@@ -157,8 +159,10 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user!!
-            val linkResult = user.linkWithCredential(pendingCredential).await()
-            AuthResultWrapper.Success(linkResult.user)
+            // === DÉBUT DE LA CORRECTION ===
+            val result = user.linkWithCredential(pendingCredential).await()
+            AuthResultWrapper.Success(result.user)
+            // === FIN DE LA CORRECTION ===
         } catch (e: Exception) {
             val errorCode = (e as? FirebaseAuthException)?.errorCode
             AuthResultWrapper.Error(e, errorCode)

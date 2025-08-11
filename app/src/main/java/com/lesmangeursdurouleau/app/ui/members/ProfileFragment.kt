@@ -35,7 +35,6 @@ class ProfileFragment : Fragment() {
     private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
 
-    // Le fragment ne dépend plus que de son propre ViewModel.
     private val profileViewModel: ProfileViewModel by viewModels()
 
     companion object {
@@ -60,8 +59,6 @@ class ProfileFragment : Fragment() {
             if (result.resultCode == Activity.RESULT_OK) {
                 val croppedUri = result.data?.data
                 if (croppedUri != null) {
-                    Log.d(TAG, "Image recadrée reçue: $croppedUri")
-                    // MODIFIÉ : L'appel est maintenant dirigé vers le ProfileViewModel.
                     try {
                         val inputStream: InputStream? = requireContext().contentResolver.openInputStream(croppedUri)
                         when (currentCropType) {
@@ -126,7 +123,6 @@ class ProfileFragment : Fragment() {
         binding.fabSelectPicture.isEnabled = !state.isUploadingProfilePicture
         binding.fabEditCover.isEnabled = !state.isUploadingCoverPicture
 
-        // Les références aux ProgressBar sont maintenant correctes.
         binding.profilePictureProgress.isVisible = state.isUploadingProfilePicture
         binding.coverPictureProgress.isVisible = state.isUploadingCoverPicture
 
@@ -135,7 +131,6 @@ class ProfileFragment : Fragment() {
             Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
         }
 
-        // CORRECTION DE L'ERREUR de syntaxe `if/else`
         if (state.user != null) {
             val user = state.user
             binding.tvProfileEmail.text = user.email
@@ -166,6 +161,12 @@ class ProfileFragment : Fragment() {
                 binding.fabSelectPicture.isEnabled = true
                 binding.fabEditCover.isEnabled = true
             }
+            // === DÉBUT DE LA MODIFICATION ===
+            // NOUVEAU : Gère l'événement de navigation après la déconnexion.
+            is ProfileEvent.NavigateToAuthScreen -> {
+                navigateToAuthActivity()
+            }
+            // === FIN DE LA MODIFICATION ===
         }
     }
 
@@ -221,11 +222,12 @@ class ProfileFragment : Fragment() {
     }
 
     private fun setupClickListeners() {
+        // === DÉBUT DE LA MODIFICATION ===
+        // MODIFIÉ : Le clic sur le bouton appelle maintenant la méthode logout() du ViewModel.
         binding.buttonLogout.setOnClickListener {
-            // La déconnexion doit idéalement être gérée par un ViewModel qui peut
-            // être accédé globalement, mais pour simplifier, la navigation reste ici.
-            navigateToAuthActivity()
+            profileViewModel.logout()
         }
+        // === FIN DE LA MODIFICATION ===
 
         binding.fabSelectPicture.setOnClickListener {
             currentCropType = CROP_TYPE_PROFILE
@@ -267,6 +269,7 @@ class ProfileFragment : Fragment() {
     }
 
     private fun navigateToAuthActivity() {
+        // Cette fonction est maintenant appelée uniquement en réponse à un événement du ViewModel.
         val intent = Intent(requireActivity(), AuthActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }

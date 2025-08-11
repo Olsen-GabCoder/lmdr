@@ -23,8 +23,9 @@ import javax.inject.Inject
 
 sealed class ProfileEvent {
     data class ShowSnackbar(val message: String) : ProfileEvent()
-    // NOUVEAU : Événement pour indiquer la fin d'une mise à jour d'image
     object ImageUpdateFinished : ProfileEvent()
+    // NOUVEAU : Événement pour déclencher la navigation après la déconnexion
+    object NavigateToAuthScreen : ProfileEvent()
 }
 
 data class ProfileUiState(
@@ -34,7 +35,6 @@ data class ProfileUiState(
     val currentReading: PrivateCurrentReadingUiState = PrivateCurrentReadingUiState(),
     val screenError: String? = null,
     val isAdmin: Boolean = false,
-    // NOUVEAU : État pour gérer le chargement spécifique des images
     val isUploadingProfilePicture: Boolean = false,
     val isUploadingCoverPicture: Boolean = false
 )
@@ -70,7 +70,28 @@ class ProfileViewModel @Inject constructor(
         loadProfileAndReadingData()
     }
 
-    // ... La logique de chargement existante reste inchangée ...
+    // === DÉBUT DE LA MODIFICATION ===
+    /**
+     * NOUVEAU : Orchestre la déconnexion de l'utilisateur.
+     * 1. Récupère l'ID de l'utilisateur actuel.
+     * 2. Appelle le AuthRepository pour mettre à jour le statut de présence ET se déconnecter.
+     * 3. Émet un événement pour que le Fragment déclenche la navigation.
+     */
+    fun logout() {
+        viewModelScope.launch {
+            val userId = firebaseAuth.currentUser?.uid
+            if (userId != null) {
+                authRepository.logoutUser(userId)
+            } else {
+                // Si pas d'ID, on se déconnecte quand même localement.
+                authRepository.logoutUser(null)
+            }
+            // Émettre l'événement de navigation après la fin des opérations.
+            _eventFlow.emit(ProfileEvent.NavigateToAuthScreen)
+        }
+    }
+    // === FIN DE LA MODIFICATION ===
+
     private fun loadProfileAndReadingData() {
         val userWithRoleFlow = authRepository.getCurrentUserWithRole()
         viewModelScope.launch {
@@ -106,6 +127,7 @@ class ProfileViewModel @Inject constructor(
                 }
         }
     }
+
     private fun getCurrentReadingFlow(userId: String): Flow<PrivateCurrentReadingUiState> {
         return getCurrentlyReadingEntryUseCase(userId)
             .flatMapLatest { entryResource ->
@@ -142,6 +164,7 @@ class ProfileViewModel @Inject constructor(
                 emit(PrivateCurrentReadingUiState(error = "Erreur de chargement de la lecture."))
             }
     }
+
     fun updateProfile(username: String, bio: String, city: String) {
         val userId = firebaseAuth.currentUser?.uid ?: return
         if (username.isBlank()) {
@@ -163,15 +186,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    // === DÉBUT DES AJOUTS ===
-    // JUSTIFICATION : La logique de mise à jour des images est maintenant centralisée ici,
-    // au sein du ViewModel responsable de l'écran de profil.
-
-    /**
-     * Gère la mise à jour de la photo de profil.
-     *
-     * @param imageStream Un InputStream contenant les données de l'image.
-     */
     fun updateProfilePicture(imageStream: InputStream?) {
         val userId = firebaseAuth.currentUser?.uid ?: return
         viewModelScope.launch {
@@ -190,11 +204,6 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Gère la mise à jour de la photo de couverture.
-     *
-     * @param imageStream Un InputStream contenant les données de l'image.
-     */
     fun updateCoverPicture(imageStream: InputStream?) {
         val userId = firebaseAuth.currentUser?.uid ?: return
         viewModelScope.launch {
@@ -212,7 +221,6 @@ class ProfileViewModel @Inject constructor(
             _eventFlow.emit(ProfileEvent.ImageUpdateFinished)
         }
     }
-    // === FIN DES AJOUTS ===
 
     fun setCurrentProfilePictureUrl(newUrl: String?) {
         val currentUser = _uiState.value.user
