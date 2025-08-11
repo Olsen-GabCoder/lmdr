@@ -1,6 +1,6 @@
-// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier ProfileViewModel.kt
 package com.lesmangeursdurouleau.app.ui.members
 
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,10 +18,13 @@ import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.InputStream
 import javax.inject.Inject
 
 sealed class ProfileEvent {
     data class ShowSnackbar(val message: String) : ProfileEvent()
+    // NOUVEAU : Événement pour indiquer la fin d'une mise à jour d'image
+    object ImageUpdateFinished : ProfileEvent()
 }
 
 data class ProfileUiState(
@@ -30,15 +33,17 @@ data class ProfileUiState(
     val user: User? = null,
     val currentReading: PrivateCurrentReadingUiState = PrivateCurrentReadingUiState(),
     val screenError: String? = null,
-    val isAdmin: Boolean = false
+    val isAdmin: Boolean = false,
+    // NOUVEAU : État pour gérer le chargement spécifique des images
+    val isUploadingProfilePicture: Boolean = false,
+    val isUploadingCoverPicture: Boolean = false
 )
 
-// MODIFIÉ : Ajout de libraryEntry pour la nouvelle logique, tout en conservant bookReading pour la compatibilité.
 data class PrivateCurrentReadingUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
-    val bookReading: UserBookReading? = null, // Conservé pour le Fragment
-    val libraryEntry: UserLibraryEntry? = null, // La nouvelle source de vérité
+    val bookReading: UserBookReading? = null,
+    val libraryEntry: UserLibraryEntry? = null,
     val bookDetails: Book? = null
 )
 
@@ -47,7 +52,7 @@ class ProfileViewModel @Inject constructor(
     private val userProfileRepository: UserProfileRepository,
     private val bookRepository: BookRepository,
     private val authRepository: AuthRepository,
-    private val getCurrentlyReadingEntryUseCase: GetCurrentlyReadingEntryUseCase, // NOUVELLE DÉPENDANCE
+    private val getCurrentlyReadingEntryUseCase: GetCurrentlyReadingEntryUseCase,
     internal val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
@@ -62,13 +67,12 @@ class ProfileViewModel @Inject constructor(
     val eventFlow: SharedFlow<ProfileEvent> = _eventFlow.asSharedFlow()
 
     init {
-        Log.d(TAG, "ViewModel initialisé. Lancement du chargement des données du profil.")
         loadProfileAndReadingData()
     }
 
+    // ... La logique de chargement existante reste inchangée ...
     private fun loadProfileAndReadingData() {
         val userWithRoleFlow = authRepository.getCurrentUserWithRole()
-
         viewModelScope.launch {
             userWithRoleFlow.flatMapLatest { userWithRole ->
                 if (userWithRole == null) {
@@ -102,7 +106,6 @@ class ProfileViewModel @Inject constructor(
                 }
         }
     }
-
     private fun getCurrentReadingFlow(userId: String): Flow<PrivateCurrentReadingUiState> {
         return getCurrentlyReadingEntryUseCase(userId)
             .flatMapLatest { entryResource ->
@@ -114,27 +117,18 @@ class ProfileViewModel @Inject constructor(
                         if (entry != null) {
                             bookRepository.getBookById(entry.bookId).map { bookResource ->
                                 val bookDetails = (bookResource as? Resource.Success)?.data
-
-                                // Reconstruire le modèle "legacy" UserBookReading pour la compatibilité avec le Fragment
                                 val legacyBookReading = bookDetails?.let {
                                     UserBookReading(
-                                        bookId = entry.bookId,
-                                        title = it.title,
-                                        author = it.author,
-                                        coverImageUrl = it.coverImageUrl,
-                                        currentPage = entry.currentPage,
-                                        totalPages = entry.totalPages,
-                                        favoriteQuote = entry.favoriteQuote,
+                                        bookId = entry.bookId, title = it.title, author = it.author,
+                                        coverImageUrl = it.coverImageUrl, currentPage = entry.currentPage,
+                                        totalPages = entry.totalPages, favoriteQuote = entry.favoriteQuote,
                                         personalReflection = entry.personalReflection
                                     )
                                 }
-
                                 PrivateCurrentReadingUiState(
                                     isLoading = bookResource is Resource.Loading<*>,
                                     error = if (bookResource is Resource.Error<*>) bookResource.message else null,
-                                    bookReading = legacyBookReading, // On peuple l'ancien champ
-                                    libraryEntry = entry,           // On peuple le nouveau champ
-                                    bookDetails = bookDetails
+                                    bookReading = legacyBookReading, libraryEntry = entry, bookDetails = bookDetails
                                 )
                             }
                         } else {
@@ -148,48 +142,82 @@ class ProfileViewModel @Inject constructor(
                 emit(PrivateCurrentReadingUiState(error = "Erreur de chargement de la lecture."))
             }
     }
-
     fun updateProfile(username: String, bio: String, city: String) {
-        val userId = firebaseAuth.currentUser?.uid
-        if (userId == null) {
-            viewModelScope.launch { _eventFlow.emit(ProfileEvent.ShowSnackbar("Utilisateur non connecté.")) }
-            return
-        }
-
+        val userId = firebaseAuth.currentUser?.uid ?: return
         if (username.isBlank()) {
             viewModelScope.launch { _eventFlow.emit(ProfileEvent.ShowSnackbar("Le pseudo ne peut pas être vide.")) }
             return
         }
-
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
-
             val usernameResult = userProfileRepository.updateUserProfile(userId, username)
             val bioResult = userProfileRepository.updateUserBio(userId, bio)
             val cityResult = userProfileRepository.updateUserCity(userId, city)
-
             val hasError = listOf(usernameResult, bioResult, cityResult).any { it is Resource.Error<*> }
-
             _uiState.update { it.copy(isSaving = false) }
-
             if (hasError) {
-                Log.e(TAG, "Au moins une erreur lors de la mise à jour du profil.")
                 _eventFlow.emit(ProfileEvent.ShowSnackbar("Erreur lors de la mise à jour du profil."))
             } else {
-                Log.i(TAG, "Profil mis à jour avec succès.")
                 _eventFlow.emit(ProfileEvent.ShowSnackbar("Profil enregistré avec succès !"))
             }
         }
     }
 
+    // === DÉBUT DES AJOUTS ===
+    // JUSTIFICATION : La logique de mise à jour des images est maintenant centralisée ici,
+    // au sein du ViewModel responsable de l'écran de profil.
+
+    /**
+     * Gère la mise à jour de la photo de profil.
+     *
+     * @param imageStream Un InputStream contenant les données de l'image.
+     */
+    fun updateProfilePicture(imageStream: InputStream?) {
+        val userId = firebaseAuth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingProfilePicture = true) }
+            val imageData = imageStream?.use { it.readBytes() }
+            if (imageData != null) {
+                val result = userProfileRepository.updateUserProfilePicture(userId, imageData)
+                if (result is Resource.Error) {
+                    _eventFlow.emit(ProfileEvent.ShowSnackbar(result.message ?: "Erreur inconnue"))
+                }
+            } else {
+                _eventFlow.emit(ProfileEvent.ShowSnackbar("Erreur de lecture de l'image"))
+            }
+            _uiState.update { it.copy(isUploadingProfilePicture = false) }
+            _eventFlow.emit(ProfileEvent.ImageUpdateFinished)
+        }
+    }
+
+    /**
+     * Gère la mise à jour de la photo de couverture.
+     *
+     * @param imageStream Un InputStream contenant les données de l'image.
+     */
+    fun updateCoverPicture(imageStream: InputStream?) {
+        val userId = firebaseAuth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUploadingCoverPicture = true) }
+            val imageData = imageStream?.use { it.readBytes() }
+            if (imageData != null) {
+                val result = userProfileRepository.updateUserCoverPicture(userId, imageData)
+                if (result is Resource.Error) {
+                    _eventFlow.emit(ProfileEvent.ShowSnackbar(result.message ?: "Erreur inconnue"))
+                }
+            } else {
+                _eventFlow.emit(ProfileEvent.ShowSnackbar("Erreur de lecture de l'image"))
+            }
+            _uiState.update { it.copy(isUploadingCoverPicture = false) }
+            _eventFlow.emit(ProfileEvent.ImageUpdateFinished)
+        }
+    }
+    // === FIN DES AJOUTS ===
+
     fun setCurrentProfilePictureUrl(newUrl: String?) {
-        Log.d(TAG, "setCurrentProfilePictureUrl: Tentative de mise à jour de profilePictureUrl dans l'UiState avec: '$newUrl'")
         val currentUser = _uiState.value.user
         if (currentUser != null) {
             _uiState.update { it.copy(user = currentUser.copy(profilePictureUrl = newUrl)) }
-            Log.d(TAG, "setCurrentProfilePictureUrl: _uiState mis à jour avec la nouvelle URL.")
-        } else {
-            Log.w(TAG, "setCurrentProfilePictureUrl: Impossible de mettre à jour, l'utilisateur dans l'UiState est null.")
         }
     }
 }

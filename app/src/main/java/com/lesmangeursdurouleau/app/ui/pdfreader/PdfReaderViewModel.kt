@@ -1,11 +1,13 @@
-// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PdfReaderViewModel.kt
 package com.lesmangeursdurouleau.app.ui.pdfreader
 
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.lesmangeursdurouleau.app.data.repository.OfflineBookRepository
+import com.lesmangeursdurouleau.app.domain.usecase.library.GetReadingProgressUseCase
+import com.lesmangeursdurouleau.app.domain.usecase.library.SaveReadingProgressUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -30,11 +32,14 @@ data class PdfReaderUiState(
 
 @HiltViewModel
 class PdfReaderViewModel @Inject constructor(
+    // === CORRECTION ===
+    // RÉINTRODUCTION : Le contexte est nécessaire pour accéder au cache de l'application.
     @ApplicationContext private val context: Context,
-    // === DÉBUT DE LA MODIFICATION ===
-    // NOUVEAU: Injection de notre gestionnaire de fichiers hors-ligne.
+    // === FIN DE LA CORRECTION ===
     private val offlineBookRepository: OfflineBookRepository,
-    // === FIN DE LA MODIFICATION ===
+    private val firebaseAuth: FirebaseAuth,
+    private val getReadingProgressUseCase: GetReadingProgressUseCase,
+    private val saveReadingProgressUseCase: SaveReadingProgressUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -42,25 +47,23 @@ class PdfReaderViewModel @Inject constructor(
     private val bookTitle: String? = savedStateHandle.get("bookTitle")
     private val pdfUrl: String = savedStateHandle.get("pdfUrl") ?: ""
 
-    private val sharedPreferences = context.getSharedPreferences("PdfReaderPrefs", Context.MODE_PRIVATE)
-    private val lastPageKey = "last_page_$bookId"
+    private val userId: String = firebaseAuth.currentUser?.uid ?: ""
 
-    private val _uiState: MutableStateFlow<PdfReaderUiState>
+    private val _uiState = MutableStateFlow(PdfReaderUiState(bookTitle = bookTitle))
     val uiState: StateFlow<PdfReaderUiState> get() = _uiState
 
     init {
-        val lastSavedPage = sharedPreferences.getInt(lastPageKey, 0)
-        _uiState = MutableStateFlow(PdfReaderUiState(bookTitle = bookTitle, initialPage = lastSavedPage))
-        loadPdf()
+        loadInitialData()
     }
 
-    // === DÉBUT DE LA MODIFICATION ===
-    /**
-     * MODIFIÉ: La logique de chargement suit maintenant une hiérarchie claire :
-     * 1. Vérifie si le livre existe dans le stockage permanent (hors-ligne).
-     * 2. Sinon, vérifie s'il existe dans le cache temporaire.
-     * 3. Sinon, le télécharge depuis le réseau et le place dans le cache.
-     */
+    private fun loadInitialData() {
+        viewModelScope.launch {
+            val initialPage = getReadingProgressUseCase(userId, bookId)
+            _uiState.update { it.copy(initialPage = initialPage) }
+            loadPdf()
+        }
+    }
+
     private fun loadPdf() {
         if (pdfUrl.isBlank()) {
             _uiState.update { it.copy(isLoading = false, error = "L'URL du contenu PDF est manquante.") }
@@ -71,19 +74,17 @@ class PdfReaderViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val file = withContext(Dispatchers.IO) {
-                    // 1. Chercher dans le stockage permanent (hors-ligne)
                     val offlineFile = offlineBookRepository.getBookFile(bookId)
                     if (offlineFile != null) {
                         return@withContext offlineFile
                     }
 
-                    // 2. Chercher dans le cache temporaire
+                    // La variable 'context' est de nouveau disponible ici.
                     val cacheFile = File(context.cacheDir, "book_cache_$bookId.pdf")
                     if (cacheFile.exists()) {
                         return@withContext cacheFile
                     }
 
-                    // 3. Télécharger depuis le réseau vers le cache
                     URL(pdfUrl).openStream().use { input ->
                         FileOutputStream(cacheFile).use { output ->
                             input.copyTo(output)
@@ -97,11 +98,10 @@ class PdfReaderViewModel @Inject constructor(
             }
         }
     }
-    // === FIN DE LA MODIFICATION ===
 
     fun saveCurrentPage(page: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            sharedPreferences.edit().putInt(lastPageKey, page).apply()
+            saveReadingProgressUseCase(userId, bookId, page)
         }
     }
 }

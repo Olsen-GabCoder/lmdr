@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier BookDetailViewModel.kt
 package com.lesmangeursdurouleau.app.ui.readings
 
 import android.util.Log
@@ -46,31 +45,41 @@ class BookDetailViewModel @Inject constructor(
 
     private var bookDetailsJob: Job? = null
 
-    // === DÉBUT DE LA MODIFICATION ===
-    // La fonction est de nouveau publique pour être appelée par le Fragment.
     fun loadBookDetails(bookId: String) {
-        // === FIN DE LA MODIFICATION ===
         bookDetailsJob?.cancel()
 
         if (bookId.isBlank()) {
-            _uiState.value = BookDetailUiState(isLoading = false, error = "ID du livre invalide.")
+            _uiState.update { it.copy(isLoading = false, error = "ID du livre invalide.") }
             return
         }
         val userId = firebaseAuth.currentUser?.uid
         if (userId == null) {
-            _uiState.value = BookDetailUiState(isLoading = false, error = "Utilisateur non authentifié.")
+            _uiState.update { it.copy(isLoading = false, error = "Utilisateur non authentifié.") }
             return
         }
 
         bookDetailsJob = viewModelScope.launch {
+            // === DÉBUT DE LA MODIFICATION ===
+            // 1. On lance une tâche pour récupérer l'état de téléchargement initial.
+            //    `.first()` prend la première valeur du flow puis l'annule, évitant les fuites.
+            launch {
+                try {
+                    val isInitiallyDownloaded = offlineBookRepository.isBookDownloaded(bookId).first()
+                    _uiState.update { it.copy(isDownloaded = isInitiallyDownloaded) }
+                } catch (e: Exception) {
+                    // Gérer l'erreur si la vérification échoue
+                    Log.e("BookDetailViewModel", "Erreur de vérification du téléchargement", e)
+                }
+            }
+
+            // 2. Le `combine` est simplifié car il n'a plus besoin d'observer le statut de téléchargement.
             val bookFlow = getBookByIdUseCase(bookId)
             val libraryFlow = checkBookInLibraryUseCase(userId, bookId)
-            val downloadFlow = offlineBookRepository.isBookDownloaded(bookId)
 
-            combine(bookFlow, libraryFlow, downloadFlow) { bookResource, libraryResource, isDownloaded ->
+            combine(bookFlow, libraryFlow) { bookResource, libraryResource ->
                 when (bookResource) {
-                    is Resource.Loading -> _uiState.value.copy(isLoading = true)
-                    is Resource.Error -> _uiState.value.copy(isLoading = false, error = bookResource.message)
+                    is Resource.Loading -> _uiState.value.copy(isLoading = true, error = null)
+                    is Resource.Error -> _uiState.value.copy(isLoading = false, error = bookResource.message, book = null)
                     is Resource.Success -> {
                         val book = bookResource.data
                         val isInLibrary = libraryResource.data ?: false
@@ -80,27 +89,25 @@ class BookDetailViewModel @Inject constructor(
                                 isInLibrary = isInLibrary,
                                 canBeRead = isInLibrary && !book.contentUrl.isNullOrBlank(),
                                 isLoading = false,
-                                error = libraryResource.message,
-                                isDownloaded = isDownloaded
+                                error = if (libraryResource is Resource.Error) libraryResource.message else null
+                                // Note : 'isDownloaded' n'est plus géré ici.
                             )
                         } else {
-                            _uiState.value.copy(isLoading = false, error = "Livre non trouvé.")
+                            _uiState.value.copy(isLoading = false, error = "Livre non trouvé.", book = null)
                         }
                     }
                 }
             }.catch { e ->
                 Log.e("BookDetailViewModel", "Exception dans le flux combiné", e)
-                emit(_uiState.value.copy(isLoading = false, error = "Erreur technique: ${e.localizedMessage}"))
-            }.collect { state ->
-                _uiState.update { it.copy(
-                    book = state.book,
-                    isInLibrary = state.isInLibrary,
-                    canBeRead = state.canBeRead,
-                    isLoading = state.isLoading,
-                    error = state.error,
-                    isDownloaded = state.isDownloaded
-                )}
+                emit(_uiState.value.copy(isLoading = false, error = "Erreur technique: ${e.localizedMessage}", book = null))
+            }.collect { updatedState ->
+                _uiState.update { currentState ->
+                    // On fusionne le nouvel état (livre, librairie) avec l'état actuel (isDownloaded)
+                    // pour ne pas écraser la valeur de 'isDownloaded'.
+                    updatedState.copy(isDownloaded = currentState.isDownloaded)
+                }
             }
+            // === FIN DE LA MODIFICATION ===
         }
     }
 
@@ -111,10 +118,16 @@ class BookDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isDownloading = true) }
             val result = offlineBookRepository.downloadBook(book.id, url)
-            if (result is Resource.Error) {
-                _uiState.update { it.copy(error = result.message) }
-            }
-            _uiState.update { it.copy(isDownloading = false) }
+
+            // === DÉBUT DE LA MODIFICATION ===
+            // Le ViewModel met à jour son propre état pour refléter le changement.
+            val newDownloadState = result is Resource.Success
+            _uiState.update { it.copy(
+                isDownloading = false,
+                isDownloaded = newDownloadState,
+                error = if (result is Resource.Error) result.message else it.error
+            )}
+            // === FIN DE LA MODIFICATION ===
         }
     }
 
@@ -122,6 +135,10 @@ class BookDetailViewModel @Inject constructor(
         val bookId = _uiState.value.book?.id ?: return
         viewModelScope.launch {
             offlineBookRepository.deleteBook(bookId)
+            // === DÉBUT DE LA MODIFICATION ===
+            // Le ViewModel met à jour son propre état pour refléter le changement.
+            _uiState.update { it.copy(isDownloaded = false) }
+            // === FIN DE LA MODIFICATION ===
         }
     }
 

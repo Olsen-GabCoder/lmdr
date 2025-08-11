@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier AddBookToLibraryUseCase.kt
 package com.lesmangeursdurouleau.app.domain.usecase.books
 
 import com.google.firebase.Timestamp
@@ -30,12 +29,22 @@ class AddBookToLibraryUseCase @Inject constructor(
 
         // Création de l'entrée de bibliothèque initiale.
         val newLibraryEntry = UserLibraryEntry(
+            // Informations de base
             bookId = book.id,
             userId = userId,
             status = ReadingStatus.TO_READ, // Statut par défaut à l'ajout
             currentPage = 0,
             totalPages = book.totalPages,
-            lastReadDate = Timestamp.now() // Initialise la date pour le tri
+            lastReadDate = Timestamp.now(), // Initialise la date pour le tri
+
+            // === DÉBUT DE LA MODIFICATION (DÉNORMALISATION) ===
+            // JUSTIFICATION : On copie les données du livre directement dans l'entrée
+            // de la bibliothèque. C'est le cœur de la dénormalisation.
+            // Cela rendra les lectures et les tris futurs beaucoup plus performants.
+            bookTitle = book.title,
+            bookAuthor = book.author,
+            bookCoverImageUrl = book.coverImageUrl
+            // === FIN DE LA MODIFICATION ===
         )
 
         // Utilise la méthode unifiée de mise à jour/création.

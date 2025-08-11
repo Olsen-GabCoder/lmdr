@@ -1,5 +1,7 @@
 package com.lesmangeursdurouleau.app.data.repository
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
@@ -12,6 +14,7 @@ import com.lesmangeursdurouleau.app.remote.FirebaseConstants
 import com.lesmangeursdurouleau.app.ui.members.SortDirection
 import com.lesmangeursdurouleau.app.ui.members.SortOptions
 import com.lesmangeursdurouleau.app.utils.Resource
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -20,18 +23,32 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class BookRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    // === DÉBUT DE L'AJOUT ===
+    // NOUVEAU : Injection du contexte pour accéder aux SharedPreferences.
+    // C'est une pratique acceptable dans la couche Repository.
+    @ApplicationContext private val context: Context
+    // === FIN DE L'AJOUT ===
 ) : BookRepository {
 
     companion object {
         private const val TAG = "BookRepositoryImpl"
         private const val SUBCOLLECTION_LIBRARY = "library"
+        // NOUVEAU : Constante pour le nom du fichier de préférences.
+        private const val PDF_READER_PREFS = "PdfReaderPrefs"
     }
+
+    // === DÉBUT DE L'AJOUT ===
+    // NOUVEAU : Instance des SharedPreferences, initialisée une seule fois.
+    private val sharedPreferences: SharedPreferences by lazy {
+        context.getSharedPreferences(PDF_READER_PREFS, Context.MODE_PRIVATE)
+    }
+    // === FIN DE L'AJOUT ===
 
     private val booksCollection = firestore.collection(FirebaseConstants.COLLECTION_BOOKS)
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
-    // --- Fonctions du catalogue de livres ---
+    // --- Fonctions du catalogue de livres (INCHANGÉES) ---
     override fun getAllBooks(): Flow<Resource<List<Book>>> = callbackFlow {
         trySend(Resource.Loading())
         val listenerRegistration = booksCollection
@@ -82,7 +99,6 @@ class BookRepositoryImpl @Inject constructor(
         awaitClose { listenerRegistration.remove() }
     }
 
-    // NOUVELLE IMPLÉMENTATION
     override fun getBooksByIds(bookIds: List<String>): Flow<Resource<List<Book>>> = flow {
         if (bookIds.isEmpty()) {
             emit(Resource.Success(emptyList()))
@@ -91,14 +107,9 @@ class BookRepositoryImpl @Inject constructor(
         emit(Resource.Loading())
 
         try {
-            // Les requêtes "whereIn" de Firestore sont limitées à 30 valeurs.
-            // On segmente la liste d'IDs pour gérer un nombre illimité de livres en toute sécurité.
             val uniqueBookIds = bookIds.distinct()
             val bookIdChunks = uniqueBookIds.chunked(30)
-
             val books = mutableListOf<Book>()
-
-            // On exécute une requête pour chaque segment.
             for (chunk in bookIdChunks) {
                 val snapshot = booksCollection.whereIn(FieldPath.documentId(), chunk).get().await()
                 val chunkBooks = snapshot.documents.mapNotNull { document ->
@@ -106,9 +117,7 @@ class BookRepositoryImpl @Inject constructor(
                 }
                 books.addAll(chunkBooks)
             }
-
             emit(Resource.Success(books))
-
         } catch (e: Exception) {
             Log.e(TAG, "Erreur lors de la récupération des livres par IDs", e)
             emit(Resource.Error("Erreur lors du chargement des détails des livres: ${e.localizedMessage}"))
@@ -140,8 +149,7 @@ class BookRepositoryImpl @Inject constructor(
     }
 
 
-    // --- Fonctions de la bibliothèque personnelle ---
-
+    // --- Fonctions de la bibliothèque personnelle (INCHANGÉES) ---
     override fun getLibraryEntriesForUser(userId: String): Flow<Resource<List<UserLibraryEntry>>> = callbackFlow {
         if (userId.isBlank()) {
             trySend(Resource.Error("L'ID de l'utilisateur ne peut être vide."))
@@ -149,11 +157,7 @@ class BookRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         trySend(Resource.Loading())
-
-        val query = usersCollection.document(userId)
-            .collection(SUBCOLLECTION_LIBRARY)
-            .orderBy("lastReadDate", Query.Direction.DESCENDING)
-
+        val query = usersCollection.document(userId).collection(SUBCOLLECTION_LIBRARY).orderBy("lastReadDate", Query.Direction.DESCENDING)
         val listener = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage}"))
@@ -175,18 +179,17 @@ class BookRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         trySend(Resource.Loading())
-
-        // Note: Le tri par titre/auteur ne peut se faire ici car les données ne sont pas dans ce document.
-        // Nous trions par un champ disponible (ex: lastReadDate) et le tri final se fera dans le ViewModel.
-        // On s'assure que le champ de tri est valide pour cette requête.
-        val validOrderByField = if (sortOptions.orderBy == "lastReadDate") "lastReadDate" else "lastReadDate"
+        val orderByField = when (sortOptions.orderBy) {
+            "title" -> "bookTitle"
+            "author" -> "bookAuthor"
+            "lastReadDate" -> "lastReadDate"
+            else -> {
+                Log.w(TAG, "Option de tri '${sortOptions.orderBy}' non reconnue. Utilisation de 'lastReadDate'.")
+                "lastReadDate"
+            }
+        }
         val firestoreDirection = if (sortOptions.direction == SortDirection.DESCENDING) Query.Direction.DESCENDING else Query.Direction.ASCENDING
-
-        val query = usersCollection.document(userId)
-            .collection(SUBCOLLECTION_LIBRARY)
-            .whereEqualTo("status", ReadingStatus.FINISHED.name)
-            .orderBy(validOrderByField, firestoreDirection)
-
+        val query = usersCollection.document(userId).collection(SUBCOLLECTION_LIBRARY).whereEqualTo("status", ReadingStatus.FINISHED.name).orderBy(orderByField, firestoreDirection)
         val listener = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 Log.e(TAG, "Erreur Firestore dans getCompletedLibraryEntriesForUser", error)
@@ -240,10 +243,8 @@ class BookRepositoryImpl @Inject constructor(
         if (userId.isBlank() || entry.bookId.isBlank()) {
             return Resource.Error("L'ID de l'utilisateur et du livre ne peuvent être vides.")
         }
-
         val userDocRef = usersCollection.document(userId)
         val libraryDocRef = userDocRef.collection(SUBCOLLECTION_LIBRARY).document(entry.bookId)
-
         return try {
             firestore.runTransaction { transaction ->
                 val libraryEntrySnapshot = transaction.get(libraryDocRef)
@@ -252,15 +253,12 @@ class BookRepositoryImpl @Inject constructor(
                 } else {
                     null
                 }
-
                 val newStatus = entry.status
-
                 if (newStatus == ReadingStatus.FINISHED && oldStatus != ReadingStatus.FINISHED) {
                     transaction.update(userDocRef, "booksReadCount", FieldValue.increment(1))
                 } else if (newStatus != ReadingStatus.FINISHED && oldStatus == ReadingStatus.FINISHED) {
                     transaction.update(userDocRef, "booksReadCount", FieldValue.increment(-1))
                 }
-
                 transaction.set(libraryDocRef, entry)
             }.await()
             Resource.Success(Unit)
@@ -276,24 +274,18 @@ class BookRepositoryImpl @Inject constructor(
         }
         val userDocRef = usersCollection.document(userId)
         val libraryDocRef = userDocRef.collection(SUBCOLLECTION_LIBRARY).document(bookId)
-
         return try {
             firestore.runTransaction { transaction ->
                 val libraryEntrySnapshot = transaction.get(libraryDocRef)
-
                 if (!libraryEntrySnapshot.exists()) {
                     Log.w(TAG, "Tentative de suppression d'une entrée de bibliothèque non trouvée (bookId: $bookId).")
                     return@runTransaction
                 }
-
                 val libraryEntry = libraryEntrySnapshot.toObject(UserLibraryEntry::class.java)
-
                 if (libraryEntry?.status == ReadingStatus.FINISHED) {
                     transaction.update(userDocRef, "booksReadCount", FieldValue.increment(-1))
                 }
-
                 transaction.delete(libraryDocRef)
-
             }.await()
             Resource.Success(Unit)
         } catch (e: Exception) {
@@ -301,4 +293,22 @@ class BookRepositoryImpl @Inject constructor(
             Resource.Error("Erreur lors de la suppression du livre : ${e.localizedMessage}")
         }
     }
+
+    // === DÉBUT DE L'AJOUT ===
+    // --- GESTION DE LA PROGRESSION DE LECTURE (LOCAL) ---
+
+    private fun getProgressKey(userId: String, bookId: String) = "last_page_${userId}_$bookId"
+
+    override suspend fun saveReadingProgress(userId: String, bookId: String, page: Int) {
+        if (userId.isBlank() || bookId.isBlank()) return
+        val key = getProgressKey(userId, bookId)
+        sharedPreferences.edit().putInt(key, page).apply()
+    }
+
+    override suspend fun getReadingProgress(userId: String, bookId: String): Int {
+        if (userId.isBlank() || bookId.isBlank()) return 0
+        val key = getProgressKey(userId, bookId)
+        return sharedPreferences.getInt(key, 0)
+    }
+    // === FIN DE L'AJOUT ===
 }

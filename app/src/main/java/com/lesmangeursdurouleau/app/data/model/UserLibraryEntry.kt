@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier UserLibraryEntry.kt
 package com.lesmangeursdurouleau.app.data.model
 
 import android.os.Parcelable
@@ -21,9 +20,19 @@ data class UserLibraryEntry(
     var status: ReadingStatus = ReadingStatus.TO_READ,
     var currentPage: Int = 0,
     val totalPages: Int = 0,
+
+    // === DÉBUT DE LA MODIFICATION (DÉNORMALISATION) ===
+    // JUSTIFICATION : Ces champs sont une copie des données du livre principal.
+    // Les ajouter ici permet d'effectuer des requêtes et des tris très rapides
+    // directement sur la bibliothèque de l'utilisateur, sans avoir besoin de
+    // charger les informations du livre séparément. C'est crucial pour la performance.
+    val bookTitle: String = "",
+    val bookAuthor: String = "",
+    val bookCoverImageUrl: String? = null,
+    // === FIN DE LA MODIFICATION ===
+
     @ServerTimestamp val addedDate: Timestamp? = null,
     var lastReadDate: Timestamp? = null,
-    // AJOUT : Rétablissement des champs pour les notes et citations.
     var favoriteQuote: String? = null,
     var personalReflection: String? = null
 ) : Parcelable

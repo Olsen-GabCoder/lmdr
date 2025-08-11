@@ -8,8 +8,15 @@
     <string name="fill_all_fields">Veuillez remplir tous les champs.</string>
     <string name="unknown_error">Une erreur inconnue est survenue.</string>
     <string name="cancel">Annuler</string>
+    <string name="error_reading_image_file">Erreur lors de la lecture du fichier image</string>
     <string name="download_for_offline_reading">Télécharger pour lire hors-ligne</string>
     <string name="na">N/A</string>
+    <string name="status_online">En ligne</string>
+    <string name="followed">Suivi</string>
+    <plurals name="books_read_count_format">
+        <item quantity="one">%d Livre lu</item>
+        <item quantity="other">%d Livres lus</item>
+    </plurals>
     <string name="author_label">Auteur :</string>
     <string name="synopsis_label">Synopsis</string>
     <string name="read_the_book">Lire le livre</string>

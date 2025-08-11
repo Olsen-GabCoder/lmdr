@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier UserProfileRepositoryImpl.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -12,8 +11,8 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.lesmangeursdurouleau.app.data.model.EnrichedUserListItem
 import com.lesmangeursdurouleau.app.data.model.User
-import com.lesmangeursdurouleau.app.data.model.UserListItem
 import com.lesmangeursdurouleau.app.data.paging.SearchUsersPagingSource
 import com.lesmangeursdurouleau.app.data.paging.UsersPagingSource
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
@@ -106,37 +105,24 @@ class UserProfileRepositoryImpl @Inject constructor(
         }
     }
 
-    @Deprecated("Utiliser getAllUsersPaginated pour une approche performante et scalable.", ReplaceWith("getAllUsersPaginated()"))
-    override fun getAllUsers(): Flow<Resource<List<User>>> = callbackFlow {
-        trySend(Resource.Loading())
-        val listener = usersCollection.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                trySend(Resource.Error("Erreur: ${error.localizedMessage}"))
-                close(error); return@addSnapshotListener
-            }
-            if (snapshot != null) {
-                val users = snapshot.documents.mapNotNull { doc ->
-                    createUserFromSnapshot(doc)
-                }
-                trySend(Resource.Success(users))
-            }
-        }
-        awaitClose { listener.remove() }
-    }
-
-    override fun getAllUsersPaginated(): Flow<PagingData<UserListItem>> {
+    // === DÉBUT DE LA MODIFICATION ===
+    // JUSTIFICATION : Les types de retour sont mis à jour pour correspondre à l'interface.
+    // Le Pager construit maintenant un flux de `EnrichedUserListItem`. La logique interne
+    // reste la même, car la conversion est gérée dans les PagingSources que nous avons modifiés.
+    override fun getAllUsersPaginated(): Flow<PagingData<EnrichedUserListItem>> {
         return Pager(
             config = PagingConfig(pageSize = USERS_PAGE_SIZE, enablePlaceholders = false),
             pagingSourceFactory = { UsersPagingSource(firestore) }
         ).flow
     }
 
-    override fun searchUsersPaginated(query: String): Flow<PagingData<UserListItem>> {
+    override fun searchUsersPaginated(query: String): Flow<PagingData<EnrichedUserListItem>> {
         return Pager(
             config = PagingConfig(pageSize = USERS_PAGE_SIZE, enablePlaceholders = false),
             pagingSourceFactory = { SearchUsersPagingSource(firestore, query) }
         ).flow
     }
+    // === FIN DE LA MODIFICATION ===
 
     override fun getUserById(userId: String): Flow<Resource<User>> = callbackFlow {
         if (userId.isBlank()) {

@@ -24,15 +24,33 @@
             app:layout_scrollFlags="scroll|exitUntilCollapsed"
             app:statusBarScrim="?attr/colorPrimaryVariant">
 
-            <ImageView
-                android:id="@+id/iv_cover_photo"
+            <!-- === DÉBUT DE LA MODIFICATION === -->
+            <!-- JUSTIFICATION : Un FrameLayout est utilisé pour superposer la ProgressBar sur l'image. -->
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="@string/cover_photo_description"
-                android:scaleType="centerCrop"
-                app:layout_collapseMode="parallax"
-                app:layout_collapseParallaxMultiplier="0.7"
-                tools:src="@tools:sample/backgrounds/scenic" />
+                android:layout_height="match_parent">
+
+                <ImageView
+                    android:id="@+id/iv_cover_photo"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/cover_photo_description"
+                    android:scaleType="centerCrop"
+                    app:layout_collapseMode="parallax"
+                    app:layout_collapseParallaxMultiplier="0.7"
+                    tools:src="@tools:sample/backgrounds/scenic" />
+
+                <!-- NOUVEAU : ProgressBar ajoutée pour la photo de couverture. -->
+                <ProgressBar
+                    android:id="@+id/cover_picture_progress"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:visibility="gone"
+                    tools:visibility="visible"/>
+
+            </FrameLayout>
+            <!-- === FIN DE LA MODIFICATION === -->
 
             <View
                 android:layout_width="match_parent"
@@ -47,28 +65,47 @@
                 app:layout_collapseMode="parallax"
                 app:layout_collapseParallaxMultiplier="0.5">
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/profile_picture_card"
+                <!-- === DÉBUT DE LA MODIFICATION === -->
+                <!-- JUSTIFICATION : Un FrameLayout est utilisé ici aussi pour superposer la ProgressBar. -->
+                <FrameLayout
+                    android:id="@+id/profile_picture_container"
                     android:layout_width="140dp"
                     android:layout_height="140dp"
                     android:layout_marginTop="60dp"
-                    app:cardCornerRadius="70dp"
-                    app:cardElevation="8dp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:strokeColor="?attr/colorSurface"
-                    app:strokeWidth="4dp">
+                    app:layout_constraintTop_toTopOf="parent">
 
-                    <ImageView
-                        android:id="@+id/iv_profile_picture"
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/profile_picture_card"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
-                        android:contentDescription="@string/profile_picture_description"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_profile_placeholder" />
+                        app:cardCornerRadius="70dp"
+                        app:cardElevation="8dp"
+                        app:strokeColor="?attr/colorSurface"
+                        app:strokeWidth="4dp">
 
-                </com.google.android.material.card.MaterialCardView>
+                        <ImageView
+                            android:id="@+id/iv_profile_picture"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/profile_picture_description"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_profile_placeholder" />
+
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- NOUVEAU : ProgressBar ajoutée pour la photo de profil. -->
+                    <ProgressBar
+                        android:id="@+id/profile_picture_progress"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:visibility="gone"
+                        tools:visibility="visible"/>
+
+                </FrameLayout>
+                <!-- === FIN DE LA MODIFICATION === -->
 
                 <com.google.android.material.floatingactionbutton.FloatingActionButton
                     android:id="@+id/fab_select_picture"
@@ -78,8 +115,8 @@
                     android:src="@drawable/ic_edit_image"
                     app:backgroundTint="?attr/colorSecondary"
                     app:fabSize="mini"
-                    app:layout_constraintBottom_toBottomOf="@id/profile_picture_card"
-                    app:layout_constraintEnd_toEndOf="@id/profile_picture_card"
+                    app:layout_constraintBottom_toBottomOf="@id/profile_picture_container"
+                    app:layout_constraintEnd_toEndOf="@id/profile_picture_container"
                     app:tint="?attr/colorOnPrimary" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
@@ -487,9 +524,6 @@
 
                     </LinearLayout>
 
-                    <!-- JUSTIFICATION DE L'AJOUT : Ce bouton est le point d'entrée vers le backoffice.
-                         Il est stylisé comme les autres boutons d'action pour la cohérence
-                         et sera rendu visible ou non par le code du Fragment. -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/button_admin_panel"
                         style="@style/Widget.Material3.Button.TextButton.Icon"
@@ -596,5 +630,4 @@
             app:iconTint="?attr/colorError"
             app:rippleColor="?attr/colorError" />
     </com.google.android.material.card.MaterialCardView>
-
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

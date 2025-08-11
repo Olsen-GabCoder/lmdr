@@ -1,9 +1,8 @@
-// PRÊT À COLLER - Remplacez tout le contenu de votre fichier UserProfileRepository.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import androidx.paging.PagingData
+import com.lesmangeursdurouleau.app.data.model.EnrichedUserListItem
 import com.lesmangeursdurouleau.app.data.model.User
-import com.lesmangeursdurouleau.app.data.model.UserListItem
 import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.flow.Flow
 
@@ -12,11 +11,12 @@ interface UserProfileRepository {
     suspend fun updateUserProfilePicture(userId: String, imageData: ByteArray): Resource<String>
     suspend fun updateUserCoverPicture(userId: String, imageData: ByteArray): Resource<String>
 
-    @Deprecated("Non scalable. Utiliser getAllUsersPaginated() à la place.", ReplaceWith("getAllUsersPaginated()"))
-    fun getAllUsers(): Flow<Resource<List<User>>>
-
-    fun getAllUsersPaginated(): Flow<PagingData<UserListItem>>
-    fun searchUsersPaginated(query: String): Flow<PagingData<UserListItem>>
+    // === DÉBUT DE LA MODIFICATION ===
+    // JUSTIFICATION : Le type de retour est maintenant EnrichedUserListItem pour correspondre
+    // au nouveau modèle de données plus riche que nous allons afficher dans la liste.
+    fun getAllUsersPaginated(): Flow<PagingData<EnrichedUserListItem>>
+    fun searchUsersPaginated(query: String): Flow<PagingData<EnrichedUserListItem>>
+    // === FIN DE LA MODIFICATION ===
 
     fun getUserById(userId: String): Flow<Resource<User>>
     suspend fun updateUserTypingStatus(userId: String, isTyping: Boolean): Resource<Unit>

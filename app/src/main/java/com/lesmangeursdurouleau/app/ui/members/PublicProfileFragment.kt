@@ -23,7 +23,6 @@ import androidx.appcompat.view.menu.MenuBuilder
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -34,8 +33,8 @@ import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.model.User
@@ -90,10 +89,6 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     }
 
     private fun setupRecyclerViews() {
-        // JUSTIFICATION DE LA MODIFICATION : Le paramètre manquant `isOwnerOfReading` est maintenant fourni au constructeur.
-        // Sa valeur est récupérée depuis l'état actuel du ViewModel (`viewModel.uiState.value.isOwnedProfile`).
-        // Cette correction résout l'erreur de compilation et assure que l'adapter dispose de l'information
-        // critique pour gérer la logique de permission d'affichage des commentaires masqués.
         commentsAdapter = CommentsAdapter(
             currentUserId = viewModel.currentUserId,
             isOwnerOfReading = viewModel.uiState.value.isOwnedProfile,
@@ -132,7 +127,7 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
     private fun setupMentionListener() {
         binding.etCommentInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val text = s.toString()
                 val cursorPosition = binding.etCommentInput.selectionStart
@@ -505,12 +500,29 @@ class PublicProfileFragment : Fragment(), OnCommentInteractionListener {
         binding.btnSocialShare.setOnClickListener { showToast(getString(R.string.action_share) + " : Bientôt disponible !") }
 
         val targetUsername = { viewModel.uiState.value.user?.username ?: args.username }
+
+        // === DÉBUT DE LA CORRECTION FINALE ===
+        // JUSTIFICATION : Le bug provenait de l'utilisation d'une action de navigation générique.
+        // Le `nav_graph.xml` a bien défini des actions spécifiques pour les "followers" et "following",
+        // qui portent des noms comme `...action...Followers` et `...action...Following`.
+        // En appelant ces actions spécifiques générées par Safe Args, nous nous assurons que
+        // tous les arguments (y compris `listType`) sont correctement passés au MembersFragment.
         binding.llFollowersClickableArea.setOnClickListener {
-            findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowers(args.userId, "followers", getString(R.string.title_followers_of, targetUsername())))
+            val action = PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowers(
+                userId = args.userId,
+                listTitle = getString(R.string.title_followers_of, targetUsername())
+            )
+            findNavController().navigate(action)
         }
         binding.llFollowingClickableArea.setOnClickListener {
-            findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowing(args.userId, "following", getString(R.string.title_following_by, targetUsername())))
+            val action = PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToMembersFragmentDestinationFollowing(
+                userId = args.userId,
+                listTitle = getString(R.string.title_following_by, targetUsername())
+            )
+            findNavController().navigate(action)
         }
+        // === FIN DE LA CORRECTION FINALE ===
+
         binding.llBooksReadClickableArea.setOnClickListener {
             findNavController().navigate(PublicProfileFragmentDirections.actionPublicProfileFragmentDestinationToCompletedReadingsFragment(args.userId, targetUsername()))
         }

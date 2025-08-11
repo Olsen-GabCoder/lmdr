@@ -1,5 +1,3 @@
-// Fichier Modifié : MembersFragment.kt
-
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.content.Context
@@ -53,11 +51,8 @@ class MembersFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d(TAG, "onViewCreated: Fragment créé. User ID: ${args.userId}, List Type: ${args.listType}, List Title: ${args.listTitle}")
-
-        binding.tvMembersTitle.text = args.listTitle
         (activity as? AppCompatActivity)?.supportActionBar?.title = args.listTitle
-        Log.i(TAG, "Titre du fragment et ActionBar mis à jour avec: '${args.listTitle}'")
+        binding.tvMembersTitle.text = args.listTitle
 
         setupRecyclerView()
         setupSearch()
@@ -65,30 +60,43 @@ class MembersFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        membersAdapter = MembersAdapter { member ->
-            val action = MembersFragmentDirections.actionMembersFragmentToPublicProfileFragment(
-                userId = member.uid,
-                username = member.username.ifEmpty { null }
-            )
-            findNavController().navigate(action)
-            Log.d(TAG, "Navigation vers le profil public de : ${member.username} (UID: ${member.uid})")
-        }
+        // === DÉBUT DE LA MODIFICATION ===
+        // JUSTIFICATION : L'initialisation de l'adapter est mise à jour pour correspondre
+        // à sa nouvelle signature. On lui passe maintenant les callbacks pour les clics
+        // sur l'item et sur les boutons "Suivre" / "Ne plus suivre".
+        membersAdapter = MembersAdapter(
+            onItemClick = { member ->
+                val action = MembersFragmentDirections.actionMembersFragmentToPublicProfileFragment(
+                    userId = member.uid,
+                    username = member.username.ifEmpty { null }
+                )
+                findNavController().navigate(action)
+            },
+            onFollowClick = { member ->
+                viewModel.followUser(member.uid)
+            },
+            onUnfollowClick = { member ->
+                viewModel.unfollowUser(member.uid)
+            }
+        )
+        // === FIN DE LA MODIFICATION ===
+
         binding.rvMembers.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = membersAdapter
-            setHasFixedSize(false)
             val verticalSpacing = resources.getDimensionPixelSize(R.dimen.spacing_small)
             addItemDecoration(VerticalSpaceItemDecoration(verticalSpacing))
         }
     }
 
-    /**
-     * JUSTIFICATION DE L'AJOUT : Cette nouvelle fonction configure le listener sur
-     * le champ de recherche. Elle notifie le ViewModel à chaque changement de texte.
-     */
     private fun setupSearch() {
-        binding.etSearchMembers.addTextChangedListener { text ->
-            viewModel.onSearchQueryChanged(text.toString())
+        val isSearchable = args.listType == null
+        binding.tilSearchMembers.isVisible = isSearchable
+
+        if (isSearchable) {
+            binding.etSearchMembers.addTextChangedListener { text ->
+                viewModel.onSearchQueryChanged(text.toString())
+            }
         }
     }
 
@@ -103,22 +111,23 @@ class MembersFragment : Fragment() {
 
                 launch {
                     membersAdapter.loadStateFlow.collectLatest { loadStates ->
-                        binding.progressBarMembers.isVisible = loadStates.refresh is LoadState.Loading
-                        binding.rvMembers.isVisible = loadStates.refresh is LoadState.NotLoading
-
                         val refreshState = loadStates.refresh
+                        binding.progressBarMembers.isVisible = refreshState is LoadState.Loading
+
                         if (refreshState is LoadState.Error) {
                             binding.tvErrorMessage.text = getString(R.string.error_loading_members, refreshState.error.localizedMessage)
-                            Log.e(TAG, "Erreur de chargement Paging: ${refreshState.error.localizedMessage}")
-                        }
-
-                        // Gère le cas "pas de résultats" après un chargement réussi
-                        if (loadStates.refresh is LoadState.NotLoading && membersAdapter.itemCount == 0) {
-                            binding.tvErrorMessage.text = getString(R.string.no_members_found_for_search) // Nouvelle string à ajouter
                             binding.tvErrorMessage.isVisible = true
                             binding.rvMembers.isVisible = false
                         } else {
-                            binding.tvErrorMessage.isVisible = refreshState is LoadState.Error
+                            // On vérifie si la pagination est terminée et si la liste est vide
+                            if (loadStates.append.endOfPaginationReached && membersAdapter.itemCount < 1) {
+                                binding.tvErrorMessage.text = getEmptyListMessage()
+                                binding.tvErrorMessage.isVisible = true
+                                binding.rvMembers.isVisible = false
+                            } else {
+                                binding.tvErrorMessage.isVisible = false
+                                binding.rvMembers.isVisible = true
+                            }
                         }
                     }
                 }
@@ -132,19 +141,6 @@ class MembersFragment : Fragment() {
                 viewLifecycleOwner.lifecycleScope.launch {
                     state.pagedUsers.collectLatest { pagingData ->
                         membersAdapter.submitData(pagingData)
-                    }
-                }
-            }
-            is MembersUiState.Success -> {
-                Log.d(TAG, "Reçu une liste non-paginée qui ne peut être affichée par le PagingDataAdapter.")
-                binding.progressBarMembers.isVisible = false
-                binding.rvMembers.isVisible = true
-                binding.tvErrorMessage.isVisible = state.users.isEmpty()
-                if (state.users.isEmpty()) {
-                    binding.tvErrorMessage.text = when (args.listType) {
-                        "followers" -> getString(R.string.no_followers_found)
-                        "following" -> getString(R.string.no_following_found)
-                        else -> getString(R.string.no_members_found)
                     }
                 }
             }
@@ -162,11 +158,24 @@ class MembersFragment : Fragment() {
         }
     }
 
+    private fun getEmptyListMessage(): String {
+        return when (args.listType) {
+            "followers" -> getString(R.string.no_followers_found)
+            "following" -> getString(R.string.no_following_found)
+            else -> {
+                if (binding.etSearchMembers.text?.isNotEmpty() == true) {
+                    getString(R.string.no_members_found_for_search)
+                } else {
+                    getString(R.string.no_members_found)
+                }
+            }
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         binding.rvMembers.adapter = null
         _binding = null
-        Log.d(TAG, "onDestroyView: Binding nulifié.")
     }
 }
 
