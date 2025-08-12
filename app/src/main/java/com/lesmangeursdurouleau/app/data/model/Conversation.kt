@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier complet
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier Conversation.kt
 package com.lesmangeursdurouleau.app.data.model
 
 import com.google.firebase.firestore.DocumentId
@@ -7,12 +7,9 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 /**
-
-Représente une conversation privée entre deux utilisateurs.
-
-Conçu avec une dénormalisation des données des participants (nom, photo)
-
-pour optimiser les performances d'affichage de la liste des conversations.
+ * Représente une conversation privée entre deux utilisateurs.
+ * Conçu avec une dénormalisation des données des participants (nom, photo)
+ * pour optimiser les performances d'affichage de la liste des conversations.
  */
 data class Conversation(
     @DocumentId
@@ -25,6 +22,9 @@ data class Conversation(
     val activeParticipantIds: List<String> = emptyList(),
 
     val lastMessage: String? = null,
+
+    // NOUVEAU: Ajout du champ manquant pour correspondre à la Cloud Function.
+    val lastMessageSenderId: String? = null,
 
     @ServerTimestamp
     val lastMessageTimestamp: Date? = null,
@@ -42,28 +42,24 @@ data class Conversation(
     val lastInteractionTimestamp: Date? = null,
 
     /**
-
-    Timestamp du tout premier message échangé dans cette conversation.
+     * Timestamp du tout premier message échangé dans cette conversation.
      */
     @ServerTimestamp
     val firstMessageTimestamp: Date? = null,
 
     /**
-
-    Le nombre total de messages échangés dans la conversation.
+     * Le nombre total de messages échangés dans la conversation.
      */
     val totalMessageCount: Long = 0,
 
     /**
-
-    Indique si une streak (flamme) est actuellement active entre les deux utilisateurs.
+     * Indique si une streak (flamme) est actuellement active entre les deux utilisateurs.
      */
     @get:PropertyName("isStreakActive")
     val isStreakActive: Boolean = false,
 
     /**
-
-    Liste des ID des défis hebdomadaires déjà complétés par ce binôme.
+     * Liste des ID des défis hebdomadaires déjà complétés par ce binôme.
      */
     val completedChallengeIds: List<String> = emptyList()
 ) {
@@ -75,6 +71,7 @@ data class Conversation(
         participantPhotoUrls = emptyMap(),
         activeParticipantIds = emptyList(),
         lastMessage = null,
+        lastMessageSenderId = null,
         lastMessageTimestamp = null,
         unreadCount = emptyMap(),
         typingStatus = emptyMap(),

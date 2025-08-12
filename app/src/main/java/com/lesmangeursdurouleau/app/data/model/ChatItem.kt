@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez le contenu de votre fichier qui définit ChatItem.
 package com.lesmangeursdurouleau.app.data.model
 
 import java.util.Date
@@ -34,3 +35,12 @@ data class HeaderItem(
 ) : ChatItem {
     override val id: String = "header_$messageBlockId"
 }
+
+// ======================= DÉBUT DE L'AJOUT =======================
+// JUSTIFICATION: Ajout de l'objet manquant pour l'indicateur de chargement.
+// Il respecte le contrat de votre interface ChatItem.
+object LoadingIndicatorItem : ChatItem {
+    override val id: String = "loading_indicator"
+    override val timestamp: Date? = null // Le timestamp n'est pas pertinent pour cet item.
+}
+// ======================== FIN DE L'AJOUT ========================

@@ -171,5 +171,4 @@
         app:layout_constraintTop_toBottomOf="@id/bubble_container"
         tools:visibility="visible">
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

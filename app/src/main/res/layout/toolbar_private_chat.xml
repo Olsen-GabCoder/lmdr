@@ -107,5 +107,4 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:src="@drawable/ic_heart_fire"
         tools:visibility="visible" />
-
 </androidx.constraintlayout.widget.ConstraintLayout>

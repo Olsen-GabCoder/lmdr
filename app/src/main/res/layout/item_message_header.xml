@@ -28,5 +28,4 @@
         android:textAppearance="?attr/textAppearanceLabelSmall"
         android:textColor="?android:attr/textColorSecondary"
         tools:text="14:32" />
-
 </LinearLayout>

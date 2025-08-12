@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier complet et corrigé
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PrivateChatRepositoryImpl.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.net.Uri
@@ -12,12 +12,13 @@ import com.lesmangeursdurouleau.app.data.model.Conversation
 import com.lesmangeursdurouleau.app.data.model.PrivateMessage
 import com.lesmangeursdurouleau.app.data.remote.FirebaseStorageService
 import com.lesmangeursdurouleau.app.remote.FirebaseConstants
+import com.lesmangeursdurouleau.app.ui.members.ConversationFilterType
 import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import java.util.UUID
+import java.util.*
 import javax.inject.Inject
 
 class PrivateChatRepositoryImpl @Inject constructor(
@@ -34,15 +35,14 @@ class PrivateChatRepositoryImpl @Inject constructor(
     private val conversationsCollection = firestore.collection(FirebaseConstants.COLLECTION_CONVERSATIONS)
     private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
-    // CORRIGÉ: Structure de callbackFlow simplifiée et robuste.
     override fun getConversation(conversationId: String): Flow<Resource<Conversation>> = callbackFlow {
         trySend(Resource.Loading())
         val listenerRegistration = conversationsCollection.document(conversationId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Log.w(TAG, "getConversation: Erreur pour $conversationId: ${error.message}", error)
+                    Log.w(TAG, "getConversation: Erreur pour $conversationId", error)
                     trySend(Resource.Error("Erreur de connexion: ${error.localizedMessage}"))
-                    close(error) // Ferme le flow en cas d'erreur
+                    close(error)
                     return@addSnapshotListener
                 }
 
@@ -57,17 +57,27 @@ class PrivateChatRepositoryImpl @Inject constructor(
         awaitClose { listenerRegistration.remove() }
     }
 
-    // CORRIGÉ: Structure de callbackFlow simplifiée et robuste.
-    override fun getUserConversations(userId: String): Flow<Resource<List<Conversation>>> = callbackFlow {
-        trySend(Resource.Loading())
-        val query = conversationsCollection
-            .whereArrayContains("participantIds", userId)
-            .orderBy("lastMessageTimestamp", Query.Direction.DESCENDING)
+    @Deprecated("Non-performant.")
+    override fun getUserConversations(userId: String): Flow<Resource<List<Conversation>>> {
+        return getFilteredUserConversations(userId, ConversationFilterType.ALL)
+    }
 
-        val listenerRegistration = query.addSnapshotListener { snapshot, error ->
+    override fun getFilteredUserConversations(userId: String, filterType: String): Flow<Resource<List<Conversation>>> = callbackFlow {
+        trySend(Resource.Loading())
+        var query: Query = conversationsCollection.whereArrayContains("participantIds", userId)
+        when (filterType) {
+            ConversationFilterType.UNREAD -> {
+                query = query.whereGreaterThan("unreadCount.$userId", 0)
+            }
+            ConversationFilterType.FAVORITES -> {
+                query = query.whereEqualTo("isFavorite", true)
+            }
+        }
+        val finalQuery = query.orderBy("lastMessageTimestamp", Query.Direction.DESCENDING)
+        val listenerRegistration = finalQuery.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.w(TAG, "getUserConversations: Erreur pour $userId: ${error.message}", error)
-                trySend(Resource.Error("Erreur de connexion: ${error.localizedMessage}"))
+                Log.e(TAG, "Erreur getFilteredUserConversations (filter: $filterType): ${error.message}", error)
+                trySend(Resource.Error("Erreur Firestore: ${error.localizedMessage}"))
                 close(error)
                 return@addSnapshotListener
             }
@@ -79,8 +89,6 @@ class PrivateChatRepositoryImpl @Inject constructor(
         awaitClose { listenerRegistration.remove() }
     }
 
-    // CORRIGÉ: Logique de transaction simplifiée. La récupération des détails des participants
-    // sera la responsabilité du ViewModel pour toujours avoir des données à jour.
     override suspend fun createOrGetConversation(currentUserId: String, targetUserId: String): Resource<String> {
         return try {
             val participants = listOf(currentUserId, targetUserId).sorted()
@@ -90,26 +98,37 @@ class PrivateChatRepositoryImpl @Inject constructor(
             firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(conversationDocRef)
                 if (snapshot.exists()) {
-                    return@runTransaction // La conversation existe déjà, on ne fait rien.
+                    return@runTransaction
                 }
 
-                // NOTE STRATÉGIQUE: On ne stocke plus les noms/photos ici pour éviter la désynchronisation.
-                // Le ViewModel sera chargé de récupérer les profils à jour des participants via leurs ID.
+                val currentUserDoc = transaction.get(usersCollection.document(currentUserId))
+                val targetUserDoc = transaction.get(usersCollection.document(targetUserId))
+
+                val currentUsername = currentUserDoc.getString("username") ?: "Utilisateur"
+                val targetUsername = targetUserDoc.getString("username") ?: "Utilisateur"
+                val currentUserPhoto = currentUserDoc.getString("profilePictureUrl")
+                val targetUserPhoto = targetUserDoc.getString("profilePictureUrl")
+
                 val newConversation = Conversation(
                     id = conversationId,
                     participantIds = participants,
-                    unreadCount = mapOf(currentUserId to 0, targetUserId to 0)
+                    participantNames = mapOf(currentUserId to currentUsername, targetUserId to targetUsername),
+                    participantPhotoUrls = mapOf(
+                        currentUserId to (currentUserPhoto ?: ""),
+                        targetUserId to (targetUserPhoto ?: "")
+                    ),
+                    unreadCount = mapOf(currentUserId to 0, targetUserId to 0),
+                    isFavorite = false
                 )
                 transaction.set(conversationDocRef, newConversation)
             }.await()
             Resource.Success(conversationId)
         } catch (e: Exception) {
-            Log.e(TAG, "createOrGetConversation: Erreur: ${e.message}", e)
+            Log.e(TAG, "createOrGetConversation Erreur: ${e.message}", e)
             Resource.Error("Erreur lors du démarrage de la conversation: ${e.localizedMessage}")
         }
     }
 
-    // CORRIGÉ: Structure de callbackFlow simplifiée et robuste.
     override fun getConversationMessages(conversationId: String): Flow<Resource<List<PrivateMessage>>> = callbackFlow {
         trySend(Resource.Loading())
         val query = conversationsCollection.document(conversationId)
@@ -118,7 +137,7 @@ class PrivateChatRepositoryImpl @Inject constructor(
 
         val listenerRegistration = query.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.w(TAG, "getConversationMessages: Erreur pour $conversationId: ${error.message}", error)
+                Log.w(TAG, "getConversationMessages: Erreur pour $conversationId", error)
                 trySend(Resource.Error("Erreur de connexion: ${error.localizedMessage}"))
                 close(error)
                 return@addSnapshotListener
@@ -131,13 +150,79 @@ class PrivateChatRepositoryImpl @Inject constructor(
         awaitClose { listenerRegistration.remove() }
     }
 
-    // CORRIGÉ: Logique simplifiée. La création de l'objet message sera gérée en amont (UseCase/ViewModel).
+    // === DÉBUT DE L'AJOUT ===
+    override fun getConversationMessagesAfter(conversationId: String, afterTimestamp: Date?): Flow<Resource<List<PrivateMessage>>> = callbackFlow {
+        trySend(Resource.Loading())
+        var query = conversationsCollection.document(conversationId)
+            .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+
+        // Si un timestamp est fourni, on ne s'abonne qu'aux messages plus récents.
+        if (afterTimestamp != null) {
+            query = query.whereGreaterThan("timestamp", afterTimestamp)
+        }
+
+        val listenerRegistration = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.w(TAG, "getConversationMessagesAfter: Erreur pour $conversationId", error)
+                trySend(Resource.Error("Erreur de connexion: ${error.localizedMessage}"))
+                close(error)
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val messages = snapshot.documents.mapNotNull { it.toObject(PrivateMessage::class.java)?.copy(id = it.id) }
+                trySend(Resource.Success(messages))
+            }
+        }
+        awaitClose { listenerRegistration.remove() }
+    }
+    // === FIN DE L'AJOUT ===
+
+    override suspend fun getConversationMessagesPaginated(
+        conversationId: String,
+        lastVisibleMessageId: String?,
+        pageSize: Int
+    ): Resource<PaginatedMessagesResponse> {
+        return try {
+            val messagesCollection = conversationsCollection.document(conversationId)
+                .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
+
+            var query = messagesCollection
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .limit(pageSize.toLong() + 1)
+
+            if (lastVisibleMessageId != null) {
+                val cursorDoc = messagesCollection.document(lastVisibleMessageId).get().await()
+                if (cursorDoc.exists()) {
+                    query = query.startAfter(cursorDoc)
+                }
+            }
+
+            val snapshot = query.get().await()
+            val documents = snapshot.documents
+            val hasMoreMessages = documents.size > pageSize
+            val messagesPage = documents
+                .take(pageSize)
+                .mapNotNull { it.toObject(PrivateMessage::class.java)?.copy(id = it.id) }
+                .reversed()
+
+            val newLastVisibleId = documents.lastOrNull()?.id
+
+            Resource.Success(PaginatedMessagesResponse(
+                messages = messagesPage,
+                lastVisibleMessageId = newLastVisibleId,
+                hasMoreMessages = hasMoreMessages
+            ))
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur getConversationMessagesPaginated: ${e.message}", e)
+            Resource.Error("Erreur de chargement des messages: ${e.localizedMessage}")
+        }
+    }
+
     override suspend fun sendPrivateMessage(conversationId: String, message: PrivateMessage): Resource<Unit> {
         return try {
-            conversationsCollection.document(conversationId)
-                .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
-                .add(message)
-                .await()
+            conversationsCollection.document(conversationId).collection(FirebaseConstants.SUBCOLLECTION_MESSAGES).add(message).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "sendPrivateMessage: Erreur: ${e.message}", e)
@@ -145,38 +230,27 @@ class PrivateChatRepositoryImpl @Inject constructor(
         }
     }
 
-    // CORRIGÉ: Utilisation d'un bloc `runCatching` pour une gestion d'erreur plus idiomatique en Kotlin.
     override suspend fun sendImageMessage(conversationId: String, imageUri: Uri, text: String?): Resource<Unit> {
         val currentUserId = firebaseAuth.currentUser?.uid ?: return Resource.Error("Utilisateur non authentifié.")
-
         return runCatching {
             val fileName = "${UUID.randomUUID()}.jpg"
             val uploadResult = firebaseStorageService.uploadChatMessageImage(conversationId, fileName, imageUri)
-
             val imageUrl = when (uploadResult) {
                 is Resource.Success -> uploadResult.data
                 is Resource.Error -> throw Exception(uploadResult.message ?: "Erreur d'upload de l'image.")
                 is Resource.Loading -> throw IllegalStateException("L'upload ne peut être en chargement ici.")
             }
-
             val message = PrivateMessage(senderId = currentUserId, text = text, imageUrl = imageUrl)
             sendPrivateMessage(conversationId, message)
-        }.fold(
-            onSuccess = { it }, // Retourne le résultat de sendPrivateMessage
-            onFailure = {
-                Log.e(TAG, "sendImageMessage: Erreur: ${it.message}", it)
-                Resource.Error("Erreur lors de l'envoi de l'image: ${it.localizedMessage}")
-            }
-        )
+        }.fold(onSuccess = { it }, onFailure = {
+            Log.e(TAG, "sendImageMessage: Erreur: ${it.message}", it)
+            Resource.Error("Erreur lors de l'envoi de l'image: ${it.localizedMessage}")
+        })
     }
 
     override suspend fun deletePrivateMessage(conversationId: String, messageId: String): Resource<Unit> {
         return try {
-            conversationsCollection.document(conversationId)
-                .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
-                .document(messageId)
-                .delete()
-                .await()
+            conversationsCollection.document(conversationId).collection(FirebaseConstants.SUBCOLLECTION_MESSAGES).document(messageId).delete().await()
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "deletePrivateMessage: Erreur: ${e.message}", e)
@@ -187,12 +261,10 @@ class PrivateChatRepositoryImpl @Inject constructor(
     override suspend fun markConversationAsRead(conversationId: String): Resource<Unit> {
         if (firebaseAuth.currentUser == null) return Resource.Error("Utilisateur non authentifié.")
         return try {
-            functions.getHttpsCallable("markConversationAsRead")
-                .call(hashMapOf("conversationId" to conversationId))
-                .await()
+            functions.getHttpsCallable("markConversationAsRead").call(hashMapOf("conversationId" to conversationId)).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "markConversationAsRead: Échec de l'appel à la Cloud Function: ${e.message}", e)
+            Log.e(TAG, "markConversationAsRead: Échec de l'appel à la Cloud Function", e)
             Resource.Error("Erreur de mise à jour: ${e.localizedMessage}")
         }
     }
@@ -203,11 +275,10 @@ class PrivateChatRepositoryImpl @Inject constructor(
             firestore.runTransaction { transaction ->
                 val snapshot = transaction.get(messageRef)
                 val reactions = (snapshot.get("reactions") as? Map<String, String> ?: emptyMap()).toMutableMap()
-
                 if (reactions[userId] == emoji) {
-                    reactions.remove(userId) // Si l'utilisateur clique sur la même réaction, on la retire.
+                    reactions.remove(userId)
                 } else {
-                    reactions[userId] = emoji // Sinon, on l'ajoute ou la met à jour.
+                    reactions[userId] = emoji
                 }
                 transaction.update(messageRef, "reactions", reactions)
             }.await()
@@ -221,10 +292,7 @@ class PrivateChatRepositoryImpl @Inject constructor(
     override suspend fun editPrivateMessage(conversationId: String, messageId: String, newText: String): Resource<Unit> {
         return try {
             val messageRef = conversationsCollection.document(conversationId).collection(FirebaseConstants.SUBCOLLECTION_MESSAGES).document(messageId)
-            messageRef.update(mapOf(
-                "text" to newText,
-                "isEdited" to true
-            )).await()
+            messageRef.update(mapOf("text" to newText, "isEdited" to true)).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "editPrivateMessage: Erreur: ${e.message}", e)
@@ -244,7 +312,6 @@ class PrivateChatRepositoryImpl @Inject constructor(
 
     override suspend fun updateTypingStatus(conversationId: String, userId: String, isTyping: Boolean): Resource<Unit> {
         return try {
-            // Utilisation de la notation par points pour les champs de map
             conversationsCollection.document(conversationId).update("typingStatus.$userId", isTyping).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
@@ -264,7 +331,6 @@ class PrivateChatRepositoryImpl @Inject constructor(
         }
     }
 
-    // CORRIGÉ: Validation déplacée en amont, le repository fait confiance aux données reçues.
     override suspend fun completeChallenge(conversationId: String, challengeId: String, bonusPoints: Int): Resource<Unit> {
         return try {
             conversationsCollection.document(conversationId).update(mapOf(

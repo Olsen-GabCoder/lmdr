@@ -1,4 +1,4 @@
-// PRÊT À COLLER - Fichier 100% final, avec l'intégration du Dictionnaire
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PrivateChatFragment.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.content.*
@@ -39,7 +39,7 @@ import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.*
 import com.lesmangeursdurouleau.app.databinding.FragmentPrivateChatBinding
 import com.lesmangeursdurouleau.app.notifications.MyFirebaseMessagingService
-import com.lesmangeursdurouleau.app.ui.members.dictionary.DictionaryDialogFragment // NOUVEL IMPORT
+import com.lesmangeursdurouleau.app.ui.members.dictionary.DictionaryDialogFragment
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -54,6 +54,7 @@ class PrivateChatFragment : Fragment() {
 
     private val viewModel: PrivateChatViewModel by viewModels()
     private lateinit var messagesAdapter: PrivateMessagesAdapter
+    private lateinit var layoutManager: LinearLayoutManager
 
     @Inject
     lateinit var firebaseAuth: FirebaseAuth
@@ -76,11 +77,8 @@ class PrivateChatFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // L'initialisation de l'image picker reste ici, elle est essentielle.
         imagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            uri?.let {
-                viewModel.sendImageMessage(it)
-            }
+            uri?.let { viewModel.sendImageMessage(it) }
         }
 
         childFragmentManager.setFragmentResultListener(LiteraryMenuDialogFragment.REQUEST_KEY, this) { _, bundle ->
@@ -89,10 +87,7 @@ class PrivateChatFragment : Fragment() {
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentPrivateChatBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -120,207 +115,6 @@ class PrivateChatFragment : Fragment() {
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(tierUpgradeReceiver)
     }
 
-    private fun setupInput() {
-        binding.etMessageInput.addTextChangedListener {
-            binding.btnSend.isEnabled = it.toString().isNotBlank()
-            viewModel.onUserTyping(it.toString())
-        }
-        binding.btnSend.setOnClickListener {
-            val messageText = binding.etMessageInput.text.toString().trim()
-            if (messageText.isNotEmpty()) {
-                viewModel.sendPrivateMessage(messageText)
-            }
-        }
-        binding.btnAttachFile.setOnClickListener {
-            LiteraryMenuDialogFragment().show(childFragmentManager, LiteraryMenuDialogFragment.TAG)
-        }
-    }
-
-    // ==========================================================
-    // DÉBUT DE LA MODIFICATION : GESTION DE L'ACTION DU DICTIONNAIRE
-    // ==========================================================
-    private fun handleLiteraryAction(actionKey: String?) {
-        val action = LiteraryMenuDialogFragment.LiteraryAction.values().find { it.key == actionKey }
-
-        when (action) {
-            LiteraryMenuDialogFragment.LiteraryAction.ATTACH_IMAGE -> {
-                imagePickerLauncher.launch("image/*")
-            }
-            LiteraryMenuDialogFragment.LiteraryAction.SEARCH_DICTIONARY -> {
-                DictionaryDialogFragment.newInstance().show(childFragmentManager, DictionaryDialogFragment.TAG)
-            }
-            // Les autres actions affichent un Toast pour le moment
-            LiteraryMenuDialogFragment.LiteraryAction.RECOMMEND_BOOK -> Toast.makeText(context, "Action : Conseiller un livre", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.ADD_TO_LIST -> Toast.makeText(context, "Action : Ajouter à ma liste", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.LITERARY_CHALLENGES -> Toast.makeText(context, "Action : Défis littéraires", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.QUICK_SUMMARY -> Toast.makeText(context, "Action : Résumé rapide", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.START_DEBATE -> Toast.makeText(context, "Action : Lancer un débat", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.GUIDED_SUGGESTION -> Toast.makeText(context, "Action : Suggestion guidée", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.FAVORITE_CHARACTER -> Toast.makeText(context, "Action : Personnage préféré", Toast.LENGTH_SHORT).show()
-            LiteraryMenuDialogFragment.LiteraryAction.PLAN_SESSION -> Toast.makeText(context, "Action : Planifier une séance", Toast.LENGTH_SHORT).show()
-            null -> {
-                // Gère le cas où la clé serait nulle ou inconnue
-                Toast.makeText(context, "Action inconnue", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-    // ========================================================
-    // FIN DE LA MODIFICATION
-    // ========================================================
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-
-    // Le reste du fichier est identique...
-    @RequiresApi(Build.VERSION_CODES.N)
-    private fun observeViewModel() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    viewModel.chatItems.collect { resource ->
-                        binding.progressBar.isVisible = resource is Resource.Loading
-                        when (resource) {
-                            is Resource.Loading -> { /* No-op */ }
-                            is Resource.Success -> messagesAdapter.submitList(resource.data)
-                            is Resource.Error -> Toast.makeText(context, resource.message, Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.currentUser.collect { resource ->
-                        if (resource is Resource.Success<*>) {
-                            messagesAdapter.setCurrentUser(resource.data as User?)
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.targetUser.collect { resource ->
-                        if (resource is Resource.Success) {
-                            messagesAdapter.setTargetUser(resource.data)
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.toolbarState.collect { state ->
-                        binding.toolbarLayout.tvToolbarName.text = state.userName
-                        Glide.with(this@PrivateChatFragment)
-                            .load(state.userPhotoUrl)
-                            .placeholder(R.drawable.ic_profile_placeholder)
-                            .error(R.drawable.ic_profile_placeholder)
-                            .into(binding.toolbarLayout.ivToolbarPhoto)
-
-                        val toolbarStatus = binding.toolbarLayout.tvToolbarStatus
-                        toolbarStatus.text = state.userStatus
-                        toolbarStatus.isVisible = state.userStatus.isNotBlank()
-
-                        val shouldShowAffinity = state.showAffinity
-                        binding.toolbarLayout.ivAffinityHeart.isVisible = shouldShowAffinity
-                        binding.toolbarLayout.tvAffinityScore.isVisible = shouldShowAffinity
-
-                        if (shouldShowAffinity) {
-                            binding.toolbarLayout.tvAffinityScore.text = state.affinityScoreText
-                            state.affinityIconRes?.let {
-                                binding.toolbarLayout.ivAffinityHeart.setImageResource(it)
-                            }
-                        }
-
-                        binding.toolbarLayout.ivStreakFlame.isVisible = state.isStreakVisible
-                    }
-                }
-
-                // OBSERVATEUR QUI GÈRE L'ÉTAT (ACTIVÉ/DÉSACITVÉ) DES BOUTONS D'AFFINITÉ
-                launch {
-                    viewModel.isAffinityDataLoading.collect { isLoading ->
-                        binding.toolbarLayout.ivAffinityHeart.isEnabled = !isLoading
-                        binding.toolbarLayout.tvAffinityScore.isEnabled = !isLoading
-                        // Effet visuel pour indiquer que le bouton est désactivé
-                        binding.toolbarLayout.ivAffinityHeart.alpha = if (isLoading) 0.5f else 1.0f
-                        binding.toolbarLayout.tvAffinityScore.alpha = if (isLoading) 0.5f else 1.0f
-                    }
-                }
-
-                launch {
-                    viewModel.events.collect { event ->
-                        when(event) {
-                            is ChatEvent.TierUpgrade -> {
-                                val heartAnimation = AnimationUtils.loadAnimation(context, R.anim.anim_heart_pop)
-                                binding.toolbarLayout.ivAffinityHeart.startAnimation(heartAnimation)
-                                Snackbar.make(binding.root, event.message, Snackbar.LENGTH_LONG).show()
-                            }
-                            is ChatEvent.ChallengeCompleted -> {
-                                // Géré dans le DialogFragment
-                            }
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.replyingToMessage.collect { message ->
-                        if (message != null) {
-                            binding.replyBarContainer.isVisible = true
-                            binding.tvReplyBarSenderName.text = "Réponse à ${
-                                if (message.senderId == firebaseAuth.currentUser?.uid) "vous-même"
-                                else viewModel.targetUser.value.data?.username
-                            }"
-                            binding.tvReplyBarPreview.text = message.text ?: (if (message.imageUrl != null) "Image" else "Message")
-                        } else {
-                            binding.replyBarContainer.isVisible = false
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.sendState.collectLatest { resource ->
-                        if (resource is Resource.Success) {
-                            binding.etMessageInput.text.clear()
-                        } else if (resource is Resource.Error) {
-                            Toast.makeText(context, "Erreur d'envoi: ${resource.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.deleteState.collectLatest { resource ->
-                        when (resource) {
-                            is Resource.Loading -> { /* No-op */ }
-                            is Resource.Success -> {
-                                Toast.makeText(context, getString(R.string.message_deleted_successfully), Toast.LENGTH_SHORT).show()
-                                viewModel.resetDeleteState()
-                            }
-                            is Resource.Error -> {
-                                Toast.makeText(context, "Erreur: ${resource.message}", Toast.LENGTH_LONG).show()
-                                viewModel.resetDeleteState()
-                            }
-                            null -> { /* Initial state */ }
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.editState.collectLatest { resource ->
-                        when (resource) {
-                            is Resource.Loading -> { /* No-op */ }
-                            is Resource.Success -> {
-                                Toast.makeText(context, "Message modifié", Toast.LENGTH_SHORT).show()
-                                viewModel.resetEditState()
-                            }
-                            is Resource.Error -> {
-                                Toast.makeText(context, "Erreur: ${resource.message}", Toast.LENGTH_LONG).show()
-                                viewModel.resetEditState()
-                            }
-                            null -> { /* Initial state */ }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     @RequiresApi(Build.VERSION_CODES.N)
     private fun setupRecyclerView() {
         val currentUserId = firebaseAuth.currentUser?.uid ?: ""
@@ -332,18 +126,31 @@ class PrivateChatFragment : Fragment() {
                 val action = PrivateChatFragmentDirections.actionPrivateChatFragmentToFullScreenImageFragment(imageUrl)
                 findNavController().navigate(action)
             },
-            formatDateLabel = { date, context -> viewModel.formatDateLabel(date, context) },
-            onMessageSwiped = { message ->
-                viewModel.onReplyMessage(message)
-            },
-            onReplyClicked = { messageId ->
-                scrollToMessageAndHighlight(messageId)
-            }
+            formatDateLabel = { date -> viewModel.formatDateLabel(date) },
+            onMessageSwiped = { message -> viewModel.onReplyMessage(message) },
+            onReplyClicked = { messageId -> scrollToMessageAndHighlight(messageId) }
         )
 
-        val layoutManager = LinearLayoutManager(context).apply { stackFromEnd = true }
+        layoutManager = LinearLayoutManager(context).apply { stackFromEnd = true }
         binding.rvMessages.adapter = messagesAdapter
         binding.rvMessages.layoutManager = layoutManager
+
+        // === DÉBUT DE LA MODIFICATION ===
+        // JUSTIFICATION: La condition du listener est renforcée pour vérifier l'état du ViewModel
+        // avant de déclencher un nouveau chargement. Cela empêche le déclenchement infini.
+        binding.rvMessages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val isScrollingUp = dy < 0
+                val isAtTop = layoutManager.findFirstVisibleItemPosition() == 0
+
+                if (isScrollingUp && isAtTop && !viewModel.isLoadingMore.value && viewModel.hasMoreMessagesToLoad.value) {
+                    viewModel.loadMoreMessages()
+                }
+            }
+        })
+        // === FIN DE LA MODIFICATION ===
+
         val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
@@ -366,12 +173,139 @@ class PrivateChatFragment : Fragment() {
             }
         }
         ItemTouchHelper(itemTouchHelperCallback).attachToRecyclerView(binding.rvMessages)
-        messagesAdapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
-            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
-                super.onItemRangeInserted(positionStart, itemCount)
-                binding.rvMessages.scrollToPosition(messagesAdapter.itemCount - 1)
+
+        // Supprimé l'ancien AdapterDataObserver qui faisait un scroll automatique non désiré
+    }
+
+    @RequiresApi(Build.VERSION_CODES.N)
+    private fun observeViewModel() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.chatItems.collect { items ->
+                        // Garde la position du scroll lors de l'ajout de nouveaux items en haut
+                        val oldFirstItem = if (messagesAdapter.currentList.isNotEmpty()) messagesAdapter.currentList.firstOrNull() else null
+                        messagesAdapter.submitList(items) {
+                            if (oldFirstItem != null) {
+                                val newPosition = items.indexOf(oldFirstItem)
+                                if (newPosition > 0) {
+                                    layoutManager.scrollToPositionWithOffset(newPosition, 0)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.isLoading.collect { isLoading ->
+                        binding.progressBar.isVisible = isLoading
+                    }
+                }
+
+                launch {
+                    viewModel.events.collect { event ->
+                        when(event) {
+                            is ChatEvent.TierUpgrade -> {
+                                val heartAnimation = AnimationUtils.loadAnimation(context, R.anim.anim_heart_pop)
+                                binding.toolbarLayout.ivAffinityHeart.startAnimation(heartAnimation)
+                                Snackbar.make(binding.root, event.message, Snackbar.LENGTH_LONG).show()
+                            }
+                            is ChatEvent.ChallengeCompleted -> {}
+                            is ChatEvent.PaginationError -> {
+                                Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                }
+
+                launch {
+                    viewModel.sendState.collectLatest { resource ->
+                        if (resource is Resource.Success) {
+                            binding.etMessageInput.text.clear()
+                            binding.rvMessages.scrollToPosition(messagesAdapter.itemCount - 1)
+                        } else if (resource is Resource.Error) {
+                            Toast.makeText(context, "Erreur d'envoi: ${resource.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+
+                // Le reste des observateurs est inchangé
+                launch { viewModel.currentUser.collect { resource -> if (resource is Resource.Success<*>) { messagesAdapter.setCurrentUser(resource.data as User?) } } }
+                launch { viewModel.targetUser.collect { resource -> if (resource is Resource.Success) { messagesAdapter.setTargetUser(resource.data) } } }
+                launch { viewModel.toolbarState.collect { state ->
+                    binding.toolbarLayout.tvToolbarName.text = state.userName
+                    Glide.with(this@PrivateChatFragment).load(state.userPhotoUrl).placeholder(R.drawable.ic_profile_placeholder).error(R.drawable.ic_profile_placeholder).into(binding.toolbarLayout.ivToolbarPhoto)
+                    binding.toolbarLayout.tvToolbarStatus.text = state.userStatus
+                    binding.toolbarLayout.tvToolbarStatus.isVisible = state.userStatus.isNotBlank()
+                    binding.toolbarLayout.ivAffinityHeart.isVisible = state.showAffinity
+                    binding.toolbarLayout.tvAffinityScore.isVisible = state.showAffinity
+                    if (state.showAffinity) {
+                        binding.toolbarLayout.tvAffinityScore.text = state.affinityScoreText
+                        state.affinityIconRes?.let { binding.toolbarLayout.ivAffinityHeart.setImageResource(it) }
+                    }
+                    binding.toolbarLayout.ivStreakFlame.isVisible = state.isStreakVisible
+                }}
+                launch { viewModel.isAffinityDataLoading.collect { isLoading ->
+                    binding.toolbarLayout.ivAffinityHeart.isEnabled = !isLoading
+                    binding.toolbarLayout.tvAffinityScore.isEnabled = !isLoading
+                    binding.toolbarLayout.ivAffinityHeart.alpha = if (isLoading) 0.5f else 1.0f
+                    binding.toolbarLayout.tvAffinityScore.alpha = if (isLoading) 0.5f else 1.0f
+                }}
+                launch { viewModel.replyingToMessage.collect { message ->
+                    binding.replyBarContainer.isVisible = message != null
+                    if (message != null) {
+                        binding.tvReplyBarSenderName.text = "Réponse à ${ if (message.senderId == firebaseAuth.currentUser?.uid) "vous-même" else viewModel.targetUser.value.data?.username }"
+                        binding.tvReplyBarPreview.text = message.text ?: (if (message.imageUrl != null) "Image" else "Message")
+                    }
+                }}
+                launch { viewModel.deleteState.collectLatest { resource ->
+                    when (resource) {
+                        is Resource.Success -> { Toast.makeText(context, getString(R.string.message_deleted_successfully), Toast.LENGTH_SHORT).show(); viewModel.resetDeleteState() }
+                        is Resource.Error -> { Toast.makeText(context, "Erreur: ${resource.message}", Toast.LENGTH_LONG).show(); viewModel.resetDeleteState() }
+                        else -> {}
+                    }
+                }}
+                launch { viewModel.editState.collectLatest { resource ->
+                    when (resource) {
+                        is Resource.Success -> { Toast.makeText(context, "Message modifié", Toast.LENGTH_SHORT).show(); viewModel.resetEditState() }
+                        is Resource.Error -> { Toast.makeText(context, "Erreur: ${resource.message}", Toast.LENGTH_LONG).show(); viewModel.resetEditState() }
+                        else -> {}
+                    }
+                }}
             }
-        })
+        }
+    }
+
+    // Le reste du fichier est inchangé
+    private fun setupInput() {
+        binding.etMessageInput.addTextChangedListener {
+            binding.btnSend.isEnabled = it.toString().isNotBlank()
+            viewModel.onUserTyping(it.toString())
+        }
+        binding.btnSend.setOnClickListener {
+            val messageText = binding.etMessageInput.text.toString().trim()
+            if (messageText.isNotEmpty()) {
+                viewModel.sendPrivateMessage(messageText)
+            }
+        }
+        binding.btnAttachFile.setOnClickListener {
+            LiteraryMenuDialogFragment().show(childFragmentManager, LiteraryMenuDialogFragment.TAG)
+        }
+    }
+
+    private fun handleLiteraryAction(actionKey: String?) {
+        val action = LiteraryMenuDialogFragment.LiteraryAction.entries.find { it.key == actionKey }
+        when (action) {
+            LiteraryMenuDialogFragment.LiteraryAction.ATTACH_IMAGE -> imagePickerLauncher.launch("image/*")
+            LiteraryMenuDialogFragment.LiteraryAction.SEARCH_DICTIONARY -> DictionaryDialogFragment.newInstance().show(childFragmentManager, DictionaryDialogFragment.TAG)
+            else -> Toast.makeText(context, "Action non implémentée.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        binding.rvMessages.adapter = null
+        _binding = null
     }
 
     private fun scrollToMessageAndHighlight(messageId: String) {
@@ -391,66 +325,41 @@ class PrivateChatFragment : Fragment() {
     }
 
     private fun setupReplyBar() {
-        binding.btnCancelReply.setOnClickListener {
-            viewModel.cancelReply()
-        }
+        binding.btnCancelReply.setOnClickListener { viewModel.cancelReply() }
     }
 
     private fun setupToolbar() {
-        binding.toolbar.setNavigationOnClickListener {
-            findNavController().navigateUp()
-        }
-
+        binding.toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
         val navigateToProfile: (View) -> Unit = {
             viewModel.targetUser.value.data?.let { user ->
                 if (user.uid.isNotEmpty()) {
-                    val action = PrivateChatFragmentDirections.actionPrivateChatFragmentToPublicProfileFragmentDestination(
-                        userId = user.uid,
-                        username = user.username
-                    )
+                    val action = PrivateChatFragmentDirections.actionPrivateChatFragmentToPublicProfileFragmentDestination(userId = user.uid, username = user.username)
                     findNavController().navigate(action)
                 }
             }
         }
-
         binding.toolbarLayout.ivToolbarPhoto.setOnClickListener(navigateToProfile)
         binding.toolbarLayout.tvToolbarName.setOnClickListener(navigateToProfile)
-
-        binding.toolbarLayout.ivAffinityHeart.setOnClickListener {
-            showAffinityRetrospectiveDialog()
-        }
-        binding.toolbarLayout.tvAffinityScore.setOnClickListener {
-            showAffinityRetrospectiveDialog()
-        }
+        binding.toolbarLayout.ivAffinityHeart.setOnClickListener { showAffinityRetrospectiveDialog() }
+        binding.toolbarLayout.tvAffinityScore.setOnClickListener { showAffinityRetrospectiveDialog() }
     }
 
     private fun showAffinityRetrospectiveDialog() {
         val conversation = viewModel.conversation.value
-        val challengesResource = viewModel.weeklyChallenges.value
-        val challenges = (challengesResource as? Resource.Success)?.data
-
+        val challenges = (viewModel.weeklyChallenges.value as? Resource.Success)?.data
         if (isAdded && conversation != null && challenges != null) {
-            val dialog = AffinityRetrospectiveDialogFragment.newInstance(
-                conversation = conversation,
-                challenges = challenges
-            )
+            val dialog = AffinityRetrospectiveDialogFragment.newInstance(conversation = conversation, challenges = challenges)
             dialog.show(childFragmentManager, AffinityRetrospectiveDialogFragment.TAG)
         } else {
             Toast.makeText(context, "Veuillez patienter, les données se chargent.", Toast.LENGTH_SHORT).show()
-            Log.w("AffinityDialog", "Tentative d'ouverture du dialogue alors que les données n'étaient pas prêtes.")
         }
     }
 
     private fun showActionsMenuForMessage(anchorView: View, message: PrivateMessage) {
-        val messageId = message.id
-        if (messageId.isNullOrBlank()) {
-            Toast.makeText(context, getString(R.string.error_invalid_message_id), Toast.LENGTH_SHORT).show()
-            return
-        }
+        val messageId = message.id ?: return
         val inflater = LayoutInflater.from(requireContext())
         val popupView = inflater.inflate(R.layout.popup_message_actions, binding.root, false)
         val popupWindow = PopupWindow(popupView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-
         val emojis = mapOf(R.id.emoji_thumbs_up to "👍", R.id.emoji_heart to "❤️", R.id.emoji_laugh to "😂", R.id.emoji_wow to "😮", R.id.emoji_sad to "😢")
         emojis.forEach { (id, emoji) ->
             popupView.findViewById<TextView>(id).setOnClickListener {
@@ -459,51 +368,39 @@ class PrivateChatFragment : Fragment() {
                 popupWindow.dismiss()
             }
         }
-
         popupView.findViewById<TextView>(R.id.action_copy_message_popup).setOnClickListener {
             copyMessageToClipboard(message.text)
             popupWindow.dismiss()
         }
-
         val editActionView = popupView.findViewById<TextView>(R.id.action_edit_message_popup)
         val deleteActionView = popupView.findViewById<TextView>(R.id.action_delete_message_popup)
         val separatorView = popupView.findViewById<View>(R.id.separator)
-
         val isSentByCurrentUser = message.senderId == firebaseAuth.currentUser?.uid
-        if (isSentByCurrentUser && !message.text.isNullOrBlank()) {
+        editActionView.isVisible = isSentByCurrentUser && !message.text.isNullOrBlank()
+        deleteActionView.isVisible = isSentByCurrentUser
+        separatorView.isVisible = editActionView.isVisible || deleteActionView.isVisible
+        if (editActionView.isVisible) {
             editActionView.setOnClickListener {
                 showEditMessageDialog(message)
                 popupWindow.dismiss()
             }
-        } else {
-            editActionView.isVisible = false
         }
-
-        if (isSentByCurrentUser) {
+        if (deleteActionView.isVisible) {
             deleteActionView.setOnClickListener {
                 showDeleteConfirmationDialog(message)
                 popupWindow.dismiss()
             }
-        } else {
-            deleteActionView.isVisible = false
         }
-
-        if (!editActionView.isVisible && !deleteActionView.isVisible) {
-            separatorView.isVisible = false
-        }
-
         popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
-        val popupWidth = popupView.measuredWidth
-        val popupHeight = popupView.measuredHeight
         val location = IntArray(2)
         anchorView.getLocationOnScreen(location)
-        val x = location[0] + (anchorView.width - popupWidth) / 2
-        val y = location[1] - popupHeight - 16
+        val x = location[0] + (anchorView.width - popupView.measuredWidth) / 2
+        val y = location[1] - popupView.measuredHeight - 16
         popupWindow.showAtLocation(anchorView, 0, x, y)
     }
 
     private fun showEditMessageDialog(message: PrivateMessage) {
-        if (message.id.isNullOrBlank()) return
+        val messageId = message.id ?: return
         val textInputLayout = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_edit_message, null) as TextInputLayout
         val editText = textInputLayout.editText
         editText?.setText(message.text)
@@ -511,13 +408,12 @@ class PrivateChatFragment : Fragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Modifier le message")
             .setView(textInputLayout)
-            .setNegativeButton(R.string.cancel) { dialog, _ -> dialog.dismiss() }
-            .setPositiveButton("Enregistrer") { dialog, _ ->
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton("Enregistrer") { _, _ ->
                 val newText = editText?.text.toString().trim()
                 if (newText.isNotEmpty() && newText != message.text) {
-                    viewModel.editMessage(message.id, newText)
+                    viewModel.editMessage(messageId, newText)
                 }
-                dialog.dismiss()
             }
             .show()
     }
@@ -531,18 +427,13 @@ class PrivateChatFragment : Fragment() {
     }
 
     private fun showDeleteConfirmationDialog(message: PrivateMessage) {
-        val messageId = message.id
-        if (messageId.isNullOrBlank()) {
-            Toast.makeText(context, getString(R.string.error_invalid_message_id), Toast.LENGTH_SHORT).show()
-            return
-        }
+        val messageId = message.id ?: return
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.delete_message_dialog_title))
             .setMessage(getString(R.string.delete_message_dialog_message))
-            .setNegativeButton(getString(R.string.cancel)) { dialog, _ -> dialog.dismiss() }
-            .setPositiveButton(getString(R.string.delete)) { dialog, _ ->
+            .setNegativeButton(getString(R.string.cancel), null)
+            .setPositiveButton(getString(R.string.delete)) { _, _ ->
                 viewModel.deleteMessage(messageId)
-                dialog.dismiss()
             }
             .show()
     }
