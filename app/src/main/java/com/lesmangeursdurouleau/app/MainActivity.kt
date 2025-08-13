@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier MainActivity.kt
 package com.lesmangeursdurouleau.app
 
 import android.content.Intent
@@ -57,13 +58,17 @@ class MainActivity : AppCompatActivity() {
         binding.bottomNavigationView.setupWithNavController(navController)
 
         askNotificationPermission()
-        saveFCMToken()
         handleNotificationIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
         updateUserStatus(true)
+        // === DÉBUT DE LA MODIFICATION ===
+        // JUSTIFICATION : Déplacer l'appel ici garantit que le jeton est vérifié/mis à jour
+        // chaque fois que l'activité revient au premier plan, y compris après une reconnexion.
+        saveFCMToken()
+        // === FIN DE LA MODIFICATION ===
     }
 
     override fun onPause() {
@@ -81,7 +86,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Il est crucial de gérer également l'intent ici pour les cas où l'activité est déjà ouverte.
         handleNotificationIntent(intent)
     }
 
@@ -123,7 +127,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // MODIFICATION (Chantier 3) : Logique de deep linking entièrement réécrite
     private fun handleNotificationIntent(intent: Intent?) {
         intent?.extras?.let { extras ->
             val notificationType = extras.getString(MyFirebaseMessagingService.NOTIFICATION_TYPE_KEY)
@@ -156,7 +159,6 @@ class MainActivity : AppCompatActivity() {
 
                 MyFirebaseMessagingService.TYPE_NEW_PRIVATE_MESSAGE,
                 MyFirebaseMessagingService.TYPE_TIER_UPGRADE -> {
-                    // Pour les messages et récompenses, on navigue vers la liste des conversations
                     Log.d("MainActivity", "Navigating to conversations list.")
                     navController.navigate(R.id.conversationsListFragmentDestination)
                 }
@@ -165,7 +167,6 @@ class MainActivity : AppCompatActivity() {
                 MyFirebaseMessagingService.TYPE_PHASE_REMINDER,
                 MyFirebaseMessagingService.TYPE_PHASE_STATUS_CHANGE,
                 MyFirebaseMessagingService.TYPE_MEETING_LINK_UPDATE -> {
-                    // Comportement existant pour les lectures
                     Log.d("MainActivity", "Navigating to readings screen.")
                     navController.navigate(R.id.navigation_readings)
                 }
@@ -174,8 +175,6 @@ class MainActivity : AppCompatActivity() {
                     Log.w("MainActivity", "Notification intent with unhandled type: $notificationType")
                 }
             }
-
-            // Important: Consommer l'intent pour éviter une re-navigation lors des changements de configuration.
             setIntent(Intent())
         }
     }

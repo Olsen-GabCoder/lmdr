@@ -25,7 +25,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -38,7 +37,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.*
 import com.lesmangeursdurouleau.app.databinding.FragmentPrivateChatBinding
-import com.lesmangeursdurouleau.app.notifications.MyFirebaseMessagingService
 import com.lesmangeursdurouleau.app.ui.members.dictionary.DictionaryDialogFragment
 import com.lesmangeursdurouleau.app.utils.Resource
 import dagger.hilt.android.AndroidEntryPoint
@@ -60,20 +58,6 @@ class PrivateChatFragment : Fragment() {
     lateinit var firebaseAuth: FirebaseAuth
 
     private lateinit var imagePickerLauncher: ActivityResultLauncher<String>
-
-    private val tierUpgradeReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == MyFirebaseMessagingService.ACTION_TIER_UPGRADE) {
-                val conversationId = intent.getStringExtra(MyFirebaseMessagingService.CONVERSATION_ID_KEY)
-                val message = intent.getStringExtra(MyFirebaseMessagingService.BODY_KEY) ?: "Nouveau palier atteint !"
-
-                if (conversationId == viewModel.conversationId.value) {
-                    Log.d("PrivateChatFragment", "Tier Upgrade event received for this conversation!")
-                    viewModel.triggerTierUpgradeEffect(message)
-                }
-            }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,14 +89,11 @@ class PrivateChatFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         viewModel.setChatActive(true)
-        val filter = IntentFilter(MyFirebaseMessagingService.ACTION_TIER_UPGRADE)
-        LocalBroadcastManager.getInstance(requireContext()).registerReceiver(tierUpgradeReceiver, filter)
     }
 
     override fun onPause() {
         super.onPause()
         viewModel.setChatActive(false)
-        LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(tierUpgradeReceiver)
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
@@ -135,21 +116,7 @@ class PrivateChatFragment : Fragment() {
         binding.rvMessages.adapter = messagesAdapter
         binding.rvMessages.layoutManager = layoutManager
 
-        // === DÉBUT DE LA MODIFICATION ===
-        // JUSTIFICATION: La condition du listener est renforcée pour vérifier l'état du ViewModel
-        // avant de déclencher un nouveau chargement. Cela empêche le déclenchement infini.
-        binding.rvMessages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                val isScrollingUp = dy < 0
-                val isAtTop = layoutManager.findFirstVisibleItemPosition() == 0
-
-                if (isScrollingUp && isAtTop && !viewModel.isLoadingMore.value && viewModel.hasMoreMessagesToLoad.value) {
-                    viewModel.loadMoreMessages()
-                }
-            }
-        })
-        // === FIN DE LA MODIFICATION ===
+        // La logique de scroll pour la pagination est maintenant supprimée.
 
         val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
@@ -173,8 +140,6 @@ class PrivateChatFragment : Fragment() {
             }
         }
         ItemTouchHelper(itemTouchHelperCallback).attachToRecyclerView(binding.rvMessages)
-
-        // Supprimé l'ancien AdapterDataObserver qui faisait un scroll automatique non désiré
     }
 
     @RequiresApi(Build.VERSION_CODES.N)
@@ -183,14 +148,10 @@ class PrivateChatFragment : Fragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.chatItems.collect { items ->
-                        // Garde la position du scroll lors de l'ajout de nouveaux items en haut
-                        val oldFirstItem = if (messagesAdapter.currentList.isNotEmpty()) messagesAdapter.currentList.firstOrNull() else null
+                        val wasAtBottom = !binding.rvMessages.canScrollVertically(1)
                         messagesAdapter.submitList(items) {
-                            if (oldFirstItem != null) {
-                                val newPosition = items.indexOf(oldFirstItem)
-                                if (newPosition > 0) {
-                                    layoutManager.scrollToPositionWithOffset(newPosition, 0)
-                                }
+                            if (wasAtBottom) {
+                                binding.rvMessages.scrollToPosition(messagesAdapter.itemCount - 1)
                             }
                         }
                     }
@@ -222,14 +183,12 @@ class PrivateChatFragment : Fragment() {
                     viewModel.sendState.collectLatest { resource ->
                         if (resource is Resource.Success) {
                             binding.etMessageInput.text.clear()
-                            binding.rvMessages.scrollToPosition(messagesAdapter.itemCount - 1)
                         } else if (resource is Resource.Error) {
                             Toast.makeText(context, "Erreur d'envoi: ${resource.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
 
-                // Le reste des observateurs est inchangé
                 launch { viewModel.currentUser.collect { resource -> if (resource is Resource.Success<*>) { messagesAdapter.setCurrentUser(resource.data as User?) } } }
                 launch { viewModel.targetUser.collect { resource -> if (resource is Resource.Success) { messagesAdapter.setTargetUser(resource.data) } } }
                 launch { viewModel.toolbarState.collect { state ->
@@ -276,7 +235,6 @@ class PrivateChatFragment : Fragment() {
         }
     }
 
-    // Le reste du fichier est inchangé
     private fun setupInput() {
         binding.etMessageInput.addTextChangedListener {
             binding.btnSend.isEnabled = it.toString().isNotBlank()

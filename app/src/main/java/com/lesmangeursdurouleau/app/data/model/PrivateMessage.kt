@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PrivateMessage.kt
 package com.lesmangeursdurouleau.app.data.model
 
 import com.google.firebase.firestore.DocumentId
@@ -39,6 +40,13 @@ data class PrivateMessage(
 
     val senderId: String = "",
 
+    // === DÉBUT DE L'AJOUT ===
+    // JUSTIFICATION: Dénormalisation des données de l'expéditeur pour optimiser l'affichage
+    // et éviter des lectures supplémentaires côté client.
+    val senderUsername: String = "...",
+    val senderProfilePictureUrl: String? = null,
+    // === FIN DE L'AJOUT ===
+
     val text: String? = null,
 
     val imageUrl: String? = null,
@@ -60,6 +68,8 @@ data class PrivateMessage(
     constructor() : this(
         id = null,
         senderId = "",
+        senderUsername = "...", // Ajouté
+        senderProfilePictureUrl = null, // Ajouté
         text = null,
         imageUrl = null,
         timestamp = null,

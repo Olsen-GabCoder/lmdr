@@ -2,6 +2,7 @@
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -24,7 +25,7 @@ import javax.inject.Inject
 class PrivateChatRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseAuth: FirebaseAuth,
-    private val firebaseStorageService: FirebaseStorageService,
+    private val firebaseStorageService: FirebaseStorageService, // Conservé pour d'autres usages potentiels
     private val functions: FirebaseFunctions
 ) : PrivateChatRepository {
 
@@ -150,14 +151,12 @@ class PrivateChatRepositoryImpl @Inject constructor(
         awaitClose { listenerRegistration.remove() }
     }
 
-    // === DÉBUT DE L'AJOUT ===
     override fun getConversationMessagesAfter(conversationId: String, afterTimestamp: Date?): Flow<Resource<List<PrivateMessage>>> = callbackFlow {
         trySend(Resource.Loading())
         var query = conversationsCollection.document(conversationId)
             .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
             .orderBy("timestamp", Query.Direction.ASCENDING)
 
-        // Si un timestamp est fourni, on ne s'abonne qu'aux messages plus récents.
         if (afterTimestamp != null) {
             query = query.whereGreaterThan("timestamp", afterTimestamp)
         }
@@ -176,7 +175,6 @@ class PrivateChatRepositoryImpl @Inject constructor(
         }
         awaitClose { listenerRegistration.remove() }
     }
-    // === FIN DE L'AJOUT ===
 
     override suspend fun getConversationMessagesPaginated(
         conversationId: String,
@@ -230,23 +228,34 @@ class PrivateChatRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun sendImageMessage(conversationId: String, imageUri: Uri, text: String?): Resource<Unit> {
-        val currentUserId = firebaseAuth.currentUser?.uid ?: return Resource.Error("Utilisateur non authentifié.")
-        return runCatching {
-            val fileName = "${UUID.randomUUID()}.jpg"
-            val uploadResult = firebaseStorageService.uploadChatMessageImage(conversationId, fileName, imageUri)
-            val imageUrl = when (uploadResult) {
-                is Resource.Success -> uploadResult.data
-                is Resource.Error -> throw Exception(uploadResult.message ?: "Erreur d'upload de l'image.")
-                is Resource.Loading -> throw IllegalStateException("L'upload ne peut être en chargement ici.")
-            }
-            val message = PrivateMessage(senderId = currentUserId, text = text, imageUrl = imageUrl)
-            sendPrivateMessage(conversationId, message)
-        }.fold(onSuccess = { it }, onFailure = {
-            Log.e(TAG, "sendImageMessage: Erreur: ${it.message}", it)
-            Resource.Error("Erreur lors de l'envoi de l'image: ${it.localizedMessage}")
-        })
+    // === DÉBUT DE LA MODIFICATION ===
+    override suspend fun sendImageMessage(conversationId: String, imageData: ByteArray, text: String?): Resource<Unit> {
+        if (firebaseAuth.currentUser == null) return Resource.Error("Utilisateur non authentifié.")
+
+        return try {
+            // 1. Encoder l'image en Base64 pour la transmission HTTPS
+            val imageBase64 = Base64.encodeToString(imageData, Base64.DEFAULT)
+
+            // 2. Préparer les données à envoyer à la Cloud Function
+            val data = hashMapOf(
+                "conversationId" to conversationId,
+                "imageBase64" to imageBase64,
+                "text" to text
+            )
+
+            // 3. Appeler la Cloud Function callable
+            // Assurez-vous que le nom "sendChatMessageImage" correspond exactement au nom de la fonction que nous allons créer.
+            functions.getHttpsCallable("sendChatMessageImage")
+                .call(data)
+                .await()
+
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "sendImageMessage: Échec de l'appel à la Cloud Function", e)
+            Resource.Error("Erreur lors de l'envoi de l'image: ${e.localizedMessage}")
+        }
     }
+    // === FIN DE LA MODIFICATION ===
 
     override suspend fun deletePrivateMessage(conversationId: String, messageId: String): Resource<Unit> {
         return try {

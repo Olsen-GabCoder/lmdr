@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier AuthRepository.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import com.google.firebase.auth.AuthCredential
@@ -19,10 +20,11 @@ interface AuthRepository {
 
     // === DÉBUT DE LA MODIFICATION ===
     /**
-     * MODIFIÉ : Déconnecte l'utilisateur actuellement authentifié et met à jour son statut de présence.
+     * Déconnecte l'utilisateur et nettoie les données de sa session.
+     * Met à jour le statut de présence et, de manière critique,
+     * supprime le jeton FCM de l'utilisateur pour éviter les notifications croisées.
      *
-     * @param userId L'ID de l'utilisateur qui se déconnecte, nécessaire pour mettre à jour son statut.
-     *               Peut être null si l'ID n'est pas disponible, auquel cas seule la déconnexion locale aura lieu.
+     * @param userId L'ID de l'utilisateur qui se déconnecte. Requis pour le nettoyage des données.
      */
     suspend fun logoutUser(userId: String?)
     // === FIN DE LA MODIFICATION ===

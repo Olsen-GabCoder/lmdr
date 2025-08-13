@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier AuthRepositoryImpl.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -9,6 +10,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.messaging.FirebaseMessaging // NOUVEL IMPORT
 import com.lesmangeursdurouleau.app.data.model.Role
 import com.lesmangeursdurouleau.app.data.model.User
 import com.lesmangeursdurouleau.app.remote.FirebaseConstants
@@ -24,12 +26,15 @@ import javax.inject.Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val userProfileRepository: UserProfileRepository
+    private val userProfileRepository: UserProfileRepository,
+    private val firebaseMessaging: FirebaseMessaging // NOUVELLE DÉPENDANCE
 ) : AuthRepository {
 
     private companion object {
         const val TAG = "AuthRepositoryImpl"
     }
+
+    private val usersCollection = firestore.collection(FirebaseConstants.COLLECTION_USERS)
 
     override fun getCurrentUserWithRole(): Flow<User?> = callbackFlow {
         val authStateListener = FirebaseAuth.AuthStateListener { auth ->
@@ -68,6 +73,9 @@ class AuthRepositoryImpl @Inject constructor(
             firebaseUser.reload().await()
             val refreshedUser = firebaseAuth.currentUser!!
             if (refreshedUser.isEmailVerified) {
+                // === DÉBUT DE L'AJOUT CRITIQUE ===
+                updateFcmToken(refreshedUser.uid)
+                // === FIN DE L'AJOUT CRITIQUE ===
                 AuthResultWrapper.Success(refreshedUser)
             } else {
                 firebaseAuth.signOut()
@@ -95,8 +103,11 @@ class AuthRepositoryImpl @Inject constructor(
                     "createdAt" to FieldValue.serverTimestamp(),
                     "isEmailVerified" to true
                 )
-                firestore.collection(FirebaseConstants.COLLECTION_USERS).document(firebaseUser.uid).set(userDocument).await()
+                usersCollection.document(firebaseUser.uid).set(userDocument).await()
             }
+            // === DÉBUT DE L'AJOUT CRITIQUE ===
+            updateFcmToken(firebaseUser.uid)
+            // === FIN DE L'AJOUT CRITIQUE ===
             AuthResultWrapper.Success(firebaseUser)
         } catch (e: Exception) {
             if (e is FirebaseAuthUserCollisionException) {
@@ -124,7 +135,7 @@ class AuthRepositoryImpl @Inject constructor(
                 "createdAt" to FieldValue.serverTimestamp(),
                 "isEmailVerified" to false
             )
-            firestore.collection(FirebaseConstants.COLLECTION_USERS).document(firebaseUser.uid).set(userDocument).await()
+            usersCollection.document(firebaseUser.uid).set(userDocument).await()
 
             firebaseAuth.signOut()
             AuthResultWrapper.Success(firebaseUser)
@@ -149,7 +160,14 @@ class AuthRepositoryImpl @Inject constructor(
             try {
                 userProfileRepository.updateUserPresence(userId, isOnline = false)
             } catch (e: Exception) {
-                Log.e(TAG, "Échec de la mise à jour du statut de présence lors de la déconnexion pour l'utilisateur $userId", e)
+                Log.e(TAG, "Échec de la mise à jour du statut de présence pour l'utilisateur $userId", e)
+            }
+            try {
+                val tokenUpdate = mapOf("fcmToken" to FieldValue.delete())
+                usersCollection.document(userId).update(tokenUpdate).await()
+                Log.i(TAG, "Jeton FCM supprimé avec succès pour l'utilisateur $userId lors de la déconnexion.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Échec de la suppression du jeton FCM pour l'utilisateur $userId", e)
             }
         }
         firebaseAuth.signOut()
@@ -159,13 +177,22 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user!!
-            // === DÉBUT DE LA CORRECTION ===
             val result = user.linkWithCredential(pendingCredential).await()
             AuthResultWrapper.Success(result.user)
-            // === FIN DE LA CORRECTION ===
         } catch (e: Exception) {
             val errorCode = (e as? FirebaseAuthException)?.errorCode
             AuthResultWrapper.Error(e, errorCode)
+        }
+    }
+
+    // === NOUVELLE FONCTION HELPER PRIVÉE ===
+    private suspend fun updateFcmToken(userId: String) {
+        try {
+            val token = firebaseMessaging.token.await()
+            userProfileRepository.updateUserFCMToken(userId, token)
+            Log.i(TAG, "Jeton FCM mis à jour avec succès pour l'utilisateur $userId lors de la connexion.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Échec de la récupération ou de la mise à jour du jeton FCM pour $userId", e)
         }
     }
 }

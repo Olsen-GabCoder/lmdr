@@ -23,7 +23,6 @@ data class Conversation(
 
     val lastMessage: String? = null,
 
-    // NOUVEAU: Ajout du champ manquant pour correspondre à la Cloud Function.
     val lastMessageSenderId: String? = null,
 
     @ServerTimestamp
@@ -41,26 +40,23 @@ data class Conversation(
     @ServerTimestamp
     val lastInteractionTimestamp: Date? = null,
 
+    // === DÉBUT DE L'AJOUT ===
     /**
-     * Timestamp du tout premier message échangé dans cette conversation.
+     * Timestamp du dernier événement de "Tier Upgrade".
+     * Mis à jour par le service de notification pour déclencher des effets visuels dans l'UI.
      */
+    @ServerTimestamp
+    val lastTierUpgradeTimestamp: Date? = null,
+    // === FIN DE L'AJOUT ===
+
     @ServerTimestamp
     val firstMessageTimestamp: Date? = null,
 
-    /**
-     * Le nombre total de messages échangés dans la conversation.
-     */
     val totalMessageCount: Long = 0,
 
-    /**
-     * Indique si une streak (flamme) est actuellement active entre les deux utilisateurs.
-     */
     @get:PropertyName("isStreakActive")
     val isStreakActive: Boolean = false,
 
-    /**
-     * Liste des ID des défis hebdomadaires déjà complétés par ce binôme.
-     */
     val completedChallengeIds: List<String> = emptyList()
 ) {
     // Constructeur sans argument requis par Firestore pour la désérialisation.
@@ -78,6 +74,7 @@ data class Conversation(
         isFavorite = false,
         affinityScore = 0,
         lastInteractionTimestamp = null,
+        lastTierUpgradeTimestamp = null, // Ajouté
         firstMessageTimestamp = null,
         totalMessageCount = 0,
         isStreakActive = false,

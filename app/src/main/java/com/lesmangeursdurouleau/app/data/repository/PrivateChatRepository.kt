@@ -9,6 +9,7 @@ import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.flow.Flow
 import java.util.Date
 
+@Deprecated("La pagination manuelle a été remplacée par un listener temps-réel unique pour plus de robustesse.")
 data class PaginatedMessagesResponse(
     val messages: List<PrivateMessage>,
     val lastVisibleMessageId: String?,
@@ -29,29 +30,22 @@ interface PrivateChatRepository {
 
     suspend fun createOrGetConversation(currentUserId: String, targetUserId: String): Resource<String>
 
-    @Deprecated("Charge tous les messages. Utiliser le listener getConversationMessagesAfter pour le temps réel.", ReplaceWith("getConversationMessagesAfter(conversationId, null)"))
     fun getConversationMessages(conversationId: String): Flow<Resource<List<PrivateMessage>>>
 
+    @Deprecated("La pagination manuelle a été remplacée par un listener temps-réel unique pour plus de robustesse.")
     suspend fun getConversationMessagesPaginated(
         conversationId: String,
         lastVisibleMessageId: String?,
         pageSize: Int
     ): Resource<PaginatedMessagesResponse>
 
-    // === DÉBUT DE L'AJOUT ===
-    /**
-     * Écoute en temps réel les messages arrivant APRÈS un certain timestamp.
-     * Idéal pour ne récupérer que les nouveaux messages sans recharger tout l'historique.
-     *
-     * @param conversationId L'ID de la conversation.
-     * @param afterTimestamp Le timestamp de référence. Si null, écoute tous les messages.
-     * @return Un Flow de Resource contenant la liste des nouveaux messages.
-     */
+    @Deprecated("La pagination manuelle a été remplacée par un listener temps-réel unique pour plus de robustesse.")
     fun getConversationMessagesAfter(conversationId: String, afterTimestamp: Date?): Flow<Resource<List<PrivateMessage>>>
-    // === FIN DE L'AJOUT ===
 
     suspend fun sendPrivateMessage(conversationId: String, message: PrivateMessage): Resource<Unit>
-    suspend fun sendImageMessage(conversationId: String, imageUri: Uri, text: String? = null): Resource<Unit>
+
+    suspend fun sendImageMessage(conversationId: String, imageData: ByteArray, text: String? = null): Resource<Unit>
+
     suspend fun deletePrivateMessage(conversationId: String, messageId: String): Resource<Unit>
     suspend fun markConversationAsRead(conversationId: String): Resource<Unit>
     suspend fun addOrUpdateReaction(conversationId: String, messageId: String, userId: String, emoji: String): Resource<Unit>
