@@ -229,22 +229,31 @@ class PrivateChatRepositoryImpl @Inject constructor(
     }
 
     // === DÉBUT DE LA MODIFICATION ===
+    /**
+     * Envoie une image et un texte optionnel via une Cloud Function callable pour garantir l'atomicité.
+     * L'image est encodée en Base64 et envoyée directement à la fonction, qui se charge de l'upload
+     * sur Storage et de la création du document message dans Firestore.
+     * Cela élimine le risque de messages "cassés" si l'upload client échoue.
+     */
     override suspend fun sendImageMessage(conversationId: String, imageData: ByteArray, text: String?): Resource<Unit> {
-        if (firebaseAuth.currentUser == null) return Resource.Error("Utilisateur non authentifié.")
+        if (firebaseAuth.currentUser == null) {
+            Log.w(TAG, "sendImageMessage: Tentative d'envoi sans être authentifié.")
+            return Resource.Error("Utilisateur non authentifié.")
+        }
 
         return try {
-            // 1. Encoder l'image en Base64 pour la transmission HTTPS
+            // 1. Encoder les données binaires de l'image en une chaîne Base64.
             val imageBase64 = Base64.encodeToString(imageData, Base64.DEFAULT)
 
-            // 2. Préparer les données à envoyer à la Cloud Function
+            // 2. Préparer le payload pour la Cloud Function.
             val data = hashMapOf(
                 "conversationId" to conversationId,
                 "imageBase64" to imageBase64,
-                "text" to text
+                "text" to text // Peut être null
             )
 
-            // 3. Appeler la Cloud Function callable
-            // Assurez-vous que le nom "sendChatMessageImage" correspond exactement au nom de la fonction que nous allons créer.
+            // 3. Appeler la Cloud Function "sendChatMessageImage".
+            // La fonction gère désormais l'upload et la création du message de manière atomique.
             functions.getHttpsCallable("sendChatMessageImage")
                 .call(data)
                 .await()

@@ -240,6 +240,12 @@ export const onAffinityUpdate = onDocumentUpdated(
   }
 );
 
+// === DÉBUT DE LA MODIFICATION ===
+/**
+ * Se déclenche à la création d'un message pour dénormaliser les informations de l'expéditeur (nom, photo)
+ * directement dans le document du message. Cela optimise les lectures côté client.
+ * La fonction est rendue robuste pour gérer le cas où le document de l'utilisateur n'existerait pas.
+ */
 export const denormalizeMessageSenderInfo = onDocumentCreated(
     { ...functionOptions, document: "conversations/{conversationId}/messages/{messageId}" },
     async (event) => {
@@ -260,14 +266,17 @@ export const denormalizeMessageSenderInfo = onDocumentCreated(
         try {
             const userDoc = await db.collection("users").doc(senderId).get();
 
+            // GARDE DE SÉCURITÉ : Vérifie si le document de l'utilisateur existe.
             if (!userDoc.exists) {
-                functions.logger.warn(`Utilisateur ${senderId} non trouvé. Impossible de dénormaliser le message.`);
+                // Log un avertissement utile pour le débogage et arrête l'exécution pour éviter un crash.
+                functions.logger.warn(`Utilisateur ${senderId} non trouvé (potentiellement supprimé). Impossible de dénormaliser le message ${event.params.messageId}.`);
                 return;
             }
 
+            // Si le document existe, on continue normalement.
             const userData = userDoc.data()!;
             const updatePayload = {
-                senderUsername: userData.username || "Utilisateur",
+                senderUsername: userData.username || "Utilisateur Inconnu",
                 senderProfilePictureUrl: userData.profilePictureUrl || null,
             };
 
@@ -280,6 +289,7 @@ export const denormalizeMessageSenderInfo = onDocumentCreated(
         }
     }
 );
+// === FIN DE LA MODIFICATION ===
 
 export const onMessageDeleted = onDocumentDeleted(
     { ...functionOptions, document: "conversations/{conversationId}/messages/{messageId}" },
@@ -343,6 +353,7 @@ export const sendChatMessageImage = onCall(functionOptions, async (request) => {
     }
 
     try {
+        // Étape 1: Valider les permissions
         const conversationRef = db.collection("conversations").doc(conversationId);
         const conversationDoc = await conversationRef.get();
         if (!conversationDoc.exists) {
@@ -353,24 +364,24 @@ export const sendChatMessageImage = onCall(functionOptions, async (request) => {
             throw new HttpsError("permission-denied", "Vous n'êtes pas membre de cette conversation.");
         }
 
+        // Étape 2: Uploader l'image sur Firebase Storage
         const imageBuffer = Buffer.from(imageBase64, "base64");
         const fileName = `${uuidv4()}.jpg`;
         const filePath = `chat_images/${conversationId}/${fileName}`;
         const file = storage.bucket().file(filePath);
 
         await file.save(imageBuffer, {
-            metadata: {
-                contentType: "image/jpeg",
-            },
+            metadata: { contentType: "image/jpeg" },
         });
 
         await file.makePublic();
         const imageUrl = file.publicUrl();
 
+        // Étape 3: Créer le document message dans Firestore (opération finale)
         const messagePayload = {
             senderId: senderId,
             imageUrl: imageUrl,
-            text: text || null,
+            text: text || null, // Le texte est optionnel
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             status: "SENT",
             isEdited: false,
@@ -385,8 +396,10 @@ export const sendChatMessageImage = onCall(functionOptions, async (request) => {
     } catch (error) {
         functions.logger.error(`Erreur lors de l'envoi de l'image pour la conversation ${conversationId}:`, error);
         if (error instanceof HttpsError) {
+            // Si c'est déjà une HttpsError (permission, etc.), on la relance telle quelle.
             throw error;
         }
+        // Pour toute autre erreur (ex: upload Storage), on renvoie une erreur interne générique.
         throw new HttpsError("internal", "Une erreur interne est survenue lors de l'envoi de l'image.");
     }
 });
