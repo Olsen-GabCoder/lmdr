@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier SocialRepository.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import androidx.paging.PagingData
@@ -24,6 +25,12 @@ interface SocialRepository {
     suspend fun unfollowUser(currentUserId: String, targetUserId: String): Resource<Unit>
     fun isFollowing(currentUserId: String, targetUserId: String): Flow<Resource<Boolean>>
 
+    /**
+     * Récupère la liste des contacts mutuels (utilisateurs qui se suivent réciproquement).
+     * @param currentUserId L'ID de l'utilisateur pour lequel on cherche les contacts.
+     * @return Un Flow émettant la ressource contenant la liste des utilisateurs mutuels.
+     */
+    fun getMutualContacts(currentUserId: String): Flow<Resource<List<User>>>
 
     fun getFollowingUsersPaginated(userId: String): Flow<PagingData<EnrichedUserListItem>>
     fun getFollowersUsersPaginated(userId: String): Flow<PagingData<EnrichedUserListItem>>
@@ -33,7 +40,6 @@ interface SocialRepository {
 
     @Deprecated("Non scalable. Utiliser getFollowersUsersPaginated.", ReplaceWith("getFollowersUsersPaginated(userId)"))
     fun getFollowersUsers(userId: String): Flow<Resource<List<User>>>
-    // === FIN DE LA MODIFICATION ===
 
     suspend fun searchUsersByUsername(query: String, limit: Long): Resource<List<User>>
 

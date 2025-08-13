@@ -134,8 +134,6 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
-        <!-- === FIN DE L'AJOUT === -->
-
     </fragment>
 
     <fragment
@@ -208,7 +206,6 @@
             app:uri="https://lesmangeursdurouleau.com/comment?targetUserId={userId}&amp;highlightedCommentId={highlightedCommentId}" />
     </fragment>
 
-    <!-- ... (Tous les autres fragments restent inchangés) ... -->
     <fragment
         android:id="@+id/addEditMonthlyReadingFragment"
         android:name="com.lesmangeursdurouleau.app.ui.readings.addedit.AddEditMonthlyReadingFragment"
@@ -285,6 +282,9 @@
         <action
             android:id="@+id/action_conversationsListFragmentDestination_to_privateChatFragmentDestination"
             app:destination="@id/privateChatFragmentDestination" />
+        <action
+            android:id="@+id/action_conversationsListFragmentDestination_to_newConversationFragmentDestination"
+            app:destination="@id/newConversationFragmentDestination" />
     </fragment>
     <fragment
         android:id="@+id/privateChatFragmentDestination"
@@ -318,6 +318,21 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+    <fragment
+        android:id="@+id/newConversationFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.NewConversationFragment"
+        android:label="Nouveau Message"
+        tools:layout="@layout/fragment_new_conversation">
+        <action
+            android:id="@+id/action_newConversationFragmentDestination_to_privateChatFragmentDestination"
+            app:destination="@id/privateChatFragmentDestination"
+            app:popUpTo="@id/conversationsListFragmentDestination" />
+        <!-- === DÉBUT DE LA CORRECTION === -->
+        <action
+            android:id="@+id/action_newConversationFragmentDestination_to_membersFragmentDestination"
+            app:destination="@id/membersFragmentDestination" />
+        <!-- === FIN DE LA CORRECTION === -->
     </fragment>
     <fragment
         android:id="@+id/fullScreenImageFragmentDestination"

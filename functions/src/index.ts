@@ -15,8 +15,10 @@ export * from "./privateMessaging";
 export * from "./socialInteractions";
 export * from "./migration";
 export * from "./users";
-
-
-// JUSTIFICATION: Nous exportons les fonctions du nouveau fichier `books.ts`.
-// Cela rendra notre nouvelle fonction `createBookWithFiles` disponible et déployable.
 export * from "./books";
+
+// === DÉBUT DE L'AJOUT ===
+// JUSTIFICATION : Nous exportons les fonctions du nouveau fichier `social.ts`.
+// Cela rendra notre nouvelle fonction `getMutualContacts` disponible et déployable.
+export * from "./social";
+// === FIN DE L'AJOUT ===

@@ -11,8 +11,20 @@
     <string name="error_reading_image_file">Erreur lors de la lecture du fichier image</string>
     <string name="download_for_offline_reading">Télécharger pour lire hors-ligne</string>
     <string name="na">N/A</string>
+    <string name="mutual_contacts_title">Contacts en commun</string>
+        <string name="new_group">Nouveau groupe</string>
+    <string name="more_options">Plus d\'options</string>
+    <string name="search">Rechercher</string>
+
+
+    <string name="browse_club_members">Parcourir les membres du club</string>
+
     <string name="status_online">En ligne</string>
+    <string name="new_conversation_title">Nouvelle discussion</string>
+    <string name="search_contact_hint">Rechercher un contact</string>
     <string name="followed">Suivi</string>
+    <string name="no_mutual_contacts_found">Aucun contact en commun trouvé</string>
+    <string name="new_conversation_description">Nouvelle conversation</string>
     <plurals name="books_read_count_format">
         <item quantity="one">%d Livre lu</item>
         <item quantity="other">%d Livres lus</item>

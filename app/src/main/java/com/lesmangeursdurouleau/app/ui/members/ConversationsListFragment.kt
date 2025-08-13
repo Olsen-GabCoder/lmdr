@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier ConversationsListFragment.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.os.Bundle
@@ -47,9 +48,26 @@ class ConversationsListFragment : Fragment() {
         setupRecyclerView()
         setupFiltersAndSearch()
         observeConversations()
+        // === DÉBUT DE L'AJOUT ===
+        setupClickListeners()
+        // === FIN DE L'AJOUT ===
     }
 
-    // MODIFIÉ: Correction de l'erreur de compilation en passant le callback onFavoriteClick
+    // === DÉBUT DE L'AJOUT ===
+    /**
+     * Configure les écouteurs d'événements pour les éléments interactifs du fragment,
+     * comme le bouton d'action flottant (FAB).
+     */
+    private fun setupClickListeners() {
+        binding.fabNewConversation.setOnClickListener {
+            // Navigue vers l'écran de création d'une nouvelle conversation.
+            // Note : Cette action de navigation sera créée dans les prochaines étapes.
+            val action = ConversationsListFragmentDirections.actionConversationsListFragmentDestinationToNewConversationFragmentDestination()
+            findNavController().navigate(action)
+        }
+    }
+    // === FIN DE L'AJOUT ===
+
     private fun setupRecyclerView() {
         val currentUserId = firebaseAuth.currentUser?.uid ?: ""
         conversationsAdapter = ConversationsAdapter(
@@ -74,7 +92,6 @@ class ConversationsListFragment : Fragment() {
         binding.rvConversations.adapter = conversationsAdapter
     }
 
-    // MODIFIÉ: Ajout de la logique pour le chip des favoris
     private fun setupFiltersAndSearch() {
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
@@ -93,7 +110,6 @@ class ConversationsListFragment : Fragment() {
         }
     }
 
-    // MODIFIÉ: Amélioration du message pour l'état vide
     private fun observeConversations() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {

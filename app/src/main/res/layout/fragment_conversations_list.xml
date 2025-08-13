@@ -18,7 +18,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Groupe de filtres (modifié) -->
+    <!-- Groupe de filtres (inchangé) -->
     <HorizontalScrollView
         android:id="@+id/filters_scroll_view"
         android:layout_width="0dp"
@@ -52,7 +52,6 @@
                 android:layout_height="wrap_content"
                 android:text="Non lues" />
 
-            <!-- AJOUT : Chip pour le filtre des favoris -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_favorites"
                 style="@style/Widget.MaterialComponents.Chip.Filter"
@@ -64,7 +63,7 @@
     </HorizontalScrollView>
 
 
-    <!-- Le reste du layout est inchangé -->
+    <!-- Liste des conversations (inchangée) -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_conversations"
         android:layout_width="0dp"
@@ -77,6 +76,7 @@
         app:layout_constraintTop_toBottomOf="@id/filters_scroll_view"
         tools:listitem="@layout/item_conversation" />
 
+    <!-- Indicateur de chargement (inchangé) -->
     <ProgressBar
         android:id="@+id/progress_bar"
         android:layout_width="wrap_content"
@@ -88,6 +88,7 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:visibility="visible" />
 
+    <!-- Message d'état vide (inchangé) -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/tv_empty_state"
         android:layout_width="wrap_content"
@@ -100,5 +101,19 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/filters_scroll_view"
         app:layout_constraintVertical_bias="0.3" />
+
+    <!-- === DÉBUT DE L'AJOUT === -->
+    <!-- Bouton d'action flottant pour démarrer une nouvelle conversation -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_new_conversation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="@string/new_conversation_description"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@drawable/ic_search" />
+    <!-- === FIN DE L'AJOUT === -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

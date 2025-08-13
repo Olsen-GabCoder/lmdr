@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier SocialRepositoryImpl.kt
 package com.lesmangeursdurouleau.app.data.repository
 
 import android.util.Log
@@ -10,6 +11,9 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.lesmangeursdurouleau.app.data.model.Comment
 import com.lesmangeursdurouleau.app.data.model.EnrichedUserListItem
 import com.lesmangeursdurouleau.app.data.model.User
@@ -19,11 +23,15 @@ import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 class SocialRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    // === DÉBUT DE L'AJOUT ===
+    private val functions: FirebaseFunctions
+    // === FIN DE L'AJOUT ===
 ) : SocialRepository {
 
     companion object {
@@ -96,6 +104,46 @@ class SocialRepositoryImpl @Inject constructor(
     }
 
     // === DÉBUT DE LA MODIFICATION ===
+    override fun getMutualContacts(currentUserId: String): Flow<Resource<List<User>>> = flow {
+        emit(Resource.Loading())
+        if (currentUserId.isBlank()) {
+            emit(Resource.Error("ID utilisateur manquant."))
+            return@flow
+        }
+        try {
+            val result = functions.getHttpsCallable("getMutualContacts")
+                .call()
+                .await()
+
+            // Firebase renvoie les données dans un Map, il faut les extraire et les parser.
+            val data = result.data as? Map<String, Any>
+            val userListMap = data?.get("users") as? List<Map<String, Any>>
+
+            if (userListMap == null) {
+                emit(Resource.Error("Réponse inattendue de la fonction Cloud."))
+                return@flow
+            }
+
+            // Conversion manuelle de la liste de Maps en une liste d'objets User.
+            // C'est plus sûr que d'utiliser une librairie de sérialisation pour des objets simples.
+            val users = userListMap.map { userMap ->
+                User(
+                    uid = userMap["uid"] as? String ?: "",
+                    username = userMap["username"] as? String ?: "",
+                    profilePictureUrl = userMap["profilePictureUrl"] as? String,
+                    isOnline = userMap["isOnline"] as? Boolean ?: false
+                )
+            }
+
+            emit(Resource.Success(users))
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de l'appel à getMutualContacts", e)
+            emit(Resource.Error("Erreur de récupération des contacts: ${e.localizedMessage}"))
+        }
+    }
+    // === FIN DE LA MODIFICATION ===
+
     override fun getFollowingUsersPaginated(userId: String): Flow<PagingData<EnrichedUserListItem>> {
         return Pager(
             config = PagingConfig(pageSize = SOCIAL_LIST_PAGE_SIZE, enablePlaceholders = false),
@@ -109,7 +157,6 @@ class SocialRepositoryImpl @Inject constructor(
             pagingSourceFactory = { SocialListPagingSource(firestore, userId, SUBCOLLECTION_FOLLOWERS) }
         ).flow
     }
-    // === FIN DE LA MODIFICATION ===
 
     private fun getSocialList(userId: String, subCollection: String): Flow<Resource<List<User>>> = callbackFlow {
         trySend(Resource.Loading())
