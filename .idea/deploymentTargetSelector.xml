@@ -3,8 +3,8 @@
   <component name="deploymentTargetSelector">
     <selectionStates>
       <SelectionState runConfigName="app">
-        <option name="selectionMode" value="DIALOG" />
-        <DropdownSelection timestamp="2025-08-07T14:33:21.378353200Z">
+        <option name="selectionMode" value="DROPDOWN" />
+        <DropdownSelection timestamp="2025-08-13T20:47:49.526424700Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=147f2639" />
@@ -21,6 +21,11 @@
             <Target type="DEFAULT_BOOT">
               <handle>
                 <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\asus\.android\avd\Small_Phone.avd" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\asus\.android\avd\Medium_Phone.avd" />
               </handle>
             </Target>
           </targets>

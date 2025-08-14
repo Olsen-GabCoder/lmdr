@@ -1,3 +1,4 @@
+<!-- PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier de styles -->
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Base.Theme.LesMangeursDuRouleau" parent="Theme.Material3.Light.NoActionBar">
         <item name="colorPrimary">@color/primary_accent</item>
@@ -23,9 +24,28 @@
     </style>
     <style name="Theme.LesMangeursDuRouleau" parent="Base.Theme.LesMangeursDuRouleau" />
 
+    <!-- Styles existants -->
     <style name="ChatBubbleSent">
         <item name="android:background">@drawable/bg_chat_bubble_sent_dark</item>
         <item name="android:padding">@dimen/chat_message_padding</item>
+    </style>
+
+    <style name="Widget.App.MessageAction.Dialog" parent="Widget.MaterialComponents.TextView">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:drawablePadding">16dp</item>
+        <item name="android:background">?attr/selectableItemBackground</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyLarge</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="drawableTint">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+    <style name="Widget.App.MessageAction.Dialog.Destructive" parent="Widget.App.MessageAction.Dialog">
+        <item name="android:textColor">?attr/colorError</item>
+        <item name="drawableTint">?attr/colorError</item>
     </style>
 
     <style name="RoundedImageStyle">
@@ -57,7 +77,6 @@
         <item name="cornerSize">50%</item>
     </style>
 
-    <!-- NOUVEAU STYLE : Pour les ShapeableImageViews rondes -->
     <style name="ShapeAppearance.App.CircleImageView" parent="ShapeAppearanceOverlay.App.CornerSize50Percent" />
 
     <style name="Widget.App.EmojiReaction" parent="Widget.AppCompat.TextView">
@@ -88,4 +107,38 @@
         <item name="cornerSize">16dp</item>
     </style>
 
+    <!-- === DÉBUT DE L'AJOUT NÉCESSAIRE === -->
+    <style name="Widget.App.MessageAction.Grid" parent="Widget.MaterialComponents.TextView">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:background">@drawable/action_item_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:drawablePadding">8dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="drawableTint">?attr/colorPrimary</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+
+    <style name="Widget.App.MessageAction.DestructiveGrid" parent="Widget.MaterialComponents.TextView">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:background">@drawable/destructive_action_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:drawablePadding">8dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyMedium</item>
+        <item name="android:textColor">?attr/colorError</item>
+        <item name="drawableTint">?attr/colorError</item>
+        <item name="android:elevation">4dp</item>
+    </style>
+    <!-- === FIN DE L'AJOUT NÉCESSAIRE === -->
 </resources>

@@ -12,8 +12,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
-import android.widget.PopupWindow
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -59,6 +57,8 @@ class PrivateChatFragment : Fragment() {
 
     private lateinit var imagePickerLauncher: ActivityResultLauncher<String>
 
+    private var selectedMessage: PrivateMessage? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         imagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -68,6 +68,18 @@ class PrivateChatFragment : Fragment() {
         childFragmentManager.setFragmentResultListener(LiteraryMenuDialogFragment.REQUEST_KEY, this) { _, bundle ->
             val resultKey = bundle.getString(LiteraryMenuDialogFragment.ACTION_KEY)
             handleLiteraryAction(resultKey)
+        }
+
+        // Listener pour les résultats du dialogue d'actions sur les messages
+        childFragmentManager.setFragmentResultListener(MessageActionsDialogFragment.REQUEST_KEY, this) { _, bundle ->
+            // Gère une réaction emoji
+            bundle.getString(MessageActionsDialogFragment.BUNDLE_KEY_REACTION)?.let { emoji ->
+                handleMessageReaction(emoji)
+            }
+            // Gère une action textuelle
+            bundle.getString(MessageActionsDialogFragment.BUNDLE_KEY_ACTION)?.let { action ->
+                handleMessageAction(action)
+            }
         }
     }
 
@@ -102,7 +114,7 @@ class PrivateChatFragment : Fragment() {
 
         messagesAdapter = PrivateMessagesAdapter(
             currentUserId = currentUserId,
-            onMessageLongClick = { anchorView, message -> showActionsMenuForMessage(anchorView, message) },
+            onMessageLongClick = { _, message -> showActionsMenuForMessage(message) },
             onImageClick = { imageUrl ->
                 val action = PrivateChatFragmentDirections.actionPrivateChatFragmentToFullScreenImageFragment(imageUrl)
                 findNavController().navigate(action)
@@ -115,8 +127,6 @@ class PrivateChatFragment : Fragment() {
         layoutManager = LinearLayoutManager(context).apply { stackFromEnd = true }
         binding.rvMessages.adapter = messagesAdapter
         binding.rvMessages.layoutManager = layoutManager
-
-        // La logique de scroll pour la pagination est maintenant supprimée.
 
         val itemTouchHelperCallback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
             override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
@@ -157,11 +167,7 @@ class PrivateChatFragment : Fragment() {
                     }
                 }
 
-                launch {
-                    viewModel.isLoading.collect { isLoading ->
-                        binding.progressBar.isVisible = isLoading
-                    }
-                }
+                launch { viewModel.isLoading.collect { binding.progressBar.isVisible = it } }
 
                 launch {
                     viewModel.events.collect { event ->
@@ -313,48 +319,37 @@ class PrivateChatFragment : Fragment() {
         }
     }
 
-    private fun showActionsMenuForMessage(anchorView: View, message: PrivateMessage) {
-        val messageId = message.id ?: return
-        val inflater = LayoutInflater.from(requireContext())
-        val popupView = inflater.inflate(R.layout.popup_message_actions, binding.root, false)
-        val popupWindow = PopupWindow(popupView, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        val emojis = mapOf(R.id.emoji_thumbs_up to "👍", R.id.emoji_heart to "❤️", R.id.emoji_laugh to "😂", R.id.emoji_wow to "😮", R.id.emoji_sad to "😢")
-        emojis.forEach { (id, emoji) ->
-            popupView.findViewById<TextView>(id).setOnClickListener {
-                viewModel.addOrUpdateReaction(messageId, emoji)
-                messagesAdapter.animateReactionForMessage(messageId)
-                popupWindow.dismiss()
-            }
-        }
-        popupView.findViewById<TextView>(R.id.action_copy_message_popup).setOnClickListener {
-            copyMessageToClipboard(message.text)
-            popupWindow.dismiss()
-        }
-        val editActionView = popupView.findViewById<TextView>(R.id.action_edit_message_popup)
-        val deleteActionView = popupView.findViewById<TextView>(R.id.action_delete_message_popup)
-        val separatorView = popupView.findViewById<View>(R.id.separator)
+    private fun showActionsMenuForMessage(message: PrivateMessage) {
+        this.selectedMessage = message
         val isSentByCurrentUser = message.senderId == firebaseAuth.currentUser?.uid
-        editActionView.isVisible = isSentByCurrentUser && !message.text.isNullOrBlank()
-        deleteActionView.isVisible = isSentByCurrentUser
-        separatorView.isVisible = editActionView.isVisible || deleteActionView.isVisible
-        if (editActionView.isVisible) {
-            editActionView.setOnClickListener {
-                showEditMessageDialog(message)
-                popupWindow.dismiss()
+        val hasTextContent = !message.text.isNullOrBlank()
+
+        val dialog = MessageActionsDialogFragment.newInstance(isSentByCurrentUser, hasTextContent)
+        dialog.show(childFragmentManager, MessageActionsDialogFragment.TAG)
+    }
+
+    private fun handleMessageReaction(emoji: String) {
+        val message = selectedMessage ?: return
+        message.id?.let { messageId ->
+            viewModel.addOrUpdateReaction(messageId, emoji)
+            messagesAdapter.animateReactionForMessage(messageId)
+        }
+        this.selectedMessage = null
+    }
+
+    private fun handleMessageAction(action: String?) {
+        val message = selectedMessage ?: return
+        when (action) {
+            MessageActionsDialogFragment.ACTION_REPLY -> viewModel.onReplyMessage(message)
+            MessageActionsDialogFragment.ACTION_COPY -> copyMessageToClipboard(message.text)
+            MessageActionsDialogFragment.ACTION_EDIT -> showEditMessageDialog(message)
+            MessageActionsDialogFragment.ACTION_DELETE -> showDeleteConfirmationDialog(message)
+            MessageActionsDialogFragment.ACTION_FORWARD,
+            MessageActionsDialogFragment.ACTION_REPORT -> {
+                Toast.makeText(context, "Action '$action' non implémentée.", Toast.LENGTH_SHORT).show()
             }
         }
-        if (deleteActionView.isVisible) {
-            deleteActionView.setOnClickListener {
-                showDeleteConfirmationDialog(message)
-                popupWindow.dismiss()
-            }
-        }
-        popupView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
-        val location = IntArray(2)
-        anchorView.getLocationOnScreen(location)
-        val x = location[0] + (anchorView.width - popupView.measuredWidth) / 2
-        val y = location[1] - popupView.measuredHeight - 16
-        popupWindow.showAtLocation(anchorView, 0, x, y)
+        this.selectedMessage = null
     }
 
     private fun showEditMessageDialog(message: PrivateMessage) {

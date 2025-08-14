@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/dialog_background_rounded"
+    android:orientation="vertical"
+    tools:context=".ui.members.MessageActionsDialogFragment">
+
+    <View
+        android:layout_width="32dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/drag_indicator" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/emoji_section_background"
+        android:elevation="2dp"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="4dp"
+            android:text="@string/quick_reactions"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:drawableStartCompat="@drawable/ic_emoji"
+            app:drawableTint="?attr/colorOnSurfaceVariant"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_emoji_reactions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipToPadding="false"
+            android:orientation="horizontal"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            tools:itemCount="7"
+            tools:listitem="@layout/item_emoji_reaction" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/separator_gradient" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/action_reply"
+            style="@style/Widget.App.MessageAction.Grid"
+            android:text="@string/action_reply"
+            app:drawableTopCompat="@drawable/ic_reply"
+            app:layout_constraintEnd_toStartOf="@+id/action_copy"
+            app:layout_constraintHorizontal_chainStyle="spread"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/action_copy"
+            style="@style/Widget.App.MessageAction.Grid"
+            android:text="@string/copy"
+            app:drawableTopCompat="@drawable/ic_copy"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/action_reply"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/action_edit"
+            style="@style/Widget.App.MessageAction.Grid"
+            android:layout_marginTop="8dp"
+            android:text="@string/edit"
+            app:drawableTopCompat="@drawable/ic_edit"
+            app:layout_constraintEnd_toStartOf="@+id/action_forward"
+            app:layout_constraintHorizontal_chainStyle="spread"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/action_reply" />
+
+        <TextView
+            android:id="@+id/action_forward"
+            style="@style/Widget.App.MessageAction.Grid"
+            android:layout_marginTop="8dp"
+            android:text="@string/action_forward"
+            app:drawableTopCompat="@drawable/ic_forward"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/action_edit"
+            app:layout_constraintTop_toBottomOf="@id/action_copy" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <LinearLayout
+        android:id="@+id/destructive_actions_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/danger_section_background"
+        android:elevation="2dp"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/action_delete"
+            style="@style/Widget.App.MessageAction.DestructiveGrid"
+            android:text="@string/delete"
+            app:drawableTopCompat="@drawable/ic_deletee" />
+
+        <TextView
+            android:id="@+id/action_report"
+            style="@style/Widget.App.MessageAction.DestructiveGrid"
+            android:text="@string/action_report"
+            app:drawableTopCompat="@drawable/ic_report" />
+    </LinearLayout>
+</LinearLayout>
