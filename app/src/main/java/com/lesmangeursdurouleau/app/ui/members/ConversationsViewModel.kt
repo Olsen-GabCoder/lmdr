@@ -17,6 +17,14 @@ object ConversationFilterType {
     const val ALL = "ALL"
     const val UNREAD = "UNREAD"
     const val FAVORITES = "FAVORITES"
+    const val GROUPS = "GROUPS"
+    const val ARCHIVED = "ARCHIVED"
+    const val PINNED = "PINNED"
+}
+
+sealed class ConversationListEvent {
+    data class ShowSuccessMessage(val message: String) : ConversationListEvent()
+    data class ShowErrorMessage(val message: String) : ConversationListEvent()
 }
 
 @HiltViewModel
@@ -26,25 +34,23 @@ class ConversationsViewModel @Inject constructor(
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
-    // === DÉBUT DE LA CORRECTION ARCHITECTURALE ===
-    // JUSTIFICATION : Utilisation du pattern "Backing Property".
-    // _conversations est privé et mutable, modifiable uniquement par le ViewModel.
     private val _conversations = MutableStateFlow<Resource<List<Conversation>>>(Resource.Loading())
-    // conversations est public et immuable (read-only), exposé à l'UI.
-    val conversations = _conversations.asStateFlow()
-    // === FIN DE LA CORRECTION ARCHITECTURALE ===
+    val conversations: StateFlow<Resource<List<Conversation>>> = _conversations.asStateFlow()
 
     private val _activeFilter = MutableStateFlow(ConversationFilterType.ALL)
     private val _searchQuery = MutableStateFlow("")
+
+    private val _unreadConversationsCount = MutableStateFlow(0)
+    val unreadConversationsCount: StateFlow<Int> = _unreadConversationsCount.asStateFlow()
+
+    private val _events = MutableSharedFlow<ConversationListEvent>()
+    val events = _events.asSharedFlow()
 
     private val currentUserId: String
         get() = firebaseAuth.currentUser?.uid ?: ""
 
     init {
-        // Le Flow réactif qui combine les filtres et la recherche.
-        // Au lieu d'utiliser .stateIn(), on utilise .onEach pour collecter
-        // le résultat et l'assigner à notre backing property _conversations.
-        val conversationsFlow: Flow<Resource<List<Conversation>>> = _activeFilter.flatMapLatest { filter ->
+        val baseConversationsFlow = _activeFilter.flatMapLatest { filter ->
             if (currentUserId.isBlank()) {
                 flowOf(Resource.Error("Utilisateur non authentifié."))
             } else {
@@ -53,32 +59,61 @@ class ConversationsViewModel @Inject constructor(
         }
 
         combine(
-            conversationsFlow,
-            _searchQuery
-        ) { resource, query ->
+            baseConversationsFlow,
+            _searchQuery,
+            _activeFilter
+        ) { resource, query, activeFilter ->
             when (resource) {
                 is Resource.Success -> {
-                    val serverFilteredList = resource.data ?: emptyList()
-                    if (query.isBlank()) {
-                        Resource.Success(serverFilteredList)
+                    val allConversations = resource.data ?: emptyList()
+
+                    // Étape 1: Filtrage par type de chip
+                    val typeFilteredList = when (activeFilter) {
+                        ConversationFilterType.UNREAD -> allConversations.filter { (it.unreadCount[currentUserId] ?: 0) > 0 }
+                        ConversationFilterType.FAVORITES -> allConversations.filter { it.isFavorite }
+                        ConversationFilterType.PINNED -> allConversations.filter { it.isPinned }
+                        // === DÉBUT DE LA CORRECTION : Logique de filtre pour les groupes ===
+                        ConversationFilterType.GROUPS -> allConversations.filter { it.participantIds.size > 2 }
+                        // === FIN DE LA CORRECTION ===
+                        else -> allConversations
+                    }
+
+                    // Étape 2: Filtrage par recherche textuelle
+                    val searchFilteredList = if (query.isBlank()) {
+                        typeFilteredList
                     } else {
-                        val searchFilteredList = serverFilteredList.filter { conversation ->
+                        typeFilteredList.filter { conversation ->
                             val otherUserId = conversation.participantIds.firstOrNull { it != currentUserId }
                             val participantName = conversation.participantNames[otherUserId] ?: ""
                             participantName.contains(query, ignoreCase = true)
                         }
-                        Resource.Success(searchFilteredList)
                     }
+
+                    // Étape 3: Tri final
+                    val sortedList = searchFilteredList.sortedWith(
+                        compareByDescending<Conversation> { it.isPinned }
+                            .thenByDescending { it.lastMessageTimestamp }
+                    )
+                    Resource.Success(sortedList)
                 }
                 is Resource.Error -> resource
                 is Resource.Loading -> resource
             }
         }.onEach { result ->
-            // On met à jour la valeur de notre MutableStateFlow privé.
             _conversations.value = result
         }.launchIn(viewModelScope)
-    }
 
+        if (currentUserId.isNotBlank()) {
+            privateChatRepository.getFilteredUserConversations(currentUserId, ConversationFilterType.ALL)
+                .onEach { resource ->
+                    if (resource is Resource.Success) {
+                        val unarchivedConversations = resource.data ?: emptyList()
+                        val totalUnread = unarchivedConversations.count { (it.unreadCount[currentUserId] ?: 0) > 0 }
+                        _unreadConversationsCount.value = totalUnread
+                    }
+                }.launchIn(viewModelScope)
+        }
+    }
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
@@ -88,33 +123,55 @@ class ConversationsViewModel @Inject constructor(
         _activeFilter.value = filterType
     }
 
-    fun toggleFavoriteStatus(conversationToToggle: Conversation) {
-        val convId = conversationToToggle.id ?: return
-        val currentConversationsResource = _conversations.value
-
-        if (currentConversationsResource is Resource.Success) {
-            currentConversationsResource.data?.let { dataList ->
-                val currentList = dataList.toMutableList()
-                val index = currentList.indexOfFirst { it.id == convId }
-
-                if (index != -1) {
-                    val updatedConversation = currentList[index].copy(isFavorite = !conversationToToggle.isFavorite)
-                    currentList[index] = updatedConversation
-
-                    if (_activeFilter.value == ConversationFilterType.FAVORITES && !updatedConversation.isFavorite) {
-                        currentList.removeAt(index)
-                    }
-
-                    // === CORRECTION DE LA LIGNE DU CRASH ===
-                    // On met à jour la valeur de notre backing property, ce qui est une opération sûre.
-                    _conversations.value = Resource.Success(currentList)
-                    // === FIN DE LA CORRECTION ===
-                }
+    fun toggleFavoriteStatus(conversations: List<Conversation>) {
+        if (conversations.isEmpty()) return
+        viewModelScope.launch {
+            val shouldBeFavorite = !conversations.first().isFavorite
+            val ids = conversations.mapNotNull { it.id }
+            ids.forEach { id ->
+                privateChatRepository.updateFavoriteStatus(id, shouldBeFavorite)
             }
         }
+    }
 
+    fun pinConversations(conversations: List<Conversation>) {
         viewModelScope.launch {
-            privateChatRepository.updateFavoriteStatus(convId, !conversationToToggle.isFavorite)
+            val ids = conversations.mapNotNull { it.id }
+            if (ids.isEmpty()) return@launch
+            val shouldBePinned = !conversations.first().isPinned
+            val result = privateChatRepository.updatePinnedStatus(ids, shouldBePinned)
+            if (result is Resource.Success) {
+                val message = if(shouldBePinned) "${ids.size} conversation(s) épinglée(s)" else "${ids.size} conversation(s) désépinglée(s)"
+                _events.emit(ConversationListEvent.ShowSuccessMessage(message))
+            } else {
+                _events.emit(ConversationListEvent.ShowErrorMessage(result.message ?: "Erreur lors de l'épinglage"))
+            }
+        }
+    }
+
+    fun archiveConversations(conversations: List<Conversation>) {
+        viewModelScope.launch {
+            val ids = conversations.mapNotNull { it.id }
+            if (ids.isEmpty()) return@launch
+            val result = privateChatRepository.updateArchivedStatus(ids, true)
+            if (result is Resource.Success) {
+                _events.emit(ConversationListEvent.ShowSuccessMessage("${ids.size} conversation(s) archivée(s)"))
+            } else {
+                _events.emit(ConversationListEvent.ShowErrorMessage(result.message ?: "Erreur lors de l'archivage"))
+            }
+        }
+    }
+
+    fun deleteConversations(conversations: List<Conversation>) {
+        viewModelScope.launch {
+            val ids = conversations.mapNotNull { it.id }
+            if (ids.isEmpty()) return@launch
+            val result = privateChatRepository.deleteConversations(ids)
+            if (result is Resource.Success) {
+                _events.emit(ConversationListEvent.ShowSuccessMessage("${ids.size} conversation(s) supprimée(s)"))
+            } else {
+                _events.emit(ConversationListEvent.ShowErrorMessage(result.message ?: "Erreur lors de la suppression"))
+            }
         }
     }
 }

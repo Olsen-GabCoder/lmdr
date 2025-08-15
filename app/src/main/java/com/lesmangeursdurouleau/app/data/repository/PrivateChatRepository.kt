@@ -54,4 +54,10 @@ interface PrivateChatRepository {
     suspend fun updateTypingStatus(conversationId: String, userId: String, isTyping: Boolean): Resource<Unit>
     suspend fun updateUserActiveStatus(conversationId: String, userId: String, isActive: Boolean): Resource<Unit>
     suspend fun completeChallenge(conversationId: String, challengeId: String, bonusPoints: Int): Resource<Unit>
+
+    // === DÉBUT DE L'AJOUT ===
+    suspend fun updatePinnedStatus(conversationIds: List<String>, isPinned: Boolean): Resource<Unit>
+    suspend fun updateArchivedStatus(conversationIds: List<String>, isArchived: Boolean): Resource<Unit>
+    suspend fun deleteConversations(conversationIds: List<String>): Resource<Unit>
+    // === FIN DE L'AJOUT ===
 }

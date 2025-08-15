@@ -13,4 +13,15 @@
         <item quantity="one">Afficher %d commentaire</item>
         <item quantity="other">Afficher les %d commentaires</item>
     </plurals>
+
+    <!-- AJOUTEZ CES LIGNES à res/values/plurals.xml -->
+    <plurals name="delete_conversations_dialog_title">
+        <item quantity="one">Supprimer %d conversation ?</item>
+        <item quantity="other">Supprimer %d conversations ?</item>
+    </plurals>
+    <plurals name="conversations_selected_count">
+        <item quantity="one">%d sélectionnée</item>
+        <item quantity="other">%d sélectionnées</item>
+    </plurals>
+
 </resources>

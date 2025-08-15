@@ -4,116 +4,161 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
     tools:context=".ui.members.ConversationsListFragment">
 
-    <!-- Barre de recherche (inchangée) -->
-    <androidx.appcompat.widget.SearchView
-        android:id="@+id/search_view"
+    <!-- Toolbar principale fixe en haut -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        app:iconifiedByDefault="false"
-        app:queryHint="Rechercher une conversation..."
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorSurface"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:menu="@menu/conversations_menu"
+        app:title="@string/messages_title"
+        app:titleTextAppearance="@style/TextAppearance.Material3.HeadlineSmall" />
 
-    <!-- Groupe de filtres (inchangé) -->
+    <!-- Barre de recherche "pilule" fixe sous la Toolbar -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/search_container"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/toolbar">
+
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/search_view"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@android:color/transparent"
+            app:iconifiedByDefault="false"
+            app:queryBackground="@android:color/transparent"
+            app:queryHint="@string/search_conversation_hint"
+            app:searchIcon="@drawable/ic_search" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Barre de filtres (Chips) fixe sous la recherche -->
     <HorizontalScrollView
         android:id="@+id/filters_scroll_view"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         android:scrollbars="none"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/search_view">
+        app:layout_constraintTop_toBottomOf="@id/search_container">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chip_group_filters"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingHorizontal="16dp"
             app:singleLine="true"
             app:singleSelection="true">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_all"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter.Elevated"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Toutes"
+                android:text="@string/filter_all"
                 android:checked="true" />
-
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_unread"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter.Elevated"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Non lues" />
-
+                android:text="@string/filter_unread"
+                tools:text="Non lues 62" />
             <com.google.android.material.chip.Chip
                 android:id="@+id/chip_favorites"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Material3.Chip.Filter.Elevated"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Favoris" />
-
+                android:text="@string/filter_favorites" />
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_groups"
+                style="@style/Widget.Material3.Chip.Filter.Elevated"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/filter_groups" />
+            <!-- === DÉBUT DE L'AJOUT === -->
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_archived"
+                style="@style/Widget.Material3.Chip.Filter.Elevated"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/filter_archived" />
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chip_pinned"
+                style="@style/Widget.Material3.Chip.Filter.Elevated"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/filter_pinned" />
+            <!-- === FIN DE L'AJOUT === -->
         </com.google.android.material.chip.ChipGroup>
     </HorizontalScrollView>
 
-
-    <!-- Liste des conversations (inchangée) -->
+    <!-- Liste des conversations qui remplit l'espace restant et défile -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_conversations"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:clipToPadding="false"
+        android:paddingBottom="80dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/filters_scroll_view"
+        tools:itemCount="10"
         tools:listitem="@layout/item_conversation" />
 
-    <!-- Indicateur de chargement (inchangé) -->
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
+    <!-- Conteneur pour les états (chargement/vide) centré sur la zone de la liste -->
+    <FrameLayout
+        android:id="@+id/state_container"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:visibility="visible" />
+        app:layout_constraintTop_toBottomOf="@id/filters_scroll_view">
 
-    <!-- Message d'état vide (inchangé) -->
-    <com.google.android.material.textview.MaterialTextView
-        android:id="@+id/tv_empty_state"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Aucune conversation pour le moment."
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/filters_scroll_view"
-        app:layout_constraintVertical_bias="0.3" />
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            tools:visibility="visible" />
 
-    <!-- === DÉBUT DE L'AJOUT === -->
-    <!-- Bouton d'action flottant pour démarrer une nouvelle conversation -->
+        <TextView
+            android:id="@+id/tv_empty_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="@string/no_conversations_yet"
+            android:textAppearance="?attr/textAppearanceBodyLarge"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Bouton d'action flottant (FAB) -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_new_conversation"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_margin="16dp"
         android:contentDescription="@string/new_conversation_description"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:srcCompat="@drawable/ic_search" />
-    <!-- === FIN DE L'AJOUT === -->
 
 </androidx.constraintlayout.widget.ConstraintLayout>

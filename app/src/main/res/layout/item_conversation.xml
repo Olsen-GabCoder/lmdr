@@ -4,111 +4,139 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="16dp"
-    android:background="?android:attr/selectableItemBackground">
+    android:background="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="12dp">
 
-    <com.google.android.material.imageview.ShapeableImageView
-        android:id="@+id/iv_participant_photo"
+    <!-- === DÉBUT DE LA MODIFICATION === -->
+    <!-- Colonne 1: Conteneur pour l'avatar et l'icône de sélection -->
+    <FrameLayout
+        android:id="@+id/avatar_container"
         android:layout_width="56dp"
         android:layout_height="56dp"
-        android:scaleType="centerCrop"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
-        tools:src="@tools:sample/avatars" />
+        app:layout_constraintTop_toTopOf="parent">
 
-    <com.google.android.material.textview.MaterialTextView
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/iv_participant_photo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
+            tools:src="@tools:sample/avatars" />
+
+        <ImageView
+            android:id="@+id/selection_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="bottom|end"
+            android:background="@drawable/bg_unread_badge"
+            android:padding="4dp"
+            android:src="@drawable/ic_check_single"
+            android:visibility="gone"
+            app:tint="@color/white"
+            tools:visibility="visible" />
+    </FrameLayout>
+    <!-- === FIN DE LA MODIFICATION === -->
+
+    <!-- Colonne 3 (partie haute): Heure -->
+    <TextView
+        android:id="@+id/tv_last_message_timestamp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Hier" />
+
+    <!-- Colonne 2 (partie haute): Nom du participant -->
+    <TextView
         android:id="@+id/tv_participant_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
-        android:layout_marginEnd="4dp"
+        android:layout_marginEnd="8dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
         android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@+id/iv_favorite_indicator"
-        app:layout_constraintStart_toEndOf="@+id/iv_participant_photo"
-        app:layout_constraintTop_toTopOf="@+id/iv_participant_photo"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintHorizontal_chainStyle="packed"
-        tools:text="Nom du Participant Très Long Pour Tester" />
+        app:layout_constraintEnd_toStartOf="@id/tv_last_message_timestamp"
+        app:layout_constraintStart_toEndOf="@id/avatar_container"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="Olsen Kampala (vous)" />
 
-    <ImageView
-        android:id="@+id/iv_favorite_indicator"
-        android:layout_width="16dp"
-        android:layout_height="16dp"
-        android:layout_marginEnd="8dp"
-        android:src="@drawable/ic_star"
-        app:tint="?attr/colorPrimary"
-        android:visibility="gone"
-        tools:visibility="visible"
-        android:contentDescription="Conversation favorite"
-        app:layout_constraintBottom_toBottomOf="@id/tv_participant_name"
-        app:layout_constraintEnd_toStartOf="@+id/tv_last_message_timestamp"
-        app:layout_constraintStart_toEndOf="@id/tv_participant_name"
-        app:layout_constraintTop_toTopOf="@id/tv_participant_name" />
+    <!-- Colonne 3 (partie basse): Conteneur pour badge et punaise -->
+    <LinearLayout
+        android:id="@+id/status_container_right"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_last_message_timestamp">
 
-    <!-- MODIFICATION: Utilisation d'un FrameLayout pour superposer le dernier message et l'indicateur de saisie -->
-    <FrameLayout
-        android:id="@+id/message_container"
+        <ImageView
+            android:id="@+id/iv_pinned_indicator"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginBottom="4dp"
+            android:src="@drawable/ic_pin"
+            android:visibility="gone"
+            app:tint="?attr/colorOnSurfaceVariant"
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/tv_unread_count"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:background="@drawable/bg_unread_badge"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:text="1"
+            tools:visibility="visible" />
+    </LinearLayout>
+
+
+    <!-- Colonne 2 (partie basse): Conteneur pour statut et aperçu -->
+    <LinearLayout
+        android:id="@+id/message_preview_container"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        app:layout_constraintEnd_toStartOf="@+id/tv_unread_count"
-        app:layout_constraintStart_toStartOf="@+id/tv_participant_name"
-        app:layout_constraintTop_toBottomOf="@+id/tv_participant_name"
-        app:layout_constraintHorizontal_bias="0.0"
-        app:layout_constraintHorizontal_chainStyle="packed">
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/status_container_right"
+        app:layout_constraintStart_toEndOf="@id/avatar_container"
+        app:layout_constraintTop_toBottomOf="@id/tv_participant_name">
 
-        <com.google.android.material.textview.MaterialTextView
+        <ImageView
+            android:id="@+id/iv_read_status"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone"
+            app:srcCompat="@drawable/ic_check_double"
+            app:tint="?attr/colorPrimary"
+            tools:visibility="visible" />
+
+        <TextView
             android:id="@+id/tv_last_message"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            tools:text="Ceci est le dernier message de la conversation..." />
-
-        <!-- AJOUT: Indicateur de saisie ("est en train d'écrire...") -->
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/tv_typing_indicator"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/typing_indicator"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="?attr/colorPrimary"
-            android:textStyle="italic"
-            android:visibility="gone"
-            tools:visibility="visible" />
-
-    </FrameLayout>
-
-    <com.google.android.material.textview.MaterialTextView
-        android:id="@+id/tv_last_message_timestamp"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tv_participant_name"
-        tools:text="10:42" />
-
-    <TextView
-        android:id="@+id/tv_unread_count"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginEnd="8dp"
-        android:background="@drawable/badge_background_red"
-        android:gravity="center"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/message_container"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/message_container"
-        tools:text="3"
-        tools:visibility="visible" />
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            tools:text="Le Gabon a nationalisé le se..." />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

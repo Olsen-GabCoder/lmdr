@@ -10,6 +10,7 @@
     <color name="card_background">#FFFFFF</color>
     <color name="gradient_start_violet">#5D3FD3</color>
     <color name="gradient_end_violet">#7C5DDE</color>
+    <color name="text_color_secondary">#757575</color>
     <color name="primary_accent">#6366F1</color>
     <color name="secondary_accent">#7986CB</color>
     <color name="ucrop_color_widget_active">#FF5722</color>

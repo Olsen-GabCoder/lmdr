@@ -28,6 +28,14 @@ data class Conversation(
     @ServerTimestamp
     val lastMessageTimestamp: Date? = null,
 
+    // === DÉBUT DE L'AJOUT ===
+    /**
+     * Le statut du dernier message ("SENT" ou "READ").
+     * Ce champ est dénormalisé depuis le document du dernier message par une Cloud Function.
+     */
+    val lastMessageStatus: String? = null,
+    // === FIN DE L'AJOUT ===
+
     val unreadCount: Map<String, Int> = emptyMap(),
 
     val typingStatus: Map<String, Boolean> = emptyMap(),
@@ -40,14 +48,8 @@ data class Conversation(
     @ServerTimestamp
     val lastInteractionTimestamp: Date? = null,
 
-    // === DÉBUT DE L'AJOUT ===
-    /**
-     * Timestamp du dernier événement de "Tier Upgrade".
-     * Mis à jour par le service de notification pour déclencher des effets visuels dans l'UI.
-     */
     @ServerTimestamp
     val lastTierUpgradeTimestamp: Date? = null,
-    // === FIN DE L'AJOUT ===
 
     @ServerTimestamp
     val firstMessageTimestamp: Date? = null,
@@ -57,7 +59,13 @@ data class Conversation(
     @get:PropertyName("isStreakActive")
     val isStreakActive: Boolean = false,
 
-    val completedChallengeIds: List<String> = emptyList()
+    val completedChallengeIds: List<String> = emptyList(),
+
+    @get:PropertyName("isPinned")
+    val isPinned: Boolean = false,
+
+    @get:PropertyName("isArchived")
+    val isArchived: Boolean = false
 ) {
     // Constructeur sans argument requis par Firestore pour la désérialisation.
     constructor() : this(
@@ -69,15 +77,18 @@ data class Conversation(
         lastMessage = null,
         lastMessageSenderId = null,
         lastMessageTimestamp = null,
+        lastMessageStatus = null,
         unreadCount = emptyMap(),
         typingStatus = emptyMap(),
         isFavorite = false,
         affinityScore = 0,
         lastInteractionTimestamp = null,
-        lastTierUpgradeTimestamp = null, // Ajouté
+        lastTierUpgradeTimestamp = null,
         firstMessageTimestamp = null,
         totalMessageCount = 0,
         isStreakActive = false,
-        completedChallengeIds = emptyList()
+        completedChallengeIds = emptyList(),
+        isPinned = false,
+        isArchived = false
     )
 }

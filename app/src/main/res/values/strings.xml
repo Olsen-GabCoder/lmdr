@@ -521,6 +521,7 @@
     <string name="admin_create_new_book">créer un nouveau livre</string>
     <string name="cover_preview_description">Aperçu de la couverture</string>
     <string name="upload_cover_button">Couv. du livre</string>
+    <string name="filter_groups">Groupes</string>
     <string name="pdf_preview_description">Icône de fichier PDF</string>
     <string name="upload_pdf_button">Uploader le PDF</string>
     <string name="no_pdf_selected">Aucun fichier PDF sélectionné.</string>
@@ -529,8 +530,29 @@
     <!-- PRÊT À AJOUTER - Ajoutez cette ligne à votre fichier res/values/strings.xml -->
     <string name="admin_no_readings_found">Aucune lecture mensuelle trouvée.</string>
     <string name="action_bookmark">Ajouter aux favoris</string>
+    <string name="filter_archived">Archivées</string>
+    <!-- AJOUTEZ CECI à res/values/colors.xml -->
+    <color name="selected_item_overlay">#33808080</color>
+
+    <!-- AJOUTEZ CETTE LIGNE à res/values/strings.xml -->
+    <string name="delete_conversations_dialog_message">Cette action est définitive et ne peut pas être annulée.</string>
+    <string name="action_archive">Archiver</string>
+    <string name="action_pin">Épingler</string>
+    <string name="you_preview">Vous : %1$s</string>
+    <string name="start_conversation">Démarrez la conversation !</string>
+    <string name="yesterday">Hier</string>
+    <!-- AJOUTEZ CETTE LIGNE à res/values/strings.xml -->
+    <string name="filter_unread_with_count">Non lues %d</string>
+    <string name="filter_pinned">Épinglées</string>
     <string name="action_recommend">Recommander</string>
     <string name="action_share">Partager</string>
+    <string name="messages_title">Messagerie</string>
+    <string name="search_conversation_hint">Rechercher une conversation...</string>
+    <string name="filter_unread">Non lues</string>
+    <string name="filter_favorites">Favoris</string>
+    <string name="archived_conversations">Archivées</string>
+    <string name="camera">Caméra</string>
+    <string name="no_conversations_yet">Aucune conversation pour le moment.</string>
     <string name="current_reading_post_header_template">Lisez avec %1$s...</string>
     <string name="literary_accomplice_template">Complice Littéraire avec @%1$s</string>
     <!-- AJOUT: Description pour l'indicateur de statut du message pour l'accessibilité -->

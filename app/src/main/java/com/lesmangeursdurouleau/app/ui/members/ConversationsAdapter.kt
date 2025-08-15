@@ -1,10 +1,11 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier ConversationsAdapter.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.graphics.Typeface
-import android.util.Log
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -12,87 +13,173 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.lesmangeursdurouleau.app.R
 import com.lesmangeursdurouleau.app.data.model.Conversation
+import com.lesmangeursdurouleau.app.data.model.MessageStatus
 import com.lesmangeursdurouleau.app.databinding.ItemConversationBinding
 import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.util.concurrent.TimeUnit
+
+interface ConversationAdapterListener {
+    fun onConversationClicked(conversation: Conversation)
+    fun onConversationLongClicked(conversation: Conversation)
+    fun onConversationSelected(conversation: Conversation, isSelected: Boolean)
+}
 
 class ConversationsAdapter(
     private val currentUserId: String,
-    private val onConversationClick: (conversation: Conversation) -> Unit,
-    private val onFavoriteClick: (conversation: Conversation) -> Unit
+    private val listener: ConversationAdapterListener
 ) : ListAdapter<Conversation, ConversationsAdapter.ConversationViewHolder>(ConversationDiffCallback()) {
+
+    private val selectedItems = mutableSetOf<String>()
+    private var isSelectionMode = false
+
+    fun isInSelectionMode(): Boolean = isSelectionMode
+
+    fun getSelectedConversations(): List<Conversation> {
+        return currentList.filter { selectedItems.contains(it.id) }
+    }
+
+    fun toggleSelection(conversationId: String) {
+        if (selectedItems.contains(conversationId)) {
+            selectedItems.remove(conversationId)
+        } else {
+            selectedItems.add(conversationId)
+        }
+        notifyItemChanged(currentList.indexOfFirst { it.id == conversationId })
+    }
+
+    fun startSelectionMode(conversation: Conversation) {
+        isSelectionMode = true
+        selectedItems.add(conversation.id!!)
+        notifyItemChanged(currentList.indexOf(conversation))
+    }
+
+    fun clearSelection() {
+        isSelectionMode = false
+        val previouslySelected = selectedItems.toList()
+        selectedItems.clear()
+        previouslySelected.forEach { id ->
+            val index = currentList.indexOfFirst { it.id == id }
+            if (index != -1) notifyItemChanged(index)
+        }
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ConversationViewHolder {
         val binding = ItemConversationBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ConversationViewHolder(binding)
+        return ConversationViewHolder(binding, currentUserId, listener, this)
     }
 
     override fun onBindViewHolder(holder: ConversationViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val isSelected = selectedItems.contains(getItem(position).id)
+        holder.bind(getItem(position), isSelected)
     }
 
-    inner class ConversationViewHolder(private val binding: ItemConversationBinding) :
-        RecyclerView.ViewHolder(binding.root) {
+    class ConversationViewHolder(
+        private val binding: ItemConversationBinding,
+        private val currentUserId: String,
+        private val listener: ConversationAdapterListener,
+        private val adapter: ConversationsAdapter
+    ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(conversation: Conversation) {
+        private val context = binding.root.context
+        private val selectedOverlay = ColorDrawable(ContextCompat.getColor(context, R.color.selected_item_overlay))
+
+        fun bind(conversation: Conversation, isSelected: Boolean) {
+            binding.root.setOnClickListener {
+                if (adapter.isInSelectionMode()) {
+                    adapter.toggleSelection(conversation.id!!)
+                    listener.onConversationSelected(conversation, !isSelected)
+                } else {
+                    listener.onConversationClicked(conversation)
+                }
+            }
+            binding.root.setOnLongClickListener {
+                if (!adapter.isInSelectionMode()) {
+                    listener.onConversationLongClicked(conversation)
+                }
+                true
+            }
+
+            if (isSelected) {
+                binding.root.foreground = selectedOverlay
+                binding.selectionIcon.isVisible = true
+            } else {
+                binding.root.foreground = null
+                binding.selectionIcon.isVisible = false
+            }
+
             val otherUserId = conversation.participantIds.firstOrNull { it != currentUserId }
 
             if (otherUserId != null) {
-                val participantName = conversation.participantNames[otherUserId] ?: "Utilisateur inconnu"
-                val participantPhotoUrl = conversation.participantPhotoUrls[otherUserId]
-
-                binding.tvParticipantName.text = participantName
-                Glide.with(binding.root.context)
-                    .load(participantPhotoUrl)
+                binding.tvParticipantName.text = conversation.participantNames[otherUserId] ?: context.getString(R.string.unknown_user)
+                Glide.with(context)
+                    .load(conversation.participantPhotoUrls[otherUserId])
                     .placeholder(R.drawable.ic_profile_placeholder)
                     .error(R.drawable.ic_profile_placeholder)
                     .into(binding.ivParticipantPhoto)
             }
 
-            binding.tvLastMessage.text = conversation.lastMessage ?: "Démarrez la conversation !"
-
-            conversation.lastMessageTimestamp?.let {
-                val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-                binding.tvLastMessageTimestamp.text = dateFormat.format(it)
-            } ?: run {
-                binding.tvLastMessageTimestamp.text = ""
-            }
-
             val unreadCount = conversation.unreadCount[currentUserId] ?: 0
-            if (unreadCount > 0) {
-                binding.tvUnreadCount.visibility = View.VISIBLE
-                binding.tvUnreadCount.text = if (unreadCount > 9) "9+" else unreadCount.toString()
-                binding.tvLastMessage.setTypeface(null, Typeface.BOLD)
+            val isUnread = unreadCount > 0
+            binding.tvUnreadCount.isVisible = isUnread
+            if (isUnread) {
+                binding.tvUnreadCount.text = unreadCount.toString()
                 binding.tvParticipantName.setTypeface(null, Typeface.BOLD)
+                binding.tvLastMessage.setTypeface(null, Typeface.BOLD)
+                binding.tvLastMessageTimestamp.setTextColor(ContextCompat.getColor(context, R.color.primary_accent))
             } else {
-                binding.tvUnreadCount.visibility = View.GONE
-                binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
                 binding.tvParticipantName.setTypeface(null, Typeface.NORMAL)
+                binding.tvLastMessage.setTypeface(null, Typeface.NORMAL)
+                binding.tvLastMessageTimestamp.setTextColor(ContextCompat.getColor(context, R.color.text_color_secondary))
             }
 
-            // --- Log de débogage pour vérifier la valeur de isFavorite ---
-            Log.d("AdapterDebug", "Binding conversation. isFavorite = ${conversation.isFavorite}")
+            binding.tvLastMessageTimestamp.text = formatTimestamp(conversation.lastMessageTimestamp)
+            binding.ivPinnedIndicator.isVisible = conversation.isPinned
 
-            binding.ivFavoriteIndicator.isVisible = conversation.isFavorite
+            val isLastMessageFromMe = conversation.lastMessageSenderId == currentUserId
+            binding.ivReadStatus.isVisible = isLastMessageFromMe && !isUnread
 
-            binding.root.setOnClickListener {
-                onConversationClick(conversation)
+            if (isLastMessageFromMe) {
+                binding.tvLastMessage.text = context.getString(R.string.you_preview, conversation.lastMessage)
+                // === DÉBUT DE LA CORRECTION : Logique de statut de lecture ===
+                when (conversation.lastMessageStatus) {
+                    MessageStatus.READ.name -> {
+                        binding.ivReadStatus.setImageResource(R.drawable.ic_check_double)
+                        binding.ivReadStatus.setColorFilter(ContextCompat.getColor(context, R.color.status_read_color))
+                    }
+                    MessageStatus.SENT.name -> {
+                        binding.ivReadStatus.setImageResource(R.drawable.ic_check_single)
+                        binding.ivReadStatus.setColorFilter(ContextCompat.getColor(context, R.color.text_color_secondary))
+                    }
+                    else -> {
+                        binding.ivReadStatus.isVisible = false
+                    }
+                }
+                // === FIN DE LA CORRECTION ===
+            } else {
+                binding.tvLastMessage.text = conversation.lastMessage ?: context.getString(R.string.start_conversation)
             }
+        }
 
-            binding.root.setOnLongClickListener {
-                onFavoriteClick(conversation)
-                true
+        private fun formatTimestamp(date: Date?): String {
+            if (date == null) return ""
+            val calendar = Calendar.getInstance()
+            val today = Calendar.getInstance()
+            calendar.time = date
+            val diff = today.timeInMillis - calendar.timeInMillis
+            val days = TimeUnit.MILLISECONDS.toDays(diff)
+            return when {
+                days == 0L -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+                days == 1L -> context.getString(R.string.yesterday)
+                else -> SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(date)
             }
         }
     }
 
     class ConversationDiffCallback : DiffUtil.ItemCallback<Conversation>() {
-        override fun areItemsTheSame(oldItem: Conversation, newItem: Conversation): Boolean {
-            return oldItem.id == newItem.id
-        }
-
-        override fun areContentsTheSame(oldItem: Conversation, newItem: Conversation): Boolean {
-            return oldItem == newItem
-        }
+        override fun areItemsTheSame(oldItem: Conversation, newItem: Conversation): Boolean = oldItem.id == newItem.id
+        override fun areContentsTheSame(oldItem: Conversation, newItem: Conversation): Boolean = oldItem == newItem
     }
 }

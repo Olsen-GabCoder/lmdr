@@ -18,6 +18,7 @@ import com.lesmangeursdurouleau.app.utils.Resource
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import java.util.*
 import javax.inject.Inject
@@ -25,7 +26,7 @@ import javax.inject.Inject
 class PrivateChatRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val firebaseAuth: FirebaseAuth,
-    private val firebaseStorageService: FirebaseStorageService, // Conservé pour d'autres usages potentiels
+    private val firebaseStorageService: FirebaseStorageService,
     private val functions: FirebaseFunctions
 ) : PrivateChatRepository {
 
@@ -65,16 +66,26 @@ class PrivateChatRepositoryImpl @Inject constructor(
 
     override fun getFilteredUserConversations(userId: String, filterType: String): Flow<Resource<List<Conversation>>> = callbackFlow {
         trySend(Resource.Loading())
+
+        // === DÉBUT DE LA CORRECTION ===
+        // La requête est volontairement simplifiée pour contourner les limitations de Firestore.
+        // Le filtrage complexe (Non lues, Favoris) et le tri (Épinglées) sont désormais gérés côté client dans le ViewModel.
         var query: Query = conversationsCollection.whereArrayContains("participantIds", userId)
-        when (filterType) {
-            ConversationFilterType.UNREAD -> {
-                query = query.whereGreaterThan("unreadCount.$userId", 0)
-            }
-            ConversationFilterType.FAVORITES -> {
-                query = query.whereEqualTo("isFavorite", true)
-            }
+
+        // Le seul filtre conservé côté serveur est celui sur l'état "archivé",
+        // car il s'agit d'un ensemble de données distinct que l'on ne veut généralement pas charger avec le reste.
+        if (filterType == ConversationFilterType.ARCHIVED) {
+            query = query.whereEqualTo("isArchived", true)
+        } else {
+            // Pour tous les autres filtres (ALL, UNREAD, etc.), on charge les conversations non archivées.
+            query = query.whereEqualTo("isArchived", false)
         }
+
+        // Le tri est également simplifié au maximum. Le tri par 'isPinned' est maintenant géré côté client.
+        // On conserve un tri par date pour que les données arrivent dans un ordre logique.
         val finalQuery = query.orderBy("lastMessageTimestamp", Query.Direction.DESCENDING)
+        // === FIN DE LA CORRECTION ===
+
         val listenerRegistration = finalQuery.addSnapshotListener { snapshot, error ->
             if (error != null) {
                 Log.e(TAG, "Erreur getFilteredUserConversations (filter: $filterType): ${error.message}", error)
@@ -89,6 +100,7 @@ class PrivateChatRepositoryImpl @Inject constructor(
         }
         awaitClose { listenerRegistration.remove() }
     }
+
 
     override suspend fun createOrGetConversation(currentUserId: String, targetUserId: String): Resource<String> {
         return try {
@@ -117,9 +129,7 @@ class PrivateChatRepositoryImpl @Inject constructor(
                     participantPhotoUrls = mapOf(
                         currentUserId to (currentUserPhoto ?: ""),
                         targetUserId to (targetUserPhoto ?: "")
-                    ),
-                    unreadCount = mapOf(currentUserId to 0, targetUserId to 0),
-                    isFavorite = false
+                    )
                 )
                 transaction.set(conversationDocRef, newConversation)
             }.await()
@@ -151,71 +161,18 @@ class PrivateChatRepositoryImpl @Inject constructor(
         awaitClose { listenerRegistration.remove() }
     }
 
-    override fun getConversationMessagesAfter(conversationId: String, afterTimestamp: Date?): Flow<Resource<List<PrivateMessage>>> = callbackFlow {
-        trySend(Resource.Loading())
-        var query = conversationsCollection.document(conversationId)
-            .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
-            .orderBy("timestamp", Query.Direction.ASCENDING)
-
-        if (afterTimestamp != null) {
-            query = query.whereGreaterThan("timestamp", afterTimestamp)
-        }
-
-        val listenerRegistration = query.addSnapshotListener { snapshot, error ->
-            if (error != null) {
-                Log.w(TAG, "getConversationMessagesAfter: Erreur pour $conversationId", error)
-                trySend(Resource.Error("Erreur de connexion: ${error.localizedMessage}"))
-                close(error)
-                return@addSnapshotListener
-            }
-            if (snapshot != null) {
-                val messages = snapshot.documents.mapNotNull { it.toObject(PrivateMessage::class.java)?.copy(id = it.id) }
-                trySend(Resource.Success(messages))
-            }
-        }
-        awaitClose { listenerRegistration.remove() }
+    @Deprecated("Obsolète")
+    override fun getConversationMessagesAfter(conversationId: String, afterTimestamp: Date?): Flow<Resource<List<PrivateMessage>>> {
+        return flowOf(Resource.Error("Cette méthode est dépréciée."))
     }
 
+    @Deprecated("Obsolète")
     override suspend fun getConversationMessagesPaginated(
         conversationId: String,
         lastVisibleMessageId: String?,
         pageSize: Int
     ): Resource<PaginatedMessagesResponse> {
-        return try {
-            val messagesCollection = conversationsCollection.document(conversationId)
-                .collection(FirebaseConstants.SUBCOLLECTION_MESSAGES)
-
-            var query = messagesCollection
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .limit(pageSize.toLong() + 1)
-
-            if (lastVisibleMessageId != null) {
-                val cursorDoc = messagesCollection.document(lastVisibleMessageId).get().await()
-                if (cursorDoc.exists()) {
-                    query = query.startAfter(cursorDoc)
-                }
-            }
-
-            val snapshot = query.get().await()
-            val documents = snapshot.documents
-            val hasMoreMessages = documents.size > pageSize
-            val messagesPage = documents
-                .take(pageSize)
-                .mapNotNull { it.toObject(PrivateMessage::class.java)?.copy(id = it.id) }
-                .reversed()
-
-            val newLastVisibleId = documents.lastOrNull()?.id
-
-            Resource.Success(PaginatedMessagesResponse(
-                messages = messagesPage,
-                lastVisibleMessageId = newLastVisibleId,
-                hasMoreMessages = hasMoreMessages
-            ))
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Erreur getConversationMessagesPaginated: ${e.message}", e)
-            Resource.Error("Erreur de chargement des messages: ${e.localizedMessage}")
-        }
+        return Resource.Error("Cette méthode est dépréciée.")
     }
 
     override suspend fun sendPrivateMessage(conversationId: String, message: PrivateMessage): Resource<Unit> {
@@ -228,43 +185,24 @@ class PrivateChatRepositoryImpl @Inject constructor(
         }
     }
 
-    // === DÉBUT DE LA MODIFICATION ===
-    /**
-     * Envoie une image et un texte optionnel via une Cloud Function callable pour garantir l'atomicité.
-     * L'image est encodée en Base64 et envoyée directement à la fonction, qui se charge de l'upload
-     * sur Storage et de la création du document message dans Firestore.
-     * Cela élimine le risque de messages "cassés" si l'upload client échoue.
-     */
     override suspend fun sendImageMessage(conversationId: String, imageData: ByteArray, text: String?): Resource<Unit> {
         if (firebaseAuth.currentUser == null) {
-            Log.w(TAG, "sendImageMessage: Tentative d'envoi sans être authentifié.")
             return Resource.Error("Utilisateur non authentifié.")
         }
-
         return try {
-            // 1. Encoder les données binaires de l'image en une chaîne Base64.
             val imageBase64 = Base64.encodeToString(imageData, Base64.DEFAULT)
-
-            // 2. Préparer le payload pour la Cloud Function.
             val data = hashMapOf(
                 "conversationId" to conversationId,
                 "imageBase64" to imageBase64,
-                "text" to text // Peut être null
+                "text" to text
             )
-
-            // 3. Appeler la Cloud Function "sendChatMessageImage".
-            // La fonction gère désormais l'upload et la création du message de manière atomique.
-            functions.getHttpsCallable("sendChatMessageImage")
-                .call(data)
-                .await()
-
+            functions.getHttpsCallable("sendChatMessageImage").call(data).await()
             Resource.Success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "sendImageMessage: Échec de l'appel à la Cloud Function", e)
             Resource.Error("Erreur lors de l'envoi de l'image: ${e.localizedMessage}")
         }
     }
-    // === FIN DE LA MODIFICATION ===
 
     override suspend fun deletePrivateMessage(conversationId: String, messageId: String): Resource<Unit> {
         return try {
@@ -359,6 +297,44 @@ class PrivateChatRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "completeChallenge: Erreur: ${e.message}", e)
             Resource.Error("Erreur de validation du défi: ${e.localizedMessage}")
+        }
+    }
+
+    private suspend fun updateConversationFields(conversationIds: List<String>, field: String, value: Any): Resource<Unit> {
+        if (conversationIds.isEmpty()) return Resource.Success(Unit)
+        return try {
+            firestore.runBatch { batch ->
+                conversationIds.forEach { id ->
+                    val docRef = conversationsCollection.document(id)
+                    batch.update(docRef, field, value)
+                }
+            }.await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de la mise à jour du champ '$field'", e)
+            Resource.Error("Erreur lors de la mise à jour : ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun updatePinnedStatus(conversationIds: List<String>, isPinned: Boolean): Resource<Unit> {
+        return updateConversationFields(conversationIds, "isPinned", isPinned)
+    }
+
+    override suspend fun updateArchivedStatus(conversationIds: List<String>, isArchived: Boolean): Resource<Unit> {
+        return updateConversationFields(conversationIds, "isArchived", isArchived)
+    }
+
+    override suspend fun deleteConversations(conversationIds: List<String>): Resource<Unit> {
+        if (conversationIds.isEmpty()) return Resource.Success(Unit)
+        return try {
+            val data = hashMapOf("conversationIds" to conversationIds)
+            functions.getHttpsCallable("deleteConversations")
+                .call(data)
+                .await()
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erreur lors de l'appel à la Cloud Function deleteConversations", e)
+            Resource.Error("Erreur de suppression : ${e.localizedMessage}")
         }
     }
 }
