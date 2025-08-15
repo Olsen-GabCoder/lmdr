@@ -59,11 +59,17 @@ class MessageActionsDialogFragment : BottomSheetDialogFragment() {
     }
 
     private fun setupVisibility() {
+        // Logique de visibilité pour les actions contextuelles
         binding.actionCopy.isVisible = hasTextContent
         binding.actionEdit.isVisible = isSentByCurrentUser && hasTextContent
 
-        // La section destructive entière (incluant Supprimer et Signaler) n'est visible
-        // que si le message a été envoyé par l'utilisateur actuel.
+        // === DÉBUT DE LA MODIFICATION ===
+        // Rôle : Assurer que le bouton "Transférer" est toujours visible, car un message peut toujours être transféré.
+        // Raison : Auparavant, sa visibilité n'était pas explicitement définie, ce qui pouvait prêter à confusion.
+        binding.actionForward.isVisible = true
+        // === FIN DE LA MODIFICATION ===
+
+        // La section destructive (Supprimer, Signaler) reste visible uniquement si le message appartient à l'utilisateur actuel.
         binding.destructiveActionsSection.isVisible = isSentByCurrentUser
     }
 

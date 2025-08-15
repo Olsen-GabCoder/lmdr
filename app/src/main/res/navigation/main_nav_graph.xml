@@ -318,6 +318,11 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
+        <!-- === DÉBUT DE L'AJOUT === -->
+        <action
+            android:id="@+id/action_privateChatFragment_to_forwardMessageFragment"
+            app:destination="@id/forwardMessageFragmentDestination" />
+        <!-- === FIN DE L'AJOUT === -->
     </fragment>
     <fragment
         android:id="@+id/newConversationFragmentDestination"
@@ -328,11 +333,9 @@
             android:id="@+id/action_newConversationFragmentDestination_to_privateChatFragmentDestination"
             app:destination="@id/privateChatFragmentDestination"
             app:popUpTo="@id/conversationsListFragmentDestination" />
-        <!-- === DÉBUT DE LA CORRECTION === -->
         <action
             android:id="@+id/action_newConversationFragmentDestination_to_membersFragmentDestination"
             app:destination="@id/membersFragmentDestination" />
-        <!-- === FIN DE LA CORRECTION === -->
     </fragment>
     <fragment
         android:id="@+id/fullScreenImageFragmentDestination"
@@ -400,4 +403,24 @@
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right"/>
     </fragment>
+
+    <fragment
+        android:id="@+id/forwardMessageFragmentDestination"
+        android:name="com.lesmangeursdurouleau.app.ui.members.ForwardMessageFragment"
+        android:label="Transférer le message"
+        tools:layout="@layout/fragment_forward_message">
+        <!-- === DÉBUT DE L'AJOUT === -->
+        <argument
+            android:name="messageText"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <argument
+            android:name="imageUrl"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
+        <!-- === FIN DE L'AJOUT === -->
+    </fragment>
+
 </navigation>

@@ -70,13 +70,10 @@ class PrivateChatFragment : Fragment() {
             handleLiteraryAction(resultKey)
         }
 
-        // Listener pour les résultats du dialogue d'actions sur les messages
         childFragmentManager.setFragmentResultListener(MessageActionsDialogFragment.REQUEST_KEY, this) { _, bundle ->
-            // Gère une réaction emoji
             bundle.getString(MessageActionsDialogFragment.BUNDLE_KEY_REACTION)?.let { emoji ->
                 handleMessageReaction(emoji)
             }
-            // Gère une action textuelle
             bundle.getString(MessageActionsDialogFragment.BUNDLE_KEY_ACTION)?.let { action ->
                 handleMessageAction(action)
             }
@@ -341,10 +338,20 @@ class PrivateChatFragment : Fragment() {
         val message = selectedMessage ?: return
         when (action) {
             MessageActionsDialogFragment.ACTION_REPLY -> viewModel.onReplyMessage(message)
+            // === DÉBUT DE LA CORRECTION : Restauration de la ligne de code valide ===
             MessageActionsDialogFragment.ACTION_COPY -> copyMessageToClipboard(message.text)
+            // === FIN DE LA CORRECTION ===
             MessageActionsDialogFragment.ACTION_EDIT -> showEditMessageDialog(message)
             MessageActionsDialogFragment.ACTION_DELETE -> showDeleteConfirmationDialog(message)
-            MessageActionsDialogFragment.ACTION_FORWARD,
+
+            MessageActionsDialogFragment.ACTION_FORWARD -> {
+                val navAction = PrivateChatFragmentDirections.actionPrivateChatFragmentToForwardMessageFragment(
+                    messageText = message.text,
+                    imageUrl = message.imageUrl
+                )
+                findNavController().navigate(navAction)
+            }
+
             MessageActionsDialogFragment.ACTION_REPORT -> {
                 Toast.makeText(context, "Action '$action' non implémentée.", Toast.LENGTH_SHORT).show()
             }
