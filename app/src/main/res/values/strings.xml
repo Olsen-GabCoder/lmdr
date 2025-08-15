@@ -47,7 +47,6 @@
     <string name="error_cropping_image">Une erreur est survenue lors du recadrage de l’image.</string>
     <string name="view_my_library_button">Voir ma bibliothèque</string>
     <string name="search_readings_hint">Rechercher par titre, auteur, mois...</string>
-    <!-- PRÊT À AJOUTER - Ajoutez ces lignes à votre fichier res/values/strings.xml -->
     <string name="my_library_title">Ma Bibliothèque</string>
     <string name="my_library_empty">Votre bibliothèque est vide. Ajoutez des livres pour commencer !</string>
     <string name="action_favorite">Marquer comme favori</string>
@@ -56,7 +55,6 @@
     <string name="action_collections">Ajouter à une collection</string>
     <string name="action_more_options">Plus d\'options</string>
     <string name="completed_on_date">Terminé le %1$s</string>
-    <!-- Strings pour le nouveau design du Profil Public -->
     <string name="profile_cover_image_description">Image de couverture du profil</string>
     <string name="action_message">Message</string>
     <string name="section_title_about">À Propos</string>
@@ -69,7 +67,6 @@
     <string name="social_feedback_template_single">❤️ %1$s personne</string>
     <string name="social_feedback_template_multiple">❤️ %1$d personnes</string>
     <string name="social_feedback_template_user_and_others">❤️ Vous et %1$d autres</string>
-    <!-- À ajouter dans res/values/strings.xml -->
     <string name="post_subtitle_template">a défini la lecture de %1$s</string>
     <string name="club_avatar_description">Avatar du club Les Mangeurs du Rouleau</string>
     <string name="animator_section_title">Mot de l\'Animateur</string>
@@ -138,7 +135,6 @@
     <string name="firebase_error_requires_recent_login">Cette opération est sensible et nécessite une authentification récente. Veuillez vous reconnecter.</string>
     <string name="firebase_error_network_request_failed">Erreur de réseau. Veuillez vérifier votre connexion Internet.</string>
     <string name="affinity_score_indicator_description">Indicateur du score de relation</string>
-    <!-- NOUVEAU: Chaîne pour la description de contenu de l'icône d'erreur -->
     <string name="image_loading_error">Erreur de chargement de l\'image</string>
     <string name="not_logged_in">Non connecté.</string>
     <string name="username_na">N/A</string>
@@ -565,4 +561,5 @@
     <string name="downloading">Téléchargement…</string>
     <string name="delete_downloaded_version">Supprimer la version téléchargée</string>
     <string name="delete_confirmation_message">Voulez-vous vraiment supprimer la version locale de ce livre ? Vous pourrez le télécharger à nouveau plus tard.</string>
+    <string name="forwarded_indicator">Transféré</string>
 </resources>

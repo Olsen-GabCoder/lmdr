@@ -25,7 +25,7 @@ sealed class ForwardEvent {
 class ForwardMessageViewModel @Inject constructor(
     private val privateChatRepository: PrivateChatRepository,
     private val firebaseAuth: FirebaseAuth,
-    private val savedStateHandle: SavedStateHandle // Injecté pour accéder aux arguments
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -36,7 +36,6 @@ class ForwardMessageViewModel @Inject constructor(
     private val _events = MutableSharedFlow<ForwardEvent>()
     val events = _events.asSharedFlow()
 
-    // Lecture des arguments passés au fragment
     private val messageText: String? = savedStateHandle.get("messageText")
     private val imageUrl: String? = savedStateHandle.get("imageUrl")
 
@@ -91,12 +90,14 @@ class ForwardMessageViewModel @Inject constructor(
                 return@launch
             }
 
+            // === DÉBUT DE LA CORRECTION : S'assurer que le flag 'isForwarded' est bien positionné ===
             val messageToSend = PrivateMessage(
                 senderId = currentUserId,
                 text = messageText,
-                imageUrl = imageUrl
-                // Les autres champs comme les réactions, replyInfo, etc., ne sont pas transférés.
+                imageUrl = imageUrl,
+                isForwarded = true // La ligne cruciale qui active l'indicateur.
             )
+            // === FIN DE LA CORRECTION ===
 
             val result = privateChatRepository.sendPrivateMessage(destinationId, messageToSend)
 

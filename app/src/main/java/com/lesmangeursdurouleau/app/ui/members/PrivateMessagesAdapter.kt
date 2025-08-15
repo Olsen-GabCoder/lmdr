@@ -1,4 +1,3 @@
-// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PrivateMessagesAdapter.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.icu.text.SimpleDateFormat
@@ -7,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AnimationUtils
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.RequiresApi
@@ -31,7 +29,6 @@ private const val VIEW_TYPE_RECEIVED = 2
 private const val VIEW_TYPE_DATE_SEPARATOR = 3
 private const val VIEW_TYPE_LOADING = 4
 
-// Objets "Payload" pour les mises à jour ciblées.
 private object AnimateReactionPayload
 private object UserInfoUpdatePayload
 
@@ -47,11 +44,9 @@ class PrivateMessagesAdapter(
     private var currentUser: User? = null
     private var targetUser: User? = null
 
-    // === DÉBUT DE LA CORRECTION : Utilisation de Payloads pour la performance ===
     fun setCurrentUser(user: User?) {
         if (this.currentUser != user) {
             this.currentUser = user
-            // Notifie les items concernés avec un payload spécifique.
             updateVisibleItems(VIEW_TYPE_SENT, UserInfoUpdatePayload)
         }
     }
@@ -59,7 +54,6 @@ class PrivateMessagesAdapter(
     fun setTargetUser(user: User?) {
         if (this.targetUser != user) {
             this.targetUser = user
-            // Notifie les items concernés avec un payload spécifique.
             updateVisibleItems(VIEW_TYPE_RECEIVED, UserInfoUpdatePayload)
         }
     }
@@ -67,13 +61,10 @@ class PrivateMessagesAdapter(
     private fun updateVisibleItems(viewTypeToUpdate: Int, payload: Any) {
         for (i in 0 until itemCount) {
             if (getItemViewType(i) == viewTypeToUpdate) {
-                // L'appel `notifyItemChanged` avec un payload est beaucoup plus performant
-                // car il évite un re-binding complet.
                 notifyItemChanged(i, payload)
             }
         }
     }
-    // === FIN DE LA CORRECTION ===
 
     fun animateReactionForMessage(messageId: String) {
         val position = currentList.indexOfFirst { it is MessageItem && it.message.id == messageId }
@@ -104,7 +95,6 @@ class PrivateMessagesAdapter(
 
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        // Cette méthode gère le binding complet d'un item.
         when (holder) {
             is SentMessageViewHolder -> holder.bind(currentUser, (getItem(position) as MessageItem).message, onMessageLongClick, onImageClick)
             is ReceivedMessageViewHolder -> holder.bind(targetUser, (getItem(position) as MessageItem).message, onMessageLongClick, onImageClick)
@@ -116,16 +106,13 @@ class PrivateMessagesAdapter(
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int, payloads: MutableList<Any>) {
         if (payloads.isEmpty()) {
-            // Si pas de payload, on exécute le binding complet.
             super.onBindViewHolder(holder, position, payloads)
             return
         }
 
-        // Si des payloads existent, on gère les mises à jour partielles.
         payloads.forEach { payload ->
             when (payload) {
                 is UserInfoUpdatePayload -> {
-                    // C'est notre nouvelle logique : mise à jour ciblée de l'avatar.
                     if (holder is SentMessageViewHolder) holder.bindAvatar(currentUser)
                     if (holder is ReceivedMessageViewHolder) holder.bindAvatar(targetUser)
                 }
@@ -179,7 +166,6 @@ class PrivateMessagesAdapter(
     ) : BaseMessageViewHolder(binding.root) {
         override val reactionsContainer: LinearLayout = binding.llReactionsContainer
 
-        // Fonction pour la mise à jour ciblée de l'avatar
         fun bindAvatar(user: User?) {
             Glide.with(itemView.context)
                 .load(user?.profilePictureUrl)
@@ -195,7 +181,12 @@ class PrivateMessagesAdapter(
             onMessageLongClick: (anchorView: View, message: PrivateMessage) -> Unit,
             onImageClick: (imageUrl: String) -> Unit
         ) {
-            bindAvatar(currentUser) // Appel de la fonction d'avatar
+            bindAvatar(currentUser)
+
+            // === DÉBUT DE LA MODIFICATION ===
+            binding.forwardedIndicatorContainer.isVisible = message.isForwarded
+            // === FIN DE LA MODIFICATION ===
+
             binding.replyContainer.isVisible = message.replyInfo != null
             message.replyInfo?.let { replyInfo ->
                 binding.tvReplySenderName.text = if (replyInfo.repliedToSenderName == "Vous") "Vous" else replyInfo.repliedToSenderName
@@ -233,7 +224,6 @@ class PrivateMessagesAdapter(
     ) : BaseMessageViewHolder(binding.root) {
         override val reactionsContainer: LinearLayout = binding.llReactionsContainer
 
-        // Fonction pour la mise à jour ciblée de l'avatar
         fun bindAvatar(user: User?) {
             Glide.with(itemView.context)
                 .load(user?.profilePictureUrl)
@@ -249,7 +239,12 @@ class PrivateMessagesAdapter(
             onMessageLongClick: (anchorView: View, message: PrivateMessage) -> Unit,
             onImageClick: (imageUrl: String) -> Unit
         ) {
-            bindAvatar(targetUser) // Appel de la fonction d'avatar
+            bindAvatar(targetUser)
+
+            // === DÉBUT DE LA MODIFICATION ===
+            binding.forwardedIndicatorContainer.isVisible = message.isForwarded
+            // === FIN DE LA MODIFICATION ===
+
             binding.replyContainer.isVisible = message.replyInfo != null
             message.replyInfo?.let { replyInfo ->
                 binding.tvReplySenderName.text = if (replyInfo.repliedToSenderName == "Vous") "Vous" else replyInfo.repliedToSenderName

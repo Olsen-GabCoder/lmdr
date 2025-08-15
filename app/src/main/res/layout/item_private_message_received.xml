@@ -9,7 +9,6 @@
     android:paddingTop="4dp"
     android:paddingBottom="4dp">
 
-    <!-- ... (contenu inchangé jusqu'aux réactions) ... -->
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/iv_sender_avatar"
         android:layout_width="36dp"
@@ -37,6 +36,37 @@
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintWidth_default="wrap">
 
+        <!-- === DÉBUT DE L'AJOUT : Indicateur de message transféré === -->
+        <LinearLayout
+            android:id="@+id/forwarded_indicator_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_forward"
+                app:tint="@color/black_60_alpha" />
+
+            <TextView
+                android:id="@+id/tv_forwarded_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="@string/forwarded_indicator"
+                android:textColor="@color/black_60_alpha"
+                android:textSize="12sp"
+                android:textStyle="italic" />
+        </LinearLayout>
+        <!-- === FIN DE L'AJOUT === -->
+
         <LinearLayout
             android:id="@+id/reply_container"
             android:layout_width="match_parent"
@@ -53,7 +83,7 @@
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/forwarded_indicator_container"
             tools:visibility="visible"
             tools:ignore="ExtraText">
             <TextView
@@ -145,7 +175,6 @@
         </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- MODIFIÉ: Le conteneur de réactions est maintenant un LinearLayout qui sera rempli dynamiquement -->
     <LinearLayout
         android:id="@+id/ll_reactions_container"
         android:layout_width="wrap_content"
@@ -159,7 +188,5 @@
         app:layout_constraintStart_toStartOf="@id/bubble_container"
         app:layout_constraintTop_toBottomOf="@id/bubble_container"
         tools:visibility="visible">
-        <!-- Le contenu (TextViews) sera ajouté par programmation -->
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

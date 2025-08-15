@@ -36,6 +36,37 @@
         app:layout_constraintHorizontal_bias="1.0"
         app:layout_constraintWidth_default="wrap">
 
+        <!-- === DÉBUT DE L'AJOUT : Indicateur de message transféré === -->
+        <LinearLayout
+            android:id="@+id/forwarded_indicator_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:src="@drawable/ic_forward"
+                app:tint="@color/white_80_alpha" />
+
+            <TextView
+                android:id="@+id/tv_forwarded_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="@string/forwarded_indicator"
+                android:textColor="@color/white_80_alpha"
+                android:textSize="12sp"
+                android:textStyle="italic" />
+        </LinearLayout>
+        <!-- === FIN DE L'AJOUT === -->
+
         <LinearLayout
             android:id="@+id/reply_container"
             android:layout_width="match_parent"
@@ -52,7 +83,7 @@
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/forwarded_indicator_container"
             tools:visibility="visible">
             <TextView
                 android:id="@+id/tv_reply_sender_name"
