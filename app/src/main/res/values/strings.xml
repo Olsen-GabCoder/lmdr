@@ -110,7 +110,6 @@
     <string name="error_google_signin_failed">La connexion avec Google a échoué.</string>
     <string name="typing_indicator">est en train d’écrire...</string>
     <string name="action_favorite_title">Favori</string>
-    <color name="white_80_alpha">#CCFFFFFF</color>
     <string name="link_account_title">Lier le compte Google</string>
     <string name="link_account_message">Un compte existe déjà avec l\'adresse e-mail %1$s. Voulez-vous lier votre compte Google à ce compte existant ? Veuillez saisir le mot de passe de votre compte existant.</string>
     <string name="password_hint_for_linking">Mot de passe du compte existant</string>
@@ -527,17 +526,13 @@
     <string name="admin_no_readings_found">Aucune lecture mensuelle trouvée.</string>
     <string name="action_bookmark">Ajouter aux favoris</string>
     <string name="filter_archived">Archivées</string>
-    <!-- AJOUTEZ CECI à res/values/colors.xml -->
-    <color name="selected_item_overlay">#33808080</color>
 
-    <!-- AJOUTEZ CETTE LIGNE à res/values/strings.xml -->
     <string name="delete_conversations_dialog_message">Cette action est définitive et ne peut pas être annulée.</string>
     <string name="action_archive">Archiver</string>
     <string name="action_pin">Épingler</string>
     <string name="you_preview">Vous : %1$s</string>
     <string name="start_conversation">Démarrez la conversation !</string>
     <string name="yesterday">Hier</string>
-    <!-- AJOUTEZ CETTE LIGNE à res/values/strings.xml -->
     <string name="filter_unread_with_count">Non lues %d</string>
     <string name="filter_pinned">Épinglées</string>
     <string name="action_recommend">Recommander</string>
@@ -548,10 +543,15 @@
     <string name="filter_favorites">Favoris</string>
     <string name="archived_conversations">Archivées</string>
     <string name="camera">Caméra</string>
+    <string name="today_abbreviation">Auj.</string>
+    <string name="days_abbreviation">%dj</string>
+    <string name="affinity_score_label_short">Points d\'affinité</string>
+    <string name="stat_label_messages">Messages</string>
+    <string name="stat_label_since">Depuis le</string>
+    <string name="view_leaderboard_button">Voir le classement</string>
     <string name="no_conversations_yet">Aucune conversation pour le moment.</string>
     <string name="current_reading_post_header_template">Lisez avec %1$s...</string>
     <string name="literary_accomplice_template">Complice Littéraire avec @%1$s</string>
-    <!-- AJOUT: Description pour l'indicateur de statut du message pour l'accessibilité -->
     <string name="message_status_indicator">Indicateur de statut du message</string>
     <string name="club_name">Nom du club</string>
     <string name="add_to_my_library">Ajout dans la librairie</string>
@@ -562,4 +562,6 @@
     <string name="delete_downloaded_version">Supprimer la version téléchargée</string>
     <string name="delete_confirmation_message">Voulez-vous vraiment supprimer la version locale de ce livre ? Vous pourrez le télécharger à nouveau plus tard.</string>
     <string name="forwarded_indicator">Transféré</string>
+    <string name="read_more">Voir plus</string>
+
 </resources>

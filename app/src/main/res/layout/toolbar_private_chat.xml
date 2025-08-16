@@ -24,7 +24,7 @@
         app:shapeAppearanceOverlay="@style/ShapeAppearance.Material3.Corner.Full"
         tools:src="@tools:sample/avatars" />
 
-    <!-- Conteneur pour le nom et le statut, positionné à droite de l'avatar -->
+    <!-- Conteneur pour le nom et le statut -->
     <LinearLayout
         android:id="@+id/name_status_container"
         android:layout_width="0dp"
@@ -33,7 +33,7 @@
         android:layout_marginEnd="8dp"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/iv_streak_flame"
+        app:layout_constraintEnd_toStartOf="@id/tv_affinity_score"
         app:layout_constraintStart_toEndOf="@id/iv_toolbar_photo"
         app:layout_constraintTop_toTopOf="parent">
 
@@ -62,24 +62,7 @@
 
     </LinearLayout>
 
-    <!-- === DÉBUT DE LA MODIFICATION === -->
-    <!-- NOUVEAU : Icône de flamme pour la streak -->
-    <ImageView
-        android:id="@+id/iv_streak_flame"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginEnd="8dp"
-        android:contentDescription="@string/streak_indicator_description"
-        android:src="@drawable/ic_streak_flame"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toStartOf="@id/tv_affinity_score"
-        app:layout_constraintTop_toTopOf="parent"
-        app:tint="@color/streak_flame_color"
-        tools:visibility="visible" />
-    <!-- === FIN DE LA MODIFICATION === -->
-
-    <!-- TextView pour le score, positionné à gauche du cœur -->
+    <!-- TextView pour le score -->
     <com.google.android.material.textview.MaterialTextView
         android:id="@+id/tv_affinity_score"
         android:layout_width="wrap_content"
@@ -95,7 +78,7 @@
         tools:text="125"
         tools:visibility="visible" />
 
-    <!-- Icône de cœur, ancrée à l'extrémité droite. -->
+    <!-- Icône de cœur -->
     <ImageView
         android:id="@+id/iv_affinity_heart"
         android:layout_width="24dp"

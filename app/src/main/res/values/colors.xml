@@ -143,4 +143,7 @@
     <color name="heart_color_dynamic">#F59E0B</color>
     <color name="gradient_stroke">#E0E0E0</color>
     <color name="gradient_background">#F5F7FA</color>
+    <color name="white_80_alpha">#CCFFFFFF</color>
+    <color name="selected_item_overlay">#33999999</color>
+
 </resources>

@@ -1,3 +1,4 @@
+// PRÊT À COLLER - Remplacez TOUT le contenu de votre fichier PrivateMessagesAdapter.kt
 package com.lesmangeursdurouleau.app.ui.members
 
 import android.icu.text.SimpleDateFormat
@@ -11,7 +12,6 @@ import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.core.view.setPadding
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -40,6 +40,12 @@ class PrivateMessagesAdapter(
     val onMessageSwiped: (message: PrivateMessage) -> Unit,
     private val onReplyClicked: (messageId: String) -> Unit
 ) : ListAdapter<ChatItem, RecyclerView.ViewHolder>(ChatDiffCallback()) {
+
+    companion object {
+        private const val MAX_LINES_COLLAPSED = 12
+        private const val MAX_CHARS_COLLAPSED = 350
+    }
+    private val expandedMessageIds = mutableSetOf<String>()
 
     private var currentUser: User? = null
     private var targetUser: User? = null
@@ -85,8 +91,8 @@ class PrivateMessagesAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
-            VIEW_TYPE_SENT -> SentMessageViewHolder(ItemPrivateMessageSentBinding.inflate(inflater, parent, false), onReplyClicked)
-            VIEW_TYPE_RECEIVED -> ReceivedMessageViewHolder(ItemPrivateMessageReceivedBinding.inflate(inflater, parent, false), onReplyClicked)
+            VIEW_TYPE_SENT -> SentMessageViewHolder(ItemPrivateMessageSentBinding.inflate(inflater, parent, false), onReplyClicked, this)
+            VIEW_TYPE_RECEIVED -> ReceivedMessageViewHolder(ItemPrivateMessageReceivedBinding.inflate(inflater, parent, false), onReplyClicked, this)
             VIEW_TYPE_DATE_SEPARATOR -> DateSeparatorViewHolder(ItemDateSeparatorBinding.inflate(inflater, parent, false))
             VIEW_TYPE_LOADING -> LoadingViewHolder(ItemLoadingIndicatorBinding.inflate(inflater, parent, false))
             else -> throw IllegalArgumentException("ViewType invalide : $viewType")
@@ -96,8 +102,8 @@ class PrivateMessagesAdapter(
     @RequiresApi(Build.VERSION_CODES.N)
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (holder) {
-            is SentMessageViewHolder -> holder.bind(currentUser, (getItem(position) as MessageItem).message, onMessageLongClick, onImageClick)
-            is ReceivedMessageViewHolder -> holder.bind(targetUser, (getItem(position) as MessageItem).message, onMessageLongClick, onImageClick)
+            is SentMessageViewHolder -> holder.bind(currentUser, (getItem(position) as MessageItem).message, onMessageLongClick, onImageClick, expandedMessageIds)
+            is ReceivedMessageViewHolder -> holder.bind(targetUser, (getItem(position) as MessageItem).message, onMessageLongClick, onImageClick, expandedMessageIds)
             is DateSeparatorViewHolder -> holder.bind(getItem(position) as DateSeparatorItem, formatDateLabel)
             is LoadingViewHolder -> { /* Rien à binder */ }
         }
@@ -149,9 +155,10 @@ class PrivateMessagesAdapter(
                         text = if (count > 1) "$emoji $count" else emoji
                         textSize = 14f
                         background = ContextCompat.getDrawable(context, R.drawable.bg_reactions)
-                        setPadding(16, 8, 16, 8)
+                        val padding = (8 * context.resources.displayMetrics.density).toInt()
+                        setPadding(padding, padding / 2, padding, padding / 2)
                         val layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                        layoutParams.marginEnd = 8
+                        layoutParams.marginEnd = padding / 2
                         this.layoutParams = layoutParams
                     }
                     reactionsContainer.addView(reactionTextView)
@@ -162,7 +169,8 @@ class PrivateMessagesAdapter(
 
     class SentMessageViewHolder(
         private val binding: ItemPrivateMessageSentBinding,
-        private val onReplyClicked: (messageId: String) -> Unit
+        private val onReplyClicked: (messageId: String) -> Unit,
+        private val adapter: PrivateMessagesAdapter
     ) : BaseMessageViewHolder(binding.root) {
         override val reactionsContainer: LinearLayout = binding.llReactionsContainer
 
@@ -179,22 +187,17 @@ class PrivateMessagesAdapter(
             currentUser: User?,
             message: PrivateMessage,
             onMessageLongClick: (anchorView: View, message: PrivateMessage) -> Unit,
-            onImageClick: (imageUrl: String) -> Unit
+            onImageClick: (imageUrl: String) -> Unit,
+            expandedMessageIds: MutableSet<String>
         ) {
             bindAvatar(currentUser)
-
-            // === DÉBUT DE LA MODIFICATION ===
             binding.forwardedIndicatorContainer.isVisible = message.isForwarded
-            // === FIN DE LA MODIFICATION ===
-
             binding.replyContainer.isVisible = message.replyInfo != null
             message.replyInfo?.let { replyInfo ->
                 binding.tvReplySenderName.text = if (replyInfo.repliedToSenderName == "Vous") "Vous" else replyInfo.repliedToSenderName
                 binding.tvReplyPreview.text = replyInfo.repliedToMessagePreview
                 binding.replyContainer.setOnClickListener { onReplyClicked(replyInfo.repliedToMessageId) }
             }
-            binding.tvMessageBody.isVisible = !message.text.isNullOrBlank()
-            binding.tvMessageBody.text = message.text
             binding.ivMessageImage.isVisible = message.imageUrl != null
             message.imageUrl?.let { imageUrl ->
                 Glide.with(itemView.context).load(imageUrl).placeholder(R.drawable.ic_image_placeholder).error(R.drawable.ic_image_error).into(binding.ivMessageImage)
@@ -215,12 +218,47 @@ class PrivateMessagesAdapter(
                 else -> statusIcon.isVisible = false
             }
             itemView.setOnLongClickListener { onMessageLongClick(binding.bubbleContainer, message); true }
+
+            bindMessageExpansion(message, expandedMessageIds)
+        }
+
+        private fun bindMessageExpansion(message: PrivateMessage, expandedIds: MutableSet<String>) {
+            val messageId = message.id ?: return
+            val messageText = message.text ?: ""
+            binding.tvMessageBody.isVisible = messageText.isNotEmpty()
+
+            val isLongText = messageText.length > MAX_CHARS_COLLAPSED || binding.tvMessageBody.lineCount > MAX_LINES_COLLAPSED
+
+            if (isLongText) {
+                if (expandedIds.contains(messageId)) {
+                    binding.tvMessageBody.maxLines = Int.MAX_VALUE
+                    binding.tvMessageBody.text = messageText
+                    binding.tvReadMore.isVisible = false
+                } else {
+                    binding.tvMessageBody.maxLines = MAX_LINES_COLLAPSED
+                    binding.tvMessageBody.text = messageText
+                    binding.tvReadMore.isVisible = true
+                    binding.tvReadMore.text = itemView.context.getString(R.string.read_more)
+                }
+
+                binding.tvReadMore.setOnClickListener {
+                    if (!expandedIds.contains(messageId)) {
+                        expandedIds.add(messageId)
+                        adapter.notifyItemChanged(bindingAdapterPosition)
+                    }
+                }
+            } else {
+                binding.tvMessageBody.text = messageText
+                binding.tvMessageBody.maxLines = Int.MAX_VALUE
+                binding.tvReadMore.isVisible = false
+            }
         }
     }
 
     class ReceivedMessageViewHolder(
         private val binding: ItemPrivateMessageReceivedBinding,
-        private val onReplyClicked: (messageId: String) -> Unit
+        private val onReplyClicked: (messageId: String) -> Unit,
+        private val adapter: PrivateMessagesAdapter
     ) : BaseMessageViewHolder(binding.root) {
         override val reactionsContainer: LinearLayout = binding.llReactionsContainer
 
@@ -237,22 +275,17 @@ class PrivateMessagesAdapter(
             targetUser: User?,
             message: PrivateMessage,
             onMessageLongClick: (anchorView: View, message: PrivateMessage) -> Unit,
-            onImageClick: (imageUrl: String) -> Unit
+            onImageClick: (imageUrl: String) -> Unit,
+            expandedMessageIds: MutableSet<String>
         ) {
             bindAvatar(targetUser)
-
-            // === DÉBUT DE LA MODIFICATION ===
             binding.forwardedIndicatorContainer.isVisible = message.isForwarded
-            // === FIN DE LA MODIFICATION ===
-
             binding.replyContainer.isVisible = message.replyInfo != null
             message.replyInfo?.let { replyInfo ->
                 binding.tvReplySenderName.text = if (replyInfo.repliedToSenderName == "Vous") "Vous" else replyInfo.repliedToSenderName
                 binding.tvReplyPreview.text = replyInfo.repliedToMessagePreview
                 binding.replyContainer.setOnClickListener { onReplyClicked(replyInfo.repliedToMessageId) }
             }
-            binding.tvMessageBody.isVisible = !message.text.isNullOrBlank()
-            binding.tvMessageBody.text = message.text
             binding.ivMessageImage.isVisible = message.imageUrl != null
             message.imageUrl?.let { imageUrl ->
                 Glide.with(itemView.context).load(imageUrl).placeholder(R.drawable.ic_image_placeholder).error(R.drawable.ic_image_error).into(binding.ivMessageImage)
@@ -262,6 +295,41 @@ class PrivateMessagesAdapter(
             bindReactions(message.reactions)
             binding.tvEditedIndicator.isVisible = message.isEdited
             itemView.setOnLongClickListener { onMessageLongClick(binding.bubbleContainer, message); true }
+
+            bindMessageExpansion(message, expandedMessageIds)
+        }
+
+        private fun bindMessageExpansion(message: PrivateMessage, expandedIds: MutableSet<String>) {
+            val messageId = message.id ?: return
+            val messageText = message.text ?: ""
+            binding.tvMessageBody.isVisible = messageText.isNotEmpty()
+
+            // On doit affecter le texte avant de vérifier le nombre de lignes
+            binding.tvMessageBody.text = messageText
+            // La vérification du nombre de lignes ne peut se faire qu'après le "layout pass"
+            // On se fie donc principalement à la longueur du texte pour la décision initiale.
+            val isLongText = messageText.length > MAX_CHARS_COLLAPSED
+
+            if (isLongText) {
+                if (expandedIds.contains(messageId)) {
+                    binding.tvMessageBody.maxLines = Int.MAX_VALUE
+                    binding.tvReadMore.isVisible = false
+                } else {
+                    binding.tvMessageBody.maxLines = MAX_LINES_COLLAPSED
+                    binding.tvReadMore.isVisible = true
+                    binding.tvReadMore.text = itemView.context.getString(R.string.read_more)
+                }
+
+                binding.tvReadMore.setOnClickListener {
+                    if (!expandedIds.contains(messageId)) {
+                        expandedIds.add(messageId)
+                        adapter.notifyItemChanged(bindingAdapterPosition)
+                    }
+                }
+            } else {
+                binding.tvMessageBody.maxLines = Int.MAX_VALUE
+                binding.tvReadMore.isVisible = false
+            }
         }
     }
 

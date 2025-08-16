@@ -318,11 +318,18 @@
             app:exitAnim="@anim/slide_out_left"
             app:popEnterAnim="@anim/slide_in_left"
             app:popExitAnim="@anim/slide_out_right" />
-        <!-- === DÉBUT DE L'AJOUT === -->
         <action
             android:id="@+id/action_privateChatFragment_to_forwardMessageFragment"
             app:destination="@id/forwardMessageFragmentDestination" />
-        <!-- === FIN DE L'AJOUT === -->
+        <!-- === DÉBUT DE LA CORRECTION : Ajout de la nouvelle action === -->
+        <action
+            android:id="@+id/action_privateChatFragment_to_affinityRetrospectiveFragment"
+            app:destination="@id/affinityRetrospectiveFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right"/>
+        <!-- === FIN DE LA CORRECTION === -->
     </fragment>
     <fragment
         android:id="@+id/newConversationFragmentDestination"
@@ -409,7 +416,6 @@
         android:name="com.lesmangeursdurouleau.app.ui.members.ForwardMessageFragment"
         android:label="Transférer le message"
         tools:layout="@layout/fragment_forward_message">
-        <!-- === DÉBUT DE L'AJOUT === -->
         <argument
             android:name="messageText"
             app:argType="string"
@@ -420,7 +426,28 @@
             app:argType="string"
             app:nullable="true"
             android:defaultValue="@null" />
-        <!-- === FIN DE L'AJOUT === -->
     </fragment>
+
+    <!-- === DÉBUT DE LA CORRECTION : Ajout du nouveau fragment === -->
+    <fragment
+        android:id="@+id/affinityRetrospectiveFragment"
+        android:name="com.lesmangeursdurouleau.app.ui.members.AffinityRetrospectiveFragment"
+        android:label="@string/affinity_retrospective_title"
+        tools:layout="@layout/fragment_affinity_retrospective" >
+        <argument
+            android:name="conversation"
+            app:argType="com.lesmangeursdurouleau.app.data.model.Conversation" />
+        <argument
+            android:name="challenges"
+            app:argType="com.lesmangeursdurouleau.app.data.model.Challenge[]" />
+        <action
+            android:id="@+id/action_affinityRetrospectiveFragment_to_leaderboardFragment"
+            app:destination="@id/leaderboardFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right" />
+    </fragment>
+    <!-- === FIN DE LA CORRECTION === -->
 
 </navigation>

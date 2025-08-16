@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -205,7 +204,7 @@ class PrivateChatFragment : Fragment() {
                         binding.toolbarLayout.tvAffinityScore.text = state.affinityScoreText
                         state.affinityIconRes?.let { binding.toolbarLayout.ivAffinityHeart.setImageResource(it) }
                     }
-                    binding.toolbarLayout.ivStreakFlame.isVisible = state.isStreakVisible
+
                 }}
                 launch { viewModel.isAffinityDataLoading.collect { isLoading ->
                     binding.toolbarLayout.ivAffinityHeart.isEnabled = !isLoading
@@ -301,20 +300,28 @@ class PrivateChatFragment : Fragment() {
         }
         binding.toolbarLayout.ivToolbarPhoto.setOnClickListener(navigateToProfile)
         binding.toolbarLayout.tvToolbarName.setOnClickListener(navigateToProfile)
-        binding.toolbarLayout.ivAffinityHeart.setOnClickListener { showAffinityRetrospectiveDialog() }
-        binding.toolbarLayout.tvAffinityScore.setOnClickListener { showAffinityRetrospectiveDialog() }
+        binding.toolbarLayout.ivAffinityHeart.setOnClickListener { navigateToAffinityRetrospective() }
+        binding.toolbarLayout.tvAffinityScore.setOnClickListener { navigateToAffinityRetrospective() }
     }
 
-    private fun showAffinityRetrospectiveDialog() {
+    // === DÉBUT DE LA CORRECTION : Remplacement de l'affichage du dialog par une navigation ===
+    private fun navigateToAffinityRetrospective() {
         val conversation = viewModel.conversation.value
-        val challenges = (viewModel.weeklyChallenges.value as? Resource.Success)?.data
-        if (isAdded && conversation != null && challenges != null) {
-            val dialog = AffinityRetrospectiveDialogFragment.newInstance(conversation = conversation, challenges = challenges)
-            dialog.show(childFragmentManager, AffinityRetrospectiveDialogFragment.TAG)
+        val challengesResource = viewModel.weeklyChallenges.value
+
+        if (isAdded && conversation != null && challengesResource is Resource.Success) {
+            val challenges = challengesResource.data ?: emptyList()
+            // Utilisation de l'action de navigation générée par Safe Args
+            val action = PrivateChatFragmentDirections.actionPrivateChatFragmentToAffinityRetrospectiveFragment(
+                conversation = conversation,
+                challenges = challenges.toTypedArray()
+            )
+            findNavController().navigate(action)
         } else {
             Toast.makeText(context, "Veuillez patienter, les données se chargent.", Toast.LENGTH_SHORT).show()
         }
     }
+    // === FIN DE LA CORRECTION ===
 
     private fun showActionsMenuForMessage(message: PrivateMessage) {
         this.selectedMessage = message
@@ -338,9 +345,7 @@ class PrivateChatFragment : Fragment() {
         val message = selectedMessage ?: return
         when (action) {
             MessageActionsDialogFragment.ACTION_REPLY -> viewModel.onReplyMessage(message)
-            // === DÉBUT DE LA CORRECTION : Restauration de la ligne de code valide ===
             MessageActionsDialogFragment.ACTION_COPY -> copyMessageToClipboard(message.text)
-            // === FIN DE LA CORRECTION ===
             MessageActionsDialogFragment.ACTION_EDIT -> showEditMessageDialog(message)
             MessageActionsDialogFragment.ACTION_DELETE -> showDeleteConfirmationDialog(message)
 

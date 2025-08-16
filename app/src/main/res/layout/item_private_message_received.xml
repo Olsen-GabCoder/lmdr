@@ -36,7 +36,6 @@
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintWidth_default="wrap">
 
-        <!-- === DÉBUT DE L'AJOUT : Indicateur de message transféré === -->
         <LinearLayout
             android:id="@+id/forwarded_indicator_container"
             android:layout_width="wrap_content"
@@ -65,7 +64,6 @@
                 android:textSize="12sp"
                 android:textStyle="italic" />
         </LinearLayout>
-        <!-- === FIN DE L'AJOUT === -->
 
         <LinearLayout
             android:id="@+id/reply_container"
@@ -140,6 +138,23 @@
             app:layout_constraintTop_toBottomOf="@id/iv_message_image"
             tools:text="Ceci est un message très long pour tester le retour à la ligne automatique et s'assurer que rien n'est coupé." />
 
+        <TextView
+            android:id="@+id/tv_read_more"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="4dp"
+            android:text="@string/read_more"
+            android:textColor="?attr/colorPrimary"
+            android:textStyle="bold"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tv_message_body"
+            tools:visibility="visible"/>
+
         <LinearLayout
             android:id="@+id/metadata_container"
             android:layout_width="wrap_content"
@@ -149,7 +164,7 @@
             android:orientation="horizontal"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/tv_message_body">
+            app:layout_constraintTop_toBottomOf="@id/tv_read_more">
 
             <TextView
                 android:id="@+id/tv_edited_indicator"
@@ -189,4 +204,5 @@
         app:layout_constraintTop_toBottomOf="@id/bubble_container"
         tools:visibility="visible">
     </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>
